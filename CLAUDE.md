@@ -155,7 +155,7 @@ For plugin mode, see `docs/getting-started/agent-setup.md`; for configuration an
 
 ## Multi-Agent Compatibility
 
-This project supports multiple AI coding agents at the same time. `AGENTS.md` is the general project instruction file, while `CLAUDE.md` is the Claude Code-compatible version. The two files should keep their technical content as aligned as possible, differing only where agent-native discovery mechanisms, naming, or a very small number of entry-point instructions require it.
+This project supports multiple AI coding agents at the same time. `AGENTS.md` is the general project instruction file, while `CLAUDE.md` is the Claude Code-compatible version. The two files should keep their technical content as aligned as possible, differing only where agent-native discovery mechanisms, naming, or a very small number of entry-point instructions require it. Body alignment (everything below the header) is enforced by `tests/test_instruction_files.py`.
 
 | Agent | Instruction file | Skills |
 |-------|---------|--------|
