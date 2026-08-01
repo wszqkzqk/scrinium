@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING
 
 import requests
 
+from scholaraio.log import ui
+
 _log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -207,6 +209,7 @@ def _load_model(cfg: Config | None = None):
         if not _remote_model_download_available(hf_endpoint):
             raise RuntimeError("Hugging Face is unreachable and no local embedding model was found")
         # HuggingFace fallback: SentenceTransformer handles download internally
+        ui("首次运行需下载嵌入模型（约 1.2GB），请稍候…")
         _log.info("[embed] downloading model %s from HuggingFace", model_name)
         model = SentenceTransformer(model_name, device=device)
 
@@ -248,6 +251,7 @@ def _resolve_model_path(model_name: str, cache_dir: str, source: str) -> str | N
 
     # Download
     try:
+        ui("首次运行需下载嵌入模型（约 1.2GB），请稍候…")
         _log.info("[embed] downloading model %s from ModelScope", model_name)
         return snapshot_download(model_name, cache_dir=cache_dir)
     except Exception as e:

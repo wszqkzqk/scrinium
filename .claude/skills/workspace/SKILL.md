@@ -20,6 +20,8 @@ scholaraio ws init <名称>
 
 ### 添加论文
 
+工作区必须先存在：`ws add` 对不存在的名称会报错并列出现有工作区（需先 `ws init` 创建），`ws show` 同理。无法解析的论文标识会逐条报告在输出中。
+
 逐个添加：
 ```bash
 scholaraio ws add <名称> <论文标识...>

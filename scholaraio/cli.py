@@ -19,6 +19,7 @@ cli.py — scholaraio 命令行入口
     scholaraio refetch [<paper-id> | --all] [--force]
     scholaraio rename [<paper-id> | --all] [--dry-run]
     scholaraio audit [--severity error|warning|info]
+    scholaraio pending
     scholaraio repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]
     scholaraio backfill-abstract [--dry-run]
     scholaraio topics [--build] [--rebuild] [--viz] [--topic ID]
@@ -246,6 +247,10 @@ def cmd_search(args: argparse.Namespace, cfg) -> None:
     store = get_store()
     _record_search_metrics(store, "search", query, results, elapsed, args)
 
+    if getattr(args, "json", False):
+        _emit_json({"query": query, "count": len(results), "results": [_search_result_json(r) for r in results]})
+        return
+
     if not results:
         ui(f'未找到与 "{query}" 相关的结果。')
         return
@@ -254,6 +259,52 @@ def cmd_search(args: argparse.Namespace, cfg) -> None:
     for i, r in enumerate(results, start=1):
         _print_search_result(i, r)
     _print_search_next_steps()
+
+
+def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path: Path, md_path: Path) -> None:
+    """Emit ``show --json`` output: L1 metadata plus the fields of the requested layer."""
+    from scholaraio.loader import load_l2, load_l3, load_l4
+
+    payload: dict = {
+        "id": l1["paper_id"],
+        "dir_name": l1.get("dir_name", ""),
+        "title": l1.get("title") or "",
+        "authors": l1.get("authors") or [],
+        "year": l1.get("year"),
+        "journal": l1.get("journal") or "",
+        "doi": l1.get("doi") or "",
+        "paper_type": l1.get("paper_type") or "",
+        "citation_count": l1.get("citation_count") or {},
+        "layer": args.layer,
+    }
+    if notes:
+        payload["notes"] = notes
+
+    if args.layer == 2:
+        payload["abstract"] = load_l2(json_path)
+    elif args.layer == 3:
+        conclusion = load_l3(json_path)
+        if conclusion is None:
+            _log.error("尚未提取结论。请先运行：scholaraio enrich-l3 %s", args.paper_id)
+            sys.exit(1)
+        payload["conclusion"] = conclusion
+    elif args.layer == 4:
+        if not md_path.exists():
+            _log.error("未找到 paper.md：%s", md_path)
+            sys.exit(1)
+        lang = getattr(args, "lang", None)
+        if lang:
+            from scholaraio.translate import validate_lang
+
+            try:
+                lang = validate_lang(lang)
+            except ValueError:
+                _log.error("无效的语言代码 '%s'", lang)
+                sys.exit(1)
+            payload["lang"] = lang
+        payload["content"] = load_l4(md_path, lang=lang)
+
+    _emit_json(payload)
 
 
 def cmd_show(args: argparse.Namespace, cfg) -> None:
@@ -279,18 +330,14 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
                 ui(f"已追加笔记到 {paper_d.name}/notes.md")
 
     l1 = load_l1(json_path)
-    _print_header(l1)
+    l1["dir_name"] = paper_d.name
 
-    # Show existing agent notes (T2 layer) if available
+    # Load existing agent notes (T2 layer) if available
     try:
         notes = load_notes(paper_d)
     except (UnicodeDecodeError, OSError) as e:
         _log.warning("读取 notes.md 失败：%s", e)
         notes = None
-    if notes:
-        ui("\n--- Agent 笔记 (notes.md) ---\n")
-        ui(notes)
-        ui("\n--- 笔记结束 ---\n")
 
     store = get_store()
 
@@ -308,6 +355,18 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
                 )
             except Exception as _e:
                 _log.debug("metrics record failed: %s", _e)
+
+    if getattr(args, "json", False):
+        _show_json(args, l1, notes, json_path, md_path)
+        _record_read()
+        return
+
+    _print_header(l1)
+
+    if notes:
+        ui("\n--- Agent 笔记 (notes.md) ---\n")
+        ui(notes)
+        ui("\n--- 笔记结束 ---\n")
 
     if args.layer == 1:
         _record_read()
@@ -441,6 +500,10 @@ def cmd_usearch(args: argparse.Namespace, cfg) -> None:
     store = get_store()
     _record_search_metrics(store, "usearch", query, results, elapsed, args)
 
+    if getattr(args, "json", False):
+        _emit_json({"query": query, "count": len(results), "results": [_search_result_json(r) for r in results]})
+        return
+
     if not results:
         ui(f'未找到与 "{query}" 相关的结果。')
         return
@@ -468,6 +531,78 @@ def cmd_audit(args: argparse.Namespace, cfg) -> None:
         issues = [i for i in issues if i.severity == args.severity]
 
     ui(format_report(issues))
+
+
+# Suggested remediation per pending.json issue type.
+_PENDING_SUGGESTIONS = {
+    "no_doi": "补全 DOI 后将文件放回 data/inbox/ 重新 ingest",
+    "no_pub_num": "确认公开号后将文件放回 data/inbox-patent/ 重新 ingest",
+    "duplicate": "确认重复后可删除该目录；若需覆盖请先移除原论文",
+}
+
+
+def _collect_pending_items(cfg) -> list[dict]:
+    """Collect entries from data/pending/ and data/duplicates/ for `scholaraio pending`."""
+    items: list[dict] = []
+    pending_root = cfg._root / "data" / "pending"
+    if pending_root.is_dir():
+        for d in sorted(pending_root.iterdir()):
+            marker = d / "pending.json"
+            if not d.is_dir() or not marker.exists():
+                continue
+            try:
+                data = json.loads(marker.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                data = {}
+            meta = data.get("extracted_metadata") or {}
+            items.append(
+                {
+                    "path": d,
+                    "issue": data.get("issue", "unknown"),
+                    "title": meta.get("title", ""),
+                    "duplicate_of": data.get("duplicate_of", ""),
+                }
+            )
+    dup_root = cfg._root / "data" / "duplicates"
+    if dup_root.is_dir():
+        for d in sorted(dup_root.iterdir()):
+            if not d.is_dir():
+                continue
+            title = ""
+            meta_path = d / "meta.json"
+            if meta_path.exists():
+                try:
+                    title = json.loads(meta_path.read_text(encoding="utf-8")).get("title", "")
+                except json.JSONDecodeError:
+                    pass
+            items.append({"path": d, "issue": "duplicate", "title": title, "duplicate_of": ""})
+    return items
+
+
+def cmd_pending(args: argparse.Namespace, cfg) -> None:
+    items = _collect_pending_items(cfg)
+    if not items:
+        ui("无待确认项")
+        return
+
+    ui(f"待确认项（共 {len(items)} 项）\n")
+    groups: dict[str, list[dict]] = {}
+    for item in items:
+        groups.setdefault(item["issue"], []).append(item)
+    for issue in sorted(groups):
+        group = groups[issue]
+        suggestion = _PENDING_SUGGESTIONS.get(issue, "人工确认后处理")
+        ui(f"[{issue}] {len(group)} 项")
+        for item in group:
+            ui(f"  {item['path']}")
+            if item["title"]:
+                ui(f"    标题: {item['title']}")
+            if item["duplicate_of"]:
+                ui(f"    重复于: {item['duplicate_of']}")
+            ui(f"    建议: {suggestion}")
+        ui("")
+    summary = " | ".join(f"{issue} {len(groups[issue])}" for issue in sorted(groups))
+    ui(f"汇总: {summary}（共 {len(items)} 项）")
 
 
 def cmd_repair(args: argparse.Namespace, cfg) -> None:
@@ -802,6 +937,10 @@ def cmd_top_cited(args: argparse.Namespace, cfg) -> None:
     except FileNotFoundError as e:
         _log.error("%s", e)
         sys.exit(1)
+
+    if getattr(args, "json", False):
+        _emit_json({"count": len(results), "results": [_search_result_json(r) for r in results]})
+        return
 
     if not results:
         ui("索引中没有引用数据。请先运行 scholaraio refetch --all。")
@@ -1287,6 +1426,14 @@ def cmd_topics(args: argparse.Namespace, cfg) -> None:
             ui(f"    [{year}] {title}")
         ui()
 
+    # Staleness hint: papers used to build the model vs current library size
+    n_model = len(getattr(model, "_paper_ids", []) or [])
+    n_library = _count_registry_papers(cfg.index_db)
+    if n_model and n_library is not None:
+        ui(f"模型基于 {n_model} 篇论文构建，当前主库 {n_library} 篇")
+        if n_model < n_library:
+            ui("（模型已陈旧，可运行 `scholaraio topics --rebuild` 重建）")
+
 
 def cmd_backfill_abstract(args: argparse.Namespace, cfg) -> None:
     from scholaraio.ingest.metadata import backfill_abstracts
@@ -1615,6 +1762,7 @@ def _cmd_export_ris(args: argparse.Namespace, cfg) -> None:
     if not paper_ids and not args.all:
         _log.error("请指定论文 ID 或 --all")
         sys.exit(1)
+    paper_ids = _resolve_export_paper_ids(paper_ids, cfg)
 
     ris = export_ris(
         cfg.papers_dir,
@@ -1643,6 +1791,7 @@ def _cmd_export_markdown(args: argparse.Namespace, cfg) -> None:
     if not paper_ids and not args.all:
         _log.error("请指定论文 ID 或 --all")
         sys.exit(1)
+    paper_ids = _resolve_export_paper_ids(paper_ids, cfg)
 
     style = getattr(args, "style", "apa") or "apa"
 
@@ -1767,6 +1916,7 @@ def _cmd_export_bibtex(args: argparse.Namespace, cfg) -> None:
     if not paper_ids and not args.all:
         _log.error("请指定论文 ID 或 --all")
         sys.exit(1)
+    paper_ids = _resolve_export_paper_ids(paper_ids, cfg)
 
     bib = export_bibtex(
         cfg.papers_dir,
@@ -1790,6 +1940,17 @@ def _cmd_export_bibtex(args: argparse.Namespace, cfg) -> None:
 # ============================================================================
 #  workspace
 # ============================================================================
+
+
+def _raise_ws_not_found(ws_root: Path, name: str) -> None:
+    """Raise ValueError listing existing workspaces when *name* is unknown."""
+    from scholaraio import workspace
+
+    msg = f"工作区不存在: {name}，请先运行 `scholaraio ws init {name}` 创建"
+    names = workspace.list_workspaces(ws_root)
+    if names:
+        msg += f"；现有工作区: {', '.join(names)}"
+    raise ValueError(msg)
 
 
 def cmd_ws(args: argparse.Namespace, cfg) -> None:
@@ -1818,7 +1979,7 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
     elif action == "add":
         ws_dir = ws_root / args.name
         if not (ws_dir / "papers.json").exists():
-            workspace.create(ws_dir)
+            _raise_ws_not_found(ws_root, args.name)
 
         # Resolve paper_refs from batch flags or positional args
         paper_refs = args.paper_refs or []
@@ -1887,10 +2048,15 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
             ui("未指定论文引用")
             return
 
-        added = workspace.add(ws_dir, paper_refs, cfg.index_db)
+        unresolved: list[str] = []
+        added = workspace.add(ws_dir, paper_refs, cfg.index_db, unresolved=unresolved)
         ui(f"已添加 {len(added)} 篇论文到 {args.name}")
         for e in added:
             ui(f"  + {e['dir_name']}")
+        for ref in unresolved:
+            ui(f"无法解析: {ref}")
+        if unresolved and not added:
+            raise ValueError(f"所有论文引用均无法解析: {', '.join(unresolved)}")
 
     elif action == "remove":
         ws_dir = ws_root / args.name
@@ -1911,7 +2077,21 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
 
     elif action == "show":
         ws_dir = ws_root / args.name
+        if not (ws_dir / "papers.json").exists():
+            _raise_ws_not_found(ws_root, args.name)
         papers = workspace.show(ws_dir, cfg.index_db)
+        if getattr(args, "json", False):
+            _emit_json(
+                {
+                    "workspace": args.name,
+                    "count": len(papers),
+                    "papers": [
+                        {"id": p.get("id"), "dir_name": p.get("dir_name"), "added_at": p.get("added_at")}
+                        for p in papers
+                    ],
+                }
+            )
+            return
         ui(f"工作区 {args.name}: {len(papers)} 篇论文")
         for i, p in enumerate(papers, 1):
             ui(f"  {i:3d}. {p['dir_name']}")
@@ -2962,6 +3142,64 @@ def _print_search_next_steps(include_ws_add: bool = True) -> None:
         ui("也可以运行 `scholaraio ws add <工作区名> <paper-id>` 把感兴趣的论文加入工作区。")
 
 
+def _emit_json(payload: object) -> None:
+    """Print *payload* as JSON to stdout (``--json`` mode; pipe-safe)."""
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _search_result_json(r: dict) -> dict:
+    """Normalize a search result dict into the ``--json`` output shape."""
+    return {
+        "id": r.get("paper_id"),
+        "dir_name": r.get("dir_name") or "",
+        "title": r.get("title"),
+        "authors": r.get("authors"),
+        "year": r.get("year"),
+        "journal": r.get("journal"),
+        "doi": r.get("doi"),
+        "paper_type": r.get("paper_type"),
+        "citation_count": r.get("citation_count"),
+        "score": r.get("score"),
+        "match": r.get("match"),
+    }
+
+
+def _resolve_export_paper_ids(paper_ids: list[str] | None, cfg) -> list[str] | None:
+    """Resolve export identifiers (dir_name / UUID / DOI) to dir names.
+
+    Reports each unresolvable identifier; raises ValueError when all fail.
+    """
+    if not paper_ids:
+        return paper_ids
+    resolved: list[str] = []
+    unresolved: list[str] = []
+    for ref in paper_ids:
+        paper_d = _try_resolve_paper(ref, cfg)
+        if paper_d is None:
+            unresolved.append(ref)
+        else:
+            resolved.append(paper_d.name)
+    for ref in unresolved:
+        ui(f"无法解析: {ref}")
+    if unresolved and not resolved:
+        raise ValueError(f"所有论文 ID 均无法解析: {', '.join(unresolved)}")
+    return list(dict.fromkeys(resolved))
+
+
+def _count_registry_papers(index_db) -> int | None:
+    """Return the number of papers in papers_registry, or None if unavailable."""
+    import sqlite3
+
+    if not Path(index_db).exists():
+        return None
+    try:
+        with sqlite3.connect(str(index_db)) as conn:
+            row = conn.execute("SELECT COUNT(*) FROM papers_registry").fetchone()
+    except sqlite3.Error:
+        return None
+    return row[0] if row else None
+
+
 def _format_match_tag(match: str) -> str:
     mapping = {
         "both": "关键词+语义",
@@ -2985,12 +3223,25 @@ def _format_citations(cc: dict) -> str:
 def _resolve_paper(paper_id: str, cfg) -> Path:
     """Resolve a paper identifier (dir_name, UUID, or DOI) to its directory.
 
+    Exits with error when the identifier cannot be resolved; see
+    :func:`_try_resolve_paper` for a non-exiting variant.
+    """
+    paper_d = _try_resolve_paper(paper_id, cfg)
+    if paper_d is None:
+        _log.error("未找到论文: %s", paper_id)
+        sys.exit(1)
+    return paper_d
+
+
+def _try_resolve_paper(paper_id: str, cfg) -> Path | None:
+    """Resolve a paper identifier (dir_name, UUID, or DOI) to its directory.
+
     Resolution order:
     1. Direct dir_name match on filesystem
     2. Registry lookup (UUID / DOI) → dir_name
     3. Filesystem scan — read each meta.json["id"] to find UUID match
 
-    Returns the paper directory Path, or exits with error.
+    Returns the paper directory Path, or None when unresolvable.
     """
     from scholaraio.papers import iter_paper_dirs
 
@@ -3020,8 +3271,7 @@ def _resolve_paper(paper_id: str, cfg) -> Path:
         doi = str(data.get("doi") or "").strip().lower()
         if data.get("id") == paper_id or (doi and doi == normalized_doi):
             return pdir
-    _log.error("未找到论文: %s", paper_id)
-    sys.exit(1)
+    return None
 
 
 def _print_header(l1: dict) -> None:
@@ -3030,6 +3280,8 @@ def _print_header(l1: dict) -> None:
     if len(authors) > 3:
         author_str += f" et al. ({len(authors)} total)"
     ui(f"论文ID   : {l1['paper_id']}")
+    if l1.get("dir_name"):
+        ui(f"目录名   : {l1['dir_name']}")
     ui(f"标题     : {l1['title']}")
     ui(f"作者     : {author_str}")
     ui(f"年份     : {l1.get('year') or '?'}  |  期刊: {l1.get('journal') or '?'}")
@@ -3137,6 +3389,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_search.set_defaults(func=cmd_search)
     p_search.add_argument("query", nargs="+", help="检索词")
     p_search.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
+    p_search.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
     _add_filter_args(p_search)
 
     # --- search-author ---
@@ -3158,6 +3411,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="加载层级：1=元数据, 2=摘要, 3=结论, 4=全文（默认 2）",
     )
     p_show.add_argument("--lang", type=str, default=None, help="加载翻译版本（如 zh），仅 L4 生效")
+    p_show.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
     p_show.add_argument(
         "--append-notes",
         type=str,
@@ -3183,6 +3437,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_usearch.set_defaults(func=cmd_usearch)
     p_usearch.add_argument("query", nargs="+", help="检索词")
     p_usearch.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
+    p_usearch.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
     _add_filter_args(p_usearch)
 
     # --- enrich-toc ---
@@ -3224,6 +3479,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_tc = sub.add_parser("top-cited", help="按引用量排序查看论文")
     p_tc.set_defaults(func=cmd_top_cited)
     p_tc.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
+    p_tc.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
     _add_filter_args(p_tc)
 
     # --- refs ---
@@ -3277,6 +3533,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p_audit = sub.add_parser("audit", help="审计已入库论文的数据质量")
     p_audit.set_defaults(func=cmd_audit)
     p_audit.add_argument("--severity", choices=["error", "warning", "info"], help="只显示指定严重级别的问题")
+
+    # --- pending ---
+    p_pending = sub.add_parser("pending", help="列出待确认项（data/pending 与 data/duplicates）")
+    p_pending.set_defaults(func=cmd_pending)
 
     # --- repair ---
     p_repair = sub.add_parser("repair", help="修复论文元数据（手动指定 title/DOI，跳过 MD 解析）")
@@ -3344,21 +3604,21 @@ def _build_parser() -> argparse.ArgumentParser:
     p_export_sub = p_export.add_subparsers(dest="export_action", required=True)
 
     p_eb = p_export_sub.add_parser("bibtex", help="导出 BibTeX 格式（LaTeX 引用）")
-    p_eb.add_argument("paper_ids", nargs="*", help="论文目录名（可多个）")
+    p_eb.add_argument("paper_ids", nargs="*", help="论文 ID（目录名 / UUID / DOI，可多个）")
     p_eb.add_argument("--all", action="store_true", help="导出全部论文")
     p_eb.add_argument("--year", type=str, default=None, help="年份过滤：2023 / 2020-2024")
     p_eb.add_argument("--journal", type=str, default=None, help="期刊名过滤（模糊匹配）")
     p_eb.add_argument("-o", "--output", type=str, default=None, help="输出文件路径（省略则输出到屏幕）")
 
     p_er = p_export_sub.add_parser("ris", help="导出 RIS 格式（Zotero / Endnote / Mendeley 导入）")
-    p_er.add_argument("paper_ids", nargs="*", help="论文目录名（可多个）")
+    p_er.add_argument("paper_ids", nargs="*", help="论文 ID（目录名 / UUID / DOI，可多个）")
     p_er.add_argument("--all", action="store_true", help="导出全部论文")
     p_er.add_argument("--year", type=str, default=None, help="年份过滤：2023 / 2020-2024")
     p_er.add_argument("--journal", type=str, default=None, help="期刊名过滤（模糊匹配）")
     p_er.add_argument("-o", "--output", type=str, default=None, help="输出文件路径（省略则输出到屏幕）")
 
     p_em = p_export_sub.add_parser("markdown", help="导出 Markdown 文献列表（可直接粘贴到文档）")
-    p_em.add_argument("paper_ids", nargs="*", help="论文目录名（可多个）")
+    p_em.add_argument("paper_ids", nargs="*", help="论文 ID（目录名 / UUID / DOI，可多个）")
     p_em.add_argument("--all", action="store_true", help="导出全部论文")
     p_em.add_argument("--year", type=str, default=None, help="年份过滤：2023 / 2020-2024")
     p_em.add_argument("--journal", type=str, default=None, help="期刊名过滤（模糊匹配）")
@@ -3404,6 +3664,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_ws_show = p_ws_sub.add_parser("show", help="查看工作区中的论文")
     p_ws_show.add_argument("name", help="工作区名称")
+    p_ws_show.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
 
     p_ws_search = p_ws_sub.add_parser("search", help="在工作区内搜索")
     p_ws_search.add_argument("name", help="工作区名称")
@@ -3630,6 +3891,9 @@ def main() -> None:
         from scholaraio.ingest.metadata._models import configure_s2_session, configure_session
 
         session_id = _log.setup(cfg)
+        if getattr(args, "json", False):
+            # Keep stdout reserved for the JSON payload; logs go to stderr.
+            _log.set_console_stream(sys.stderr)
         is_setup_cmd = args.command == "setup"
         try:
             _metrics.init(cfg.metrics_db_path, session_id)

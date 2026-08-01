@@ -218,6 +218,19 @@ class TestShowNotesIntegration:
         assert not (tmp_papers / "Smith-2023-Turbulence" / "notes.md").exists()
 
 
+class TestShowHeaderDirName:
+    def test_header_includes_dir_name_line(self, tmp_papers, monkeypatch):
+        messages: list[str] = []
+        monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+
+        cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
+        args = Namespace(paper_id="10.1234/jfm.2023.001", layer=1)
+
+        cli.cmd_show(args, cfg)
+
+        assert any("目录名" in m and "Smith-2023-Turbulence" in m for m in messages)
+
+
 class TestSearchResultFormatting:
     def test_print_search_result_omits_empty_extra(self, monkeypatch):
         messages: list[str] = []

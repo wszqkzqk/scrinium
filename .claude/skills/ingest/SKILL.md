@@ -1,6 +1,6 @@
 ---
 name: ingest
-description: Use when the user wants to process new papers, patents, theses, documents, or proceedings from inbox into the knowledge base, run the ingest pipeline, or rebuild indexes.
+description: Use when the user wants to process new papers, patents, theses, documents, or proceedings from inbox into the knowledge base via the ingest pipeline. For rebuilding search indexes without ingesting inbox items, see the /index skill.
 version: 1.0.0
 author: ZimoLiao/scholaraio
 license: MIT
@@ -29,6 +29,8 @@ tags: ["academic", "papers", "patent", "pipeline", "pdf", "docx", "office"]
    - **仅内容富化**：使用 `enrich` 预设（= toc, l3, embed, index）
 
    > **注意**：`inbox-doc/` 始终使用专用步骤 `office_convert, mineru, extract_doc, ingest`，不受 preset 影响。`inbox-patent/` 和 `inbox-thesis/` 也有各自的固定流程。preset 中的 papers 级步骤（toc, l3）和 global 级步骤（embed, index）在处理完所有 inbox 后统一执行。
+   >
+   > **路由**：只需要重建索引、不涉及 inbox 摄入时，转交 `/index` skill（`index` / `embed` 命令，与 `pipeline reindex` 等价）。
 
 2. 执行流水线命令：
 
@@ -46,12 +48,12 @@ scholaraio pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
 - `--steps STEPS` — 自定义步骤序列（逗号分隔），如 `--steps toc,l3,index`
 - `--list` — 列出所有可用步骤和预设
 
-3. pipeline 当前会依次处理五个 inbox 目录：
+3. pipeline 依次处理五个 inbox 目录：
    - `data/inbox/` — 普通论文（有 DOI 才入库，无 DOI 且非 thesis 转 pending）
    - `data/inbox-thesis/` — 学位论文（跳过 DOI 去重，自动标记 thesis）
    - `data/inbox-patent/` — 专利文献（按公开号去重，自动标记 patent，跳过 DOI 去重）
    - `data/inbox-doc/` — 非论文文档（技术报告、讲义、Word/Excel/PPT、标准文档等，跳过 DOI 去重，LLM 生成标题/摘要）
-   - `data/inbox-proceedings/` — 论文集（强制按 proceedings 处理；普通 `data/inbox/` 不再自动识别）
+   - `data/inbox-proceedings/` — 论文集（强制按 proceedings 处理；普通 `data/inbox/` 不做 proceedings 自动识别）
 
 4. 论文类的 Stage-1 元数据提取由 `ingest.extractor` 控制：
    - `regex`：纯正则，最快，不调用 LLM
@@ -109,11 +111,13 @@ scholaraio proceedings apply-clean <proceeding_dir> <clean_plan.json>
      - 是 thesis → 标记并入库
      - 不是 thesis → 转入 `data/pending/` 待人工确认
 
-10. 超长 PDF 会在 MinerU 转换前按需自动切分后合并：
+10. 待确认项查看：ingest 结束后若有 pending / duplicate 条目，运行 `scholaraio pending` 查看清单（按 issue 分组，含标题、duplicate_of 和处理建议）。处理 pending 是 ingest 工作流的一部分——入库操作后应主动检查一次。
+
+11. 超长 PDF 会在 MinerU 转换前按需自动切分后合并：
    - 本地 MinerU 按 `chunk_page_limit`（默认 >100 页）
    - 云端 MinerU 同时遵循 `>600 页` 和 `>200MB` 两个限制，并在仅超大小时估算更安全的分片页数
 
-11. 如果 `config.translate.auto_translate: true`，只要本次 pipeline 包含 inbox 步骤并成功入库新论文，系统会在 papers 阶段自动插入 `translate`，位置在 `embed/index` 之前：
+12. 如果 `config.translate.auto_translate: true`，只要本次 pipeline 包含 inbox 步骤并成功入库新论文，系统会在 papers 阶段自动插入 `translate`，位置在 `embed/index` 之前：
    - 只翻译本次新入库论文，不会顺手重翻整个库
    - 目标语言读取 `translate.target_lang`
    - 这是配置驱动行为，不需要额外改 preset

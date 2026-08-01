@@ -66,13 +66,23 @@ def setup(cfg: Config) -> str:
     root.addHandler(ch)
 
     # Suppress noisy third-party loggers
-    for name in ("httpx", "urllib3", "httpcore", "sentence_transformers"):
+    for name in ("httpx", "urllib3", "httpcore", "sentence_transformers", "faiss"):
         logging.getLogger(name).setLevel(logging.WARNING)
     logging.getLogger("modelscope").setLevel(logging.ERROR)
 
     _initialized = True
     logging.getLogger(__name__).debug("session %s started", _session_id)
     return _session_id
+
+
+def set_console_stream(stream) -> None:
+    """把控制台 StreamHandler 重定向到 *stream*。
+
+    ``--json`` 模式下把控制台日志改道 stderr，保持 stdout 只输出 JSON。
+    """
+    for h in logging.getLogger().handlers:
+        if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler):
+            h.setStream(stream)
 
 
 def get_session_id() -> str:

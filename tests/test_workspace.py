@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from argparse import Namespace
+from types import SimpleNamespace
 
 import pytest
 
+from scholaraio import cli
+from scholaraio.index import build_index
 from scholaraio.workspace import add, create, list_workspaces, read_paper_ids, remove, rename, validate_workspace_name
 
 
@@ -227,3 +231,91 @@ class TestValidateWorkspaceName:
         assert not validate_workspace_name("foo\\bar")
         assert not validate_workspace_name("C:foo")
         assert not validate_workspace_name(" ws ")
+
+
+def _ws_args(**kw) -> Namespace:
+    base = dict(ws_action="add", name="ws", paper_refs=[], add_all=False, add_topic=None, add_search=None)
+    base.update(kw)
+    return Namespace(**base)
+
+
+def _ws_cfg(tmp_path, db=None) -> SimpleNamespace:
+    return SimpleNamespace(_root=tmp_path, index_db=db or (tmp_path / "index.db"))
+
+
+class TestCmdWsMissingWorkspace:
+    """cmd_ws guard: add/show on a nonexistent workspace fails instead of
+    silently creating it or reporting an empty list."""
+
+    def test_add_missing_workspace_raises_and_does_not_create(self, tmp_path):
+        ws_root = tmp_path / "workspace"
+        create(ws_root / "alpha")
+
+        with pytest.raises(ValueError, match="工作区不存在: typo-ws") as exc_info:
+            cli.cmd_ws(_ws_args(name="typo-ws", paper_refs=["some-ref"]), _ws_cfg(tmp_path))
+
+        msg = str(exc_info.value)
+        assert "scholaraio ws init typo-ws" in msg
+        assert "alpha" in msg
+        assert not (ws_root / "typo-ws").exists()
+
+    def test_add_missing_workspace_without_any_workspace(self, tmp_path):
+        with pytest.raises(ValueError, match="工作区不存在: ws") as exc_info:
+            cli.cmd_ws(_ws_args(paper_refs=["some-ref"]), _ws_cfg(tmp_path))
+
+        assert "scholaraio ws init ws" in str(exc_info.value)
+
+    def test_show_missing_workspace_raises(self, tmp_path):
+        create(tmp_path / "workspace" / "alpha")
+
+        with pytest.raises(ValueError, match="工作区不存在: ghost") as exc_info:
+            cli.cmd_ws(_ws_args(ws_action="show", name="ghost"), _ws_cfg(tmp_path))
+
+        assert "alpha" in str(exc_info.value)
+
+    def test_show_existing_empty_workspace_is_not_an_error(self, tmp_path, monkeypatch):
+        create(tmp_path / "workspace" / "ws")
+        messages: list[str] = []
+        monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+
+        cli.cmd_ws(_ws_args(ws_action="show"), _ws_cfg(tmp_path))
+
+        assert any("0 篇论文" in m for m in messages)
+
+
+class TestCmdWsAddUnresolvedRefs:
+    """cmd_ws add: unresolvable refs are reported per ref; rc!=0 when all fail."""
+
+    def _run_add(self, tmp_path, tmp_db, refs, monkeypatch) -> list[str]:
+        messages: list[str] = []
+        monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+        cli.cmd_ws(_ws_args(paper_refs=refs), _ws_cfg(tmp_path, db=tmp_db))
+        return messages
+
+    def test_partial_failure_reports_each_unresolved_ref(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
+        build_index(tmp_papers, tmp_db)
+        create(tmp_path / "workspace" / "ws")
+
+        messages = self._run_add(tmp_path, tmp_db, ["Smith-2023-Turbulence", "bogus-ref"], monkeypatch)
+
+        assert any("已添加 1 篇论文" in m for m in messages)
+        assert "无法解析: bogus-ref" in messages
+
+    def test_all_unresolved_raises(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
+        build_index(tmp_papers, tmp_db)
+        create(tmp_path / "workspace" / "ws")
+        monkeypatch.setattr(cli, "ui", lambda msg="": None)
+
+        with pytest.raises(ValueError, match="无法解析"):
+            cli.cmd_ws(_ws_args(paper_refs=["bogus-1", "bogus-2"]), _ws_cfg(tmp_path, db=tmp_db))
+
+    def test_add_collects_unresolved_via_out_param(self, tmp_path, monkeypatch):
+        ws_dir = tmp_path / "ws"
+        create(ws_dir)
+        monkeypatch.setattr("scholaraio.index.lookup_paper", lambda db_path, ref: None)
+
+        unresolved: list[str] = []
+        added = add(ws_dir, ["ghost"], tmp_path / "index.db", unresolved=unresolved)
+
+        assert added == []
+        assert unresolved == ["ghost"]

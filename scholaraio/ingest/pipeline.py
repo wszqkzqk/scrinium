@@ -1214,6 +1214,8 @@ def _process_inbox(
     ui(
         f"\n{label_prefix}inbox done: {stats['ingested']} ingested | {stats['duplicate']} duplicate | {stats['needs_review']} review | {stats['failed']} failed | {stats['skipped']} skipped"
     )
+    if stats["needs_review"]:
+        ui("提示: 运行 `scholaraio pending` 查看待确认项")
     if step_times:
         ui("Step timing:")
         for sn, st in step_times.items():
@@ -1570,6 +1572,8 @@ def import_external(
     ui(
         f"\n导入完成: {stats['ingested']} 入库 | {stats['duplicate']} 重复 | {stats['needs_review']} 待审 | {stats['failed']} 失败"
     )
+    if stats["needs_review"]:
+        ui("提示: 运行 `scholaraio pending` 查看待确认项")
 
     # Batch embed + index
     if not dry_run and ingested_jsons:

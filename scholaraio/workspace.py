@@ -80,6 +80,7 @@ def add(
     db_path: Path,
     *,
     resolved: list[dict] | None = None,
+    unresolved: list[str] | None = None,
 ) -> list[dict]:
     """添加论文到工作区。
 
@@ -95,6 +96,8 @@ def add(
         db_path: index.db 路径，用于 lookup_paper。
         resolved: 预解析的论文列表，每个元素须含 ``"id"`` 和
             ``"dir_name"`` 键。提供时跳过 lookup_paper 查询。
+        unresolved: 可选的输出列表；无法解析的引用会被追加进去，
+            供调用方向用户逐条报告。
 
     Returns:
         新增条目列表。
@@ -128,6 +131,8 @@ def add(
             record = lookup_paper(db_path, ref)
             if record is None:
                 _log.warning("无法解析论文引用: %s", ref)
+                if unresolved is not None:
+                    unresolved.append(ref)
                 continue
             uid = record["id"]
             if uid in existing_ids:

@@ -209,3 +209,46 @@ def test_build_vectors_provider_none_clears_vectors(tmp_papers, tmp_db, tmp_path
 
     assert count == 0
     assert sig == "none"
+
+
+def test_resolve_model_path_announces_download_when_model_not_cached(tmp_path, monkeypatch):
+    import modelscope
+
+    messages: list[str] = []
+    monkeypatch.setattr(vectors, "ui", lambda msg="", *args: messages.append(msg))
+    monkeypatch.setattr(vectors, "_find_local_model_path", lambda *args: None)
+
+    calls: list[bool] = []
+
+    def fake_snapshot_download(model_name, cache_dir=None, local_files_only=False):
+        calls.append(local_files_only)
+        if local_files_only:
+            raise RuntimeError("not cached")
+        return str(tmp_path / "downloaded-model")
+
+    monkeypatch.setattr(modelscope, "snapshot_download", fake_snapshot_download)
+
+    path = vectors._resolve_model_path("Qwen/Qwen3-Embedding-0.6B", str(tmp_path), "modelscope")
+
+    assert path == str(tmp_path / "downloaded-model")
+    # Cache probe (local_files_only=True) ran before the real download.
+    assert calls == [True, False]
+    assert any("首次运行需下载嵌入模型" in m for m in messages)
+
+
+def test_resolve_model_path_no_download_notice_when_model_cached(tmp_path, monkeypatch):
+    import modelscope
+
+    messages: list[str] = []
+    monkeypatch.setattr(vectors, "ui", lambda msg="", *args: messages.append(msg))
+    monkeypatch.setattr(vectors, "_find_local_model_path", lambda *args: str(tmp_path / "model"))
+
+    def fail_snapshot_download(*args, **kwargs):
+        raise AssertionError("should not touch the network when the model is cached")
+
+    monkeypatch.setattr(modelscope, "snapshot_download", fail_snapshot_download)
+
+    path = vectors._resolve_model_path("Qwen/Qwen3-Embedding-0.6B", str(tmp_path), "modelscope")
+
+    assert path == str(tmp_path / "model")
+    assert not messages
