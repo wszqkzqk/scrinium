@@ -32,6 +32,7 @@ nav:
       - Agent Setup: getting-started/agent-setup.md
       - Configuration: getting-started/configuration.md
   - User Guide:
+      - Architecture: guide/architecture.md
       - CLI Reference: guide/cli-reference.md
       - Search & Browse: guide/search.md
       - Scientific Tool Onboarding: guide/toolref-onboarding.md

@@ -1,6 +1,6 @@
 # ScholarAIO - Project Instructions (General Agent)
 
-This file is the general project guide for ScholarAIO across multiple AI coding agents. For tools that natively support repository-level `AGENTS.md` files (such as Codex, Windsurf, GitHub Copilot, and some Cursor / Cline scenarios), it can serve directly as the project instruction file; tools that use other mechanisms should access it through the wrappers or compatibility files provided in this repository. `CLAUDE.md` is the Claude Code-compatible version; the technical content of the two files should stay as aligned as possible, and changes to one should be mirrored in the other.
+This file is the general project guide for ScholarAIO across multiple AI coding agents. `CLAUDE.md` is the Claude Code-compatible version; the technical content of the two files should stay as aligned as possible, and changes to one should be mirrored in the other.
 
 ## Project Positioning
 
@@ -44,50 +44,11 @@ Skills are defined in the `.claude/skills/` directory and follow the [Agent Skil
 The right mental model is to treat skills as "reusable workflows": when the user's intent clearly matches a capability, read the corresponding `SKILL.md` first and follow the workflow already distilled there instead of inventing a process from scratch every time.
 
 **Current skills:**
-
-Knowledge base management:
-- `search` - When the user wants to find papers, search authors, or run keyword / semantic / hybrid retrieval, start with this skill.
-- `arxiv` - When the user wants to browse arXiv preprints, search arXiv directly, or fetch a preprint PDF into inbox or ingest, use this skill.
-- `show` - When the user wants to read paper metadata, abstract, conclusion, or full text, use this skill for progressive L1-L4 loading.
-- `enrich` - When the user wants to add TOC, conclusion, abstract, citation counts, or other enrichment fields, use this skill.
-- `ingest` - When the user wants to process inbox items and ingest PDF / Office / Markdown files into the knowledge base, use this skill.
-- `topics` - When the user wants topic distributions, clustering, visualizations, or topic merges, start with this skill.
-- `explore` - When the user wants OpenAlex-based multi-dimensional exploration, an exploration database, or topic-level exploration, use this skill.
-- `graph` - When the user cares about citation relationships, shared references, or literature connection structure, use this skill.
-- `citations` - When the user wants highly cited papers or to refresh citation count data, start with this skill.
-- `insights` - When the user wants to analyze their own reading or search behavior patterns, use this skill.
-- `index` - When the user has changed data and needs to rebuild keyword or vector indexes, use this skill.
-- `workspace` - When the user wants to organize papers into subsets and search or export within a subset, use this skill.
-- `export` - When the user wants BibTeX, RIS, Markdown bibliography, or DOCX exports, use this skill.
-- `import` - When the user wants to bring in Endnote, Zotero, or existing PDFs, use this skill.
-- `rename` - When the user wants to normalize paper directory names, use this skill.
-- `audit` - When the user wants to inspect data quality, find missing fields or duplicates, or batch-repair metadata, use this skill.
-- `translate` - When the user wants to translate papers into a target language while keeping Markdown structure, use this skill.
-
-Academic writing:
-- `literature-review` - When the user wants to write a literature review, organize topics, and build a critical narrative, use this skill.
-- `paper-writing` - When the user wants to draft concrete paper sections rather than a generic summary, use this skill.
-- `citation-check` - When the user is worried about fake citations, wrong author-year pairs, or AI citation hallucinations, use this skill.
-- `writing-polish` - When the user wants academic polishing, de-AI-fication, or style transfer, use this skill.
-- `review-response` - When the user wants to answer reviewer comments, write a rebuttal, or prepare a point-by-point response, use this skill.
-- `research-gap` - When the user wants to identify research gaps and open questions from existing literature, use this skill.
-
-Visualization and document generation:
-- `draw` - When the user wants to visualize a process, structure, timeline, or concept relationships, use this skill.
-- `document` - When the user wants to generate or inspect Word, PowerPoint, Excel, or other Office documents, use this skill.
-
-System operations:
-- `setup` - When the user wants to install, configure, or diagnose the ScholarAIO environment, start with this skill.
-- `metrics` - When the user wants token usage, call timing, or runtime metrics, use this skill.
-
-Scientific computing:
-- `scientific-runtime` - Underlying protocol for scientific computing tasks, consulted alongside a tool-specific skill (toolref-first behavior, safe fallback under partial coverage, no maintenance burden on users); not a standalone tool manual.
-- `scientific-tool-onboarding` - When the user is adding or upgrading support for a scientific computing tool and needs docs ingestion, `toolref` integration, lightweight skill design, and end-to-end CLI verification, use this skill.
-- `quantum-espresso` - When the task involves Quantum ESPRESSO input variables, workflows, or first-principles simulation decisions, use this skill.
-- `lammps` - When the task involves LAMMPS potentials, commands, or classical materials simulations, use this skill.
-- `gromacs` - When the task involves GROMACS setup, equilibration, analysis, or biomolecular MD workflows, use this skill.
-- `openfoam` - When the task involves OpenFOAM solvers, dictionaries, mesh workflow, turbulence models, or CFD case setup, use this skill.
-- `bioinformatics` - When the task involves BLAST, minimap2, samtools, bcftools, MAFFT, IQ-TREE, ESMFold, or related bioinformatics toolchains, use this skill.
+- Knowledge base management: `search`, `arxiv`, `show`, `enrich`, `ingest`, `topics`, `explore`, `graph`, `citations`, `insights`, `index`, `workspace`, `export`, `import`, `rename`, `audit`, `translate`
+- Academic writing: `literature-review`, `paper-writing`, `citation-check`, `writing-polish`, `review-response`, `research-gap`
+- Visualization and document generation: `draw`, `document`
+- System operations: `setup`, `metrics`
+- Scientific computing: `scientific-runtime`, `scientific-tool-onboarding`, `quantum-espresso`, `lammps`, `gromacs`, `openfoam`, `bioinformatics`
 
 **Intent → skill routing disambiguation:**
 
@@ -167,280 +128,14 @@ Workflow:
 - Large payloads such as workspace paper lists (>30 papers) and full paper text (L4) should be handled by subagents, with only conclusions brought back into the main context
 - Avoid dumping long lists directly in the main agent; use subagents to filter first and return summaries
 
-## Module Overview
+## Key Conventions and Code Style
 
-| Module | Function |
-|------|------|
-| `config.py` | Configuration loading (multi-layer YAML override + path resolution + API key lookup) |
-| `papers.py` | Paper path helpers (iterate/build paper directories + `meta.json` read/write + paper UUID generation) |
-| `log.py` | Runtime logging + user-facing terminal output (`ui()`) + session tracking |
-| `ingest/mineru.py` | PDF -> MinerU Markdown (local API / `mineru-open-api` cloud CLI) |
-| `ingest/pdf_fallback.py` | PDF fallback parsing (Docling / PyMuPDF) |
-| `ingest/extractor.py` | Metadata extraction (four modes: regex / auto / robust / llm) |
-| `ingest/metadata/` | API completion (Crossref / S2 / OpenAlex) + abstract backfill + document metadata generation + JSON output + file renaming |
-| `ingest/pipeline.py` | Composable multi-inbox ingest pipeline (dedup + pending + papers/global postprocess + external-import batch conversion) |
-| `index.py` | Keyword full-text search + papers_registry + citation graph |
-| `search_common.py` | Shared FTS5 query sanitization + RRF fusion + FTS table DDL (used by both `index.py` and `explore.py`) |
-| `prompts.py` | Central LLM prompt registry + unified `parse_llm_json()` response parser |
-| `vectors.py` | Semantic vectors + incremental indexing + GPU-adaptive batching |
-| `topics.py` | BERTopic topic modeling + 6 HTML visualizations |
-| `loader.py` | L1-L4 layered loading + enrich_toc + enrich_l3 |
-| `proceedings.py` | Proceedings storage helpers + child-paper iteration + proceedings DB path helpers |
-| `ingest/proceedings.py` | Proceedings volume preparation + split-plan application + clean-plan application |
-| `explore.py` | Multi-dimensional literature exploration (OpenAlex multi-filter + keyword + semantic + hybrid search + topics, isolated under `data/explore/`) |
-| `workspace.py` | Workspace paper subset management (reuses search/export) |
-| `document.py` | Office document inspection (DOCX / PPTX / XLSX structure, layout, overflow checks) |
-| `export.py` | BibTeX / RIS / Markdown bibliography / DOCX export |
-| `citation_styles.py` | Citation style management (built-in APA/Vancouver/Chicago/MLA + dynamically loaded custom styles stored in `data/citation_styles/`) |
-| `citation_check.py` | Citation verification (extract author-year citations from text + cross-check against the local library) |
-| `audit.py` | Data-quality auditing + repair |
-| `sources/` | External source adapters (endnote / zotero / arxiv) |
-| `cli/` | Main CLI entry point (package split by domain: `common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`) |
-| `setup.py` | Environment detection + setup wizard |
-| `metrics.py` | LLM token usage + API timing |
-| `insights.py` | Research behavior analytics (hot keywords, read trends, semantic neighbor recommendations, workspace activity) |
-| `translate.py` | Paper translation (language detection + concurrent chunked LLM translation + batch translation + optional portable bundle export) |
-
-CLI command reference: `scholaraio --help`
-
-Besides skills, the current CLI also provides several important capabilities worth using directly:
-- Retrieval-related: `search-author`, `embed`, `vsearch`, `usearch`, `fsearch`, `top-cited`
-- Graph-related: `refs`, `citing`, `shared-refs`
-- Enrichment and repair: `enrich-toc`, `enrich-l3`, `backfill-abstract`, `refetch`, `repair`
-- Data maintenance: `attach-pdf`
-- Workspace: `ws` (subcommands such as `init`, `add`, `remove`, `show`, `search`, `export`, and more)
-- Proceedings: `proceedings` (`apply-split`, `build-clean-candidates`, `apply-clean`) and `fsearch --scope proceedings`
-- External and scientific runtime: `arxiv`, `toolref`, `insights`, `style`, `document`
-
-## Architecture
-
-Main ingest flow:
-- PDFs first try `MinerU` (local API / `mineru-open-api` cloud CLI)
-- If `MinerU` is unavailable or fails, processing falls back through `pdf_fallback.py` (`Docling -> PyMuPDF`)
-- Direct `.md` ingestion is also supported, skipping PDF parsing entirely
-- Generated Markdown enters `extractor.py`
-  - Stage 1: extract fields from the Markdown header, supporting `regex`, `auto`, `robust`, and `llm`
-- Then it enters `metadata/`
-  - Stage 2: API completion, abstract backfill, document metadata generation, JSON output, and rule-based renaming
-- Then it enters `pipeline.py`
-  - With DOI: write to `data/papers/<Author-Year-Title>/meta.json + paper.md`
-  - With patent publication number: write to `data/papers/<Author-Year-Title>/`, deduplicated by publication number
-  - Without DOI: move to `data/pending/` for manual confirmation
-- After ingestion:
-  - `index.py` writes to `data/index.db` (SQLite FTS5)
-  - `vectors.py` writes to `data/index.db` (`paper_vectors` table)
-  - `topics.py` writes to `data/topic_model/` (BERTopic, reusing `paper_vectors`)
-- Finally, the `cli/` package exposes everything to skills and coding agents
-
-`explore.py` as an independent data flow:
-- Uses the OpenAlex API for multi-dimensional filtering (ISSN / concept / author / institution / keyword / source-type, and more)
-- Writes results to `data/explore/<name>/papers.jsonl`
-- Maintains at the same time:
-  - `explore.db` (`paper_vectors` + FTS5 full-text index)
-  - `faiss.index` (FAISS semantic retrieval)
-  - `topic_model/` (BERTopic in a unified format) and `viz/` (HTML visualizations)
-- Supported search modes: semantic / keyword / hybrid
-
-`workspace.py` as a thin layer:
-- `workspace/<name>/papers.json` records paper UUIDs pointing into `data/papers/`
-- Search and export reuse existing capabilities by injecting the `paper_ids` parameter (for example `search()`, `vsearch()`, `unified_search()`, and `export_bibtex()`)
-
-`import-endnote` / `import-zotero` as the external import flow:
-- `sources/endnote.py` / `sources/zotero.py` parse metadata and match PDFs
-- Then hand off to `pipeline.import_external()`
-- Then `pipeline.batch_convert_pdfs(enrich=True)` completes batch PDF->MD conversion, abstract backfill, TOC/L3 extraction, embeddings, and indexing
-
-### GPU-Adaptive Batching
-
-The embedding pipeline in `vectors.py` automatically adjusts batch size based on available GPU memory:
-
-1. **Initial profiling** (~10 seconds): starting from 64 tokens, it doubles step by step, measuring incremental memory usage for each length until OOM
-2. **Cache reuse**: results are written to `~/.cache/scholaraio/gpu_profile.json`, keyed by `model_name::GPU_name`; changing GPU or model triggers automatic re-profiling
-3. **Runtime bucketing**: texts are bucketed by token length (64/128/.../16384), and each bucket interpolates an optimal batch size from the profile
-4. **OOM fallback**: on OOM, batch size is halved and retried automatically; if OOM still occurs at batch size 1, it falls back to CPU
-
-All paths that call `_embed_batch()` (main-library embedding, explore embedding, and BERTopic's `QwenEmbedder`) benefit automatically.
-
-### Layered Loading Design (L1-L4)
-
-| Layer | Content | Source |
-|----|------|------|
-| L1 | title, authors, year, journal, doi, volume, issue, pages, publisher, issn | JSON file |
-| L2 | abstract | JSON field |
-| L3 | conclusion section | JSON field (requires running `enrich-l3` first) |
-| L4 | full Markdown | Read `.md` directly |
-
-### `data/papers/` Directory Structure
-
-```text
-data/papers/
-└── <Author-Year-Title>/
-    ├── meta.json    # L1+L2+L3 metadata (includes "id": "<uuid>")
-    ├── paper.md     # L4 source (MinerU output)
-    ├── notes.md     # Agent analysis notes (T2 layer, optional, created/appended on demand)
-    ├── paper_{lang}.md # Translated version (such as paper_zh.md, optional)
-    ├── images/      # Images extracted by MinerU (referenced from md)
-    ├── layout.json  # MinerU layout analysis result (optional)
-    └── *_content_list.json  # MinerU structured content (optional)
-```
-
-Each paper lives in its own directory. The UUID is the internal unique identifier (written to `meta.json["id"]` and never changed).
-The directory name is the human-readable `Author-Year-Title`; rename operations only change the directory name.
-The `papers_registry` table inside `data/index.db` provides UUID <-> DOI <-> dir_name lookup in both directions.
-
-Portable translation exports are written under:
-
-```text
-workspace/translation-ws/
-└── <Author-Year-Title>/
-    ├── paper_{lang}.md
-    └── images/
-```
-
-### `data/inbox/` Directory
-
-```text
-data/inbox/
-├── paper.pdf     # PDF waiting for ingestion (deleted after pipeline processing)
-└── paper.md      # Or place .md directly (skip MinerU and ingest directly)
-```
-
-### `data/inbox-thesis/` Directory
-
-```text
-data/inbox-thesis/
-└── thesis.pdf    # Thesis PDF (auto-tagged with paper_type: thesis, skips DOI dedup)
-```
-
-Paper types: `article` (default), `thesis`, `patent`, `book`, and `document` (including subtypes such as `technical-report` / `lecture-notes`).
-
-Note: papers without DOI in the regular inbox are automatically judged by the LLM to determine whether they are theses. If yes, they are tagged and ingested; otherwise they are sent to pending.
-The thesis inbox skips that judgment and ingests directly as thesis.
-
-### `data/inbox-patent/` Directory
-
-```text
-data/inbox-patent/
-└── patent.pdf    # Patent PDF (automatically extracts publication number, deduplicates by publication number, tags as patent)
-```
-
-Note: supported publication number formats are CN/US/EP/WO/JP/KR/DE/FR/GB/TW/TWI/IN/AU/CA/RU/BR + 6 or more digits + type code (for example `CN112345678A`, `US10123456B2`, `TWI694356B`).
-
-### `data/inbox-doc/` Directory
-
-```text
-data/inbox-doc/
-├── report.pdf    # Non-paper document PDF (technical reports, standards, lecture notes, etc.)
-├── notes.md      # Or place .md directly
-├── report.docx   # Word document (converted by MarkItDown)
-├── data.xlsx     # Excel spreadsheet (converted by MarkItDown)
-└── slides.pptx   # PowerPoint (converted by MarkItDown)
-```
-
-Non-paper document ingest flow:
-- **Office files** (`.docx` / `.xlsx` / `.pptx`): first converted to `.md` by `step_office_convert` (MarkItDown), then passed through the remaining steps
-- DOI deduplication and API queries are skipped
-- The LLM auto-generates title and abstract to ensure searchability
-- Without an LLM, it degrades to: first Markdown heading or filename -> title, first 500 words -> abstract
-- `paper_type` is tagged as `document` (or a more specific type such as `technical-report` / `lecture-notes`)
-- Audit rules do not report `missing_doi` warnings for document / patent types
-
-Very long PDFs are split automatically before MinerU conversion when needed:
-- local MinerU follows `chunk_page_limit` (default: more than 100 pages)
-- MinerU cloud follows the stricter of its documented limits (more than 600 pages or 200MB) and estimates a safe chunk size when only the file-size limit is exceeded
-
-### `data/inbox-proceedings/` Directory
-
-```text
-data/inbox-proceedings/
-└── volume.pdf    # Proceedings volume / collected papers (explicit manual routing only)
-```
-
-Proceedings are only ingested from this dedicated inbox. Regular `data/inbox/` items do not auto-route into `data/proceedings/`; if the user wants the proceedings workflow, they must place the file in `data/inbox-proceedings/` explicitly.
-
-### `data/pending/` Directory
-
-```text
-data/pending/
-└── <PDF-stem>/
-    ├── paper.md           # Markdown for a paper without DOI
-    ├── <original-filename>.pdf    # Original PDF (if present)
-    ├── pending.json       # Marker file (contains reason and extracted metadata)
-    ├── images/            # Images extracted by MinerU (if any)
-    ├── layout.json        # MinerU layout info (if any)
-    └── *_content_list.json # MinerU structured content (if any)
-```
-
-The `issue` field in `pending.json` indicates the reason:
-- `no_doi` - No DOI and not thesis/patent; requires manual confirmation and DOI completion before ingestion
-- `no_pub_num` - Patent inbox failed to extract a publication number; requires manual confirmation or manual entry
-- `duplicate` - The DOI or patent publication number duplicates an already ingested item (including a `duplicate_of` field pointing to the existing paper directory); the user can decide whether to overwrite
-
-Note: theses are ingested automatically (either from the thesis inbox or from LLM judgment) and do not pass through pending.
-Patents are ingested automatically (from the patent inbox), deduplicated by publication number, and do not pass through pending.
-
-**Important**: the `missing_md` issue reported by `audit` means an already ingested paper in `data/papers/` is missing `paper.md`; it is a quality problem, not a `data/pending/` status. Pending only contains papers blocked during the ingestion flow (missing DOI or duplicates); `missing_md` means the item has already been ingested but not yet parsed into full text, so full-text search is unavailable.
-
-### `data/explore/` Directory
-
-```text
-data/explore/<name>/
-├── papers.jsonl        # Full paper list fetched from OpenAlex (title/abstract/authors/year/doi/cited_by_count)
-├── meta.json           # Exploration-library metadata (query parameters/count/fetched_at)
-├── explore.db          # SQLite (paper_vectors table + explore_fts FTS5 full-text index)
-├── faiss.index         # FAISS IndexFlatIP (cosine similarity)
-├── faiss_ids.json      # List of paper_ids corresponding to the FAISS index
-└── topic_model/
-    ├── bertopic_model.pkl   # BERTopic model (unified format, same as main library)
-    ├── scholaraio_meta.pkl  # Additional metadata (paper_ids/metas/topics/embeddings/docs)
-    ├── info.json            # Statistics (n_topics/n_outliers/n_papers)
-    └── viz/                 # 6 HTML visualizations
-```
-
-### `sources/` Abstraction Layer
-
-`papers.py` is the path-helper layer for the local library under `data/papers/`, and modules use it directly to iterate paper directories and read `meta.json`.
-`sources/` holds external-source adapters such as arXiv, Endnote, and Zotero.
-
-## Configuration
-
-Main config: `config.yaml` (tracked in git)
-Sensitive info: `config.local.yaml` (not tracked, overrides `config.yaml`)
-
-Config lookup order for `config.yaml`:
-1. Explicitly passed `config_path`
-2. Environment variable `SCHOLARAIO_CONFIG`
-3. Walk upward from the current working directory (up to 6 levels)
-4. `~/.scholaraio/config.yaml` (global config used in plugin mode)
-
-All relative paths (such as `data/papers` and `data/index.db`) are resolved relative to the directory containing `config.yaml`.
-When used inside the project directory, paths point into the project's `data/`; when used as a plugin, the global config makes paths point into `~/.scholaraio/data/`.
-
-LLM API key lookup order:
-1. `llm.api_key` inside `config.local.yaml`
-2. Environment variable `SCHOLARAIO_LLM_API_KEY` (universal for any backend)
-3. Backend-specific vendor environment variables:
-   - `openai-compat`: `DEEPSEEK_API_KEY` -> `OPENAI_API_KEY`
-   - `anthropic`: `ANTHROPIC_API_KEY`
-   - `google`: `GOOGLE_API_KEY` -> `GEMINI_API_KEY`
-
-Default LLM backend: DeepSeek (`deepseek-chat`) via the OpenAI-compatible protocol.
-Three backend protocols are supported: `openai-compat` (DeepSeek / OpenAI / vLLM / Ollama), `anthropic`, and `google` (Gemini).
-`ingest.extractor: robust` (default) means regex + LLM dual pass, where the LLM corrects OCR errors and detects multiple DOIs in the full text. Other modes: `auto` (LLM only as fallback), `regex` (pure regex), and `llm` (pure LLM).
-
-MinerU configuration constraints (aligned with current code):
-- Keep the user-facing experience minimal first; do not proactively expose advanced MinerU parameters
-- `mineru_model_version_cloud` should only be recommended as `pipeline` or `vlm`; `MinerU-HTML` should not be the default for PDF ingest
-- For the cloud precise parsing API, `mineru_parse_method` only maps `ocr` to the official `file.is_ocr=true`; `auto` and `txt` both follow the default non-forced OCR path
-- `mineru_enable_formula`, `mineru_enable_table`, and `mineru_lang` only take effect for cloud `pipeline` / `vlm`; keep defaults unless there is a clear need
-- `mineru_backend_local` is only relevant when the user explicitly self-hosts local MinerU; pure cloud usage usually does not need it
-- The official upper limit for `mineru_batch_size` is `200`; keep the default conservative
-- Current recommended defaults:
-  - Chinese or mixed Chinese-English PDFs: `mineru_lang: ch`
-  - English-only PDFs: change to `mineru_lang: en`
-
-## Code Style
-
+- **Workspace isolation**: all user outputs such as writing, notes, and drafts should live under `workspace/`. When creating new files (literature reviews, research notes, and so on), default to `workspace/`, not the project root and not the `scholaraio/` source tree
+- **Workspace version control**: workspace subdirectories that involve code development (such as reproduction projects or data-analysis scripts) should use `git init` for their own internal version management, with a `.gitignore` that excludes `__pycache__/`, `.venv/`, large data files, and so on. This does not affect the main ScholarAIO repository (`workspace/` is already ignored in the main `.gitignore`)
+- **Do not modify the regex logic in `scholaraio/ingest/metadata/_extract.py`**; extend only through the extractor abstraction layer
+- `data/` and `workspace/` are not tracked in git (already configured in `.gitignore`)
+- Python 3.10+, runtime environment: conda `scholaraio`
+- Tests: `python -m pytest tests/ -v`
 - **Code comments**: English only, and only when the logic is not self-evident.
 - **LLM prompts**: all new LLM prompts must be registered in `scholaraio/prompts.py` (English instructions + Chinese glossary where needed); any prompt change must be recorded in the changelog.
 - **LLM JSON output**: prompts must request "Return JSON only, no fencing"; responses are parsed with `parse_llm_json()`.
@@ -456,58 +151,7 @@ When the project is not fully configured yet, use `scholaraio setup` to guide th
 3. **Configure**: run the `scholaraio setup` interactive wizard to complete basic configuration
 4. **Directories**: created automatically on CLI startup (`ensure_dirs()`), so no manual action is needed
 
-### Plugin Use (Claude Code plugin / skill market)
-
-Users can install ScholarAIO skills into any project through the plugin system:
-
-```text
-/plugin marketplace add ZimoLiao/scholaraio
-/plugin install scholaraio@scholaraio-marketplace
-```
-
-When a new session starts for the first time, the SessionStart hook automatically:
-1. Detects and installs the `scholaraio` Python package
-2. Creates the global config `~/.scholaraio/config.yaml`
-3. Creates the data directories under `~/.scholaraio/data/`
-
-In plugin mode, all data lives under `~/.scholaraio/`:
-
-```text
-~/.scholaraio/
-├── config.yaml           # Global config (copied from the plugin bundle)
-├── config.local.yaml     # API keys (created manually by the user or via the setup wizard)
-├── data/
-│   ├── papers/           # Ingested papers
-│   ├── inbox/            # PDFs waiting for ingest
-│   ├── inbox-thesis/     # Theses
-│   ├── inbox-patent/     # Patents
-│   ├── inbox-doc/        # Non-paper documents
-│   ├── pending/          # Items awaiting confirmation
-│   ├── explore/          # Literature exploration data
-│   ├── topic_model/      # Topic models
-│   ├── index.db          # SQLite index
-│   └── metrics.db        # Runtime metrics
-└── workspace/            # Workspaces
-```
-
-The exact invocation form of skills depends on the host agent or plugin system; this repository only guarantees that skill definitions live in `.claude/skills/` and are exposed through the `.agents/skills` and `skills/` symlinks for different discovery mechanisms.
-
-### API Key Notes
-
-- **LLM key** (DeepSeek / OpenAI / Anthropic / Google): required for metadata extraction and content enrichment. Without it, the system degrades to pure regex mode and enrich features are unavailable. This is usually billed separately by the chosen provider; do not assume an agent subscription automatically covers ScholarAIO API calls
-- **MinerU token**: used by `mineru-open-api extract` for MinerU cloud PDF-to-Markdown conversion. `MINERU_TOKEN` is preferred; `MINERU_API_KEY` remains a compatibility alias. Without it, ScholarAIO can still fall back to Docling / PyMuPDF, or ingest manually placed `.md` files. MinerU token application is currently free
-- **Semantic Scholar API key**: optional; useful when the user needs higher throughput for citation refresh / refetch workflows
-- **Zotero API key**: optional; only needed for the Zotero Web API import path (local `zotero.sqlite` import does not require it)
-- The embedding model (Qwen3-Embedding-0.6B, ~1.2GB) downloads automatically on the first `embed` / `vsearch`. For overseas users, change `embed.source` to `huggingface` in `config.yaml`
-
-## Key Conventions
-
-- **Workspace isolation**: all user outputs such as writing, notes, and drafts should live under `workspace/`. When creating new files (literature reviews, research notes, and so on), default to `workspace/`, not the project root and not the `scholaraio/` source tree
-- **Workspace version control**: workspace subdirectories that involve code development (such as reproduction projects or data-analysis scripts) should use `git init` for their own internal version management, with a `.gitignore` that excludes `__pycache__/`, `.venv/`, large data files, and so on. This does not affect the main ScholarAIO repository (`workspace/` is already ignored in the main `.gitignore`)
-- **Do not modify the regex logic in `scholaraio/ingest/metadata/_extract.py`**; extend only through the extractor abstraction layer
-- `data/` and `workspace/` are not tracked in git (already configured in `.gitignore`)
-- Python 3.10+, runtime environment: conda `scholaraio`
-- Tests: `python -m pytest tests/ -v`
+For plugin mode, see `docs/getting-started/agent-setup.md`; for configuration and API keys, see `docs/getting-started/configuration.md`.
 
 ## Multi-Agent Compatibility
 
@@ -525,17 +169,10 @@ This project supports multiple AI coding agents at the same time. `AGENTS.md` is
 
 Skills follow the [AgentSkills.io](https://agentskills.io) open standard (`SKILL.md` format). The canonical location is `.claude/skills/`; `.agents/skills/` is the symlink for cross-agent discovery, and `skills/` is the symlink for Claude plugin / skill-system discovery.
 
-### Plugin Packaging
+## Deep Reference
 
-The project is also packaged as a Claude Code plugin plus marketplace entry:
-
-```text
-.claude-plugin/
-├── plugin.json          # Plugin identity (name/version/description/keywords)
-└── marketplace.json     # Marketplace catalog (used by /plugin marketplace add)
-skills/ -> .claude/skills/  # Skill discovery entry point for the plugin system
-hooks/hooks.json            # SessionStart hook (auto-installs dependencies + creates global config)
-scripts/check-deps.sh       # Dependency detection / installation script invoked by the hook
-```
-
-Users can install it through `/plugin marketplace add ZimoLiao/scholaraio`. Skill markets such as SkillsMP automatically index it by crawling GitHub for `filename:SKILL.md`.
+On-demand reference material (load only when needed):
+- Architecture, data flows, and `data/` directory layouts → `docs/guide/architecture.md`
+- Module overview and contributor guide → `docs/contributing.md`
+- Configuration and API keys → `docs/getting-started/configuration.md`
+- Plugin install and agent setup → `docs/getting-started/agent-setup.md`

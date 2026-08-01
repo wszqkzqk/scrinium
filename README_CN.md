@@ -118,7 +118,7 @@ data/inbox/             # 放入 PDF 即可入库
 data/inbox-proceedings/ # 显式放入论文集 PDF/MD，走专用 proceedings 流程
 ```
 
-完整模块参考 → [`CLAUDE.md`](CLAUDE.md) 或 [`AGENTS.md`](AGENTS.md)
+完整模块参考 → [`docs/contributing.md`](docs/contributing.md)
 
 ## 引用
 

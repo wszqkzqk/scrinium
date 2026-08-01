@@ -117,7 +117,7 @@ data/inbox/             # Drop PDFs here for ingestion
 data/inbox-proceedings/ # Drop proceedings volumes here for dedicated ingest
 ```
 
-Full module reference → [`CLAUDE.md`](CLAUDE.md) or [`AGENTS.md`](AGENTS.md)
+Full module reference → [`docs/contributing.md`](docs/contributing.md)
 
 ## Citation
 

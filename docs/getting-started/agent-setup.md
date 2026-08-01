@@ -64,11 +64,50 @@ After installation, start a new Claude Code session in your target project. Scho
 
 ### What the plugin sets up
 
-- Installs the `scholaraio` Python package on first session
-- Creates `~/.scholaraio/config.yaml`
-- Creates `~/.scholaraio/data/` and related workspace directories
+When a new session starts for the first time, the SessionStart hook automatically:
+
+1. Detects and installs the `scholaraio` Python package
+2. Creates the global config `~/.scholaraio/config.yaml`
+3. Creates the data directories under `~/.scholaraio/data/`
+
+In plugin mode, all data lives under `~/.scholaraio/`:
+
+```text
+~/.scholaraio/
+├── config.yaml           # Global config (copied from the plugin bundle)
+├── config.local.yaml     # API keys (created manually by the user or via the setup wizard)
+├── data/
+│   ├── papers/           # Ingested papers
+│   ├── inbox/            # PDFs waiting for ingest
+│   ├── inbox-thesis/     # Theses
+│   ├── inbox-patent/     # Patents
+│   ├── inbox-doc/        # Non-paper documents
+│   ├── pending/          # Items awaiting confirmation
+│   ├── explore/          # Literature exploration data
+│   ├── topic_model/      # Topic models
+│   ├── index.db          # SQLite index
+│   └── metrics.db        # Runtime metrics
+└── workspace/            # Workspaces
+```
+
+The exact invocation form of skills depends on the host agent or plugin system; this repository only guarantees that skill definitions live in `.claude/skills/` and are exposed through the `.agents/skills` and `skills/` symlinks for different discovery mechanisms.
 
 This is the recommended way to make ScholarAIO available outside this repository.
+
+### Plugin packaging
+
+The project is packaged as a Claude Code plugin plus marketplace entry:
+
+```text
+.claude-plugin/
+├── plugin.json          # Plugin identity (name/version/description/keywords)
+└── marketplace.json     # Marketplace catalog (used by /plugin marketplace add)
+skills/ -> .claude/skills/  # Skill discovery entry point for the plugin system
+hooks/hooks.json            # SessionStart hook (auto-installs dependencies + creates global config)
+scripts/check-deps.sh       # Dependency detection / installation script invoked by the hook
+```
+
+Users can install it through `/plugin marketplace add ZimoLiao/scholaraio`. Skill markets such as SkillsMP automatically index it by crawling GitHub for `filename:SKILL.md`.
 
 ## Codex / OpenClaw Skill Registration
 

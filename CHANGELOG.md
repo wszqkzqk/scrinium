@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Explore query behavior aligned**: explore keyword search uses the same FTS5 query sanitization as the main library (hand-written FTS5 syntax is no longer interpreted, consistent with the main library)
 - **CLI package split**: `scholaraio/cli.py` (3900 lines) split into the `scholaraio/cli/` package by domain (`common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`); coverage `omit` removed so the CLI layer is measured
 - **Skill governance**: unified frontmatter and routing across all 34 skills, intent-to-skill routing table in AGENTS.md/CLAUDE.md, discipline checklists for citation-check and audit, document skill slimmed with API references moved to `reference.md`, skill bodies unified to Chinese
+- **Instruction files slimmed**: AGENTS.md / CLAUDE.md / AGENTS_CN.md reduced from ~540 to ~180 lines, keeping only always-needed behavioral instructions and conventions; architecture, data layouts, module overview, configuration details, and plugin packaging moved to `docs/` (progressive disclosure, loaded on demand)
 
 ### Removed
 
