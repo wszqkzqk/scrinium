@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from scholaraio import cli, insights, metrics
+from scholaraio.cli import misc as cli_misc
 
 
 def test_extract_hot_keywords_filters_stopwords_and_punctuation():
@@ -120,7 +121,7 @@ def test_cmd_insights_smoke_with_metrics_store(tmp_path: Path, monkeypatch):
     store.record("read", "Paper-A", detail={"title": "Heat Transfer in Turbulent Flow"})
 
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+    monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))
     monkeypatch.setattr(
         "scholaraio.vectors.vsearch",
         lambda query, db_path, top_k, cfg: [

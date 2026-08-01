@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from scholaraio import cli
+from scholaraio.cli import common as cli_common
 from scholaraio.export import export_bibtex, meta_to_bibtex
 from scholaraio.index import build_index
 
@@ -147,7 +148,7 @@ class TestExportCliIdentifierResolution:
     def test_partial_failure_reports_each_unresolved_id(self, tmp_papers, tmp_db, monkeypatch, capsys):
         build_index(tmp_papers, tmp_db)
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+        monkeypatch.setattr(cli_common, "ui", lambda msg="": messages.append(msg))
 
         cli.cmd_export(self._args("bibtex", ["aaaa-1111", "bogus-ref"]), self._cfg(tmp_papers, tmp_db))
 

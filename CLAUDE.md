@@ -107,7 +107,7 @@ Scientific computing:
 
 Tool-oriented skills (wrapping CLI commands):
 1. Implement the Python function inside `scholaraio/`
-2. Expose it as a CLI subcommand in `cli.py`
+2. Expose it as a CLI subcommand in the matching domain module of `scholaraio/cli/`
 3. Test the CLI command with real data to confirm it works
 4. Create the skill file at `.claude/skills/<name>/SKILL.md`
 
@@ -180,6 +180,8 @@ Workflow:
 | `ingest/metadata/` | API completion (Crossref / S2 / OpenAlex) + abstract backfill + document metadata generation + JSON output + file renaming |
 | `ingest/pipeline.py` | Composable multi-inbox ingest pipeline (dedup + pending + papers/global postprocess + external-import batch conversion) |
 | `index.py` | Keyword full-text search + papers_registry + citation graph |
+| `search_common.py` | Shared FTS5 query sanitization + RRF fusion + FTS table DDL (used by both `index.py` and `explore.py`) |
+| `prompts.py` | Central LLM prompt registry + unified `parse_llm_json()` response parser |
 | `vectors.py` | Semantic vectors + incremental indexing + GPU-adaptive batching |
 | `topics.py` | BERTopic topic modeling + 6 HTML visualizations |
 | `loader.py` | L1-L4 layered loading + enrich_toc + enrich_l3 |
@@ -193,7 +195,7 @@ Workflow:
 | `citation_check.py` | Citation verification (extract author-year citations from text + cross-check against the local library) |
 | `audit.py` | Data-quality auditing + repair |
 | `sources/` | External source adapters (endnote / zotero / arxiv) |
-| `cli.py` | Main CLI entry point |
+| `cli/` | Main CLI entry point (package split by domain: `common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`) |
 | `setup.py` | Environment detection + setup wizard |
 | `metrics.py` | LLM token usage + API timing |
 | `insights.py` | Research behavior analytics (hot keywords, read trends, semantic neighbor recommendations, workspace activity) |
@@ -228,7 +230,7 @@ Main ingest flow:
   - `index.py` writes to `data/index.db` (SQLite FTS5)
   - `vectors.py` writes to `data/index.db` (`paper_vectors` table)
   - `topics.py` writes to `data/topic_model/` (BERTopic, reusing `paper_vectors`)
-- Finally, `cli.py` exposes everything to skills and coding agents
+- Finally, the `cli/` package exposes everything to skills and coding agents
 
 `explore.py` as an independent data flow:
 - Uses the OpenAlex API for multi-dimensional filtering (ISSN / concept / author / institution / keyword / source-type, and more)

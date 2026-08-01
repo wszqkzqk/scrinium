@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 from scholaraio import cli
+from scholaraio.cli import misc as cli_misc
+from scholaraio.cli import search as cli_search
 from scholaraio.config import _build_config
 from scholaraio.index import build_proceedings_index, search_proceedings
 from scholaraio.ingest import pipeline
@@ -620,7 +622,7 @@ def test_fsearch_proceedings_scope_returns_proceedings_results(tmp_path: Path, m
     )
 
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_search, "ui", lambda message="": messages.append(message))
 
     cli.cmd_fsearch(type("Args", (), {"query": ["granular"], "scope": "proceedings", "top": 10})(), cfg)
 
@@ -635,7 +637,7 @@ def test_fsearch_main_scope_excludes_proceedings_results(tmp_path: Path, monkeyp
     cfg.ensure_dirs()
 
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_search, "ui", lambda message="": messages.append(message))
 
     cli.cmd_fsearch(type("Args", (), {"query": ["granular"], "scope": "main", "top": 10})(), cfg)
 
@@ -675,7 +677,7 @@ def test_cli_proceedings_apply_split_applies_plan_and_reports_success(tmp_path: 
     parser = cli._build_parser()
     args = parser.parse_args(["proceedings", "apply-split", str(proceeding_dir), str(split_plan_path)])
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_misc, "ui", lambda message="": messages.append(message))
 
     args.func(args, cfg)
 
@@ -887,7 +889,7 @@ def test_cli_proceedings_clean_commands_build_and_apply(tmp_path: Path, monkeypa
 
     parser = cli._build_parser()
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_misc, "ui", lambda message="": messages.append(message))
 
     args = parser.parse_args(["proceedings", "build-clean-candidates", str(proceeding_dir)])
     args.func(args, cfg)

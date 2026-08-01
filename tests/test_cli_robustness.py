@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from scholaraio import cli, insights, metrics
+from scholaraio.cli import misc as cli_misc
 from scholaraio.index import build_index
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -231,7 +232,7 @@ def _run_cmd_insights(tmp_path: Path, monkeypatch, vsearch_impl) -> list[str]:
     store.record("read", "Paper-A", detail={"title": "T"})
 
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+    monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))
     monkeypatch.setattr("scholaraio.vectors.vsearch", vsearch_impl)
 
     cfg = SimpleNamespace(_root=tmp_path, papers_dir=papers_dir, index_db=tmp_path / "index.db")

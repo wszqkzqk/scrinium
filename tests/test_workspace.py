@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from scholaraio import cli
+from scholaraio.cli import ws as cli_ws
 from scholaraio.index import build_index
 from scholaraio.workspace import add, create, list_workspaces, read_paper_ids, remove, rename, validate_workspace_name
 
@@ -276,7 +277,7 @@ class TestCmdWsMissingWorkspace:
     def test_show_existing_empty_workspace_is_not_an_error(self, tmp_path, monkeypatch):
         create(tmp_path / "workspace" / "ws")
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+        monkeypatch.setattr(cli_ws, "ui", lambda msg="": messages.append(msg))
 
         cli.cmd_ws(_ws_args(ws_action="show"), _ws_cfg(tmp_path))
 
@@ -288,7 +289,7 @@ class TestCmdWsAddUnresolvedRefs:
 
     def _run_add(self, tmp_path, tmp_db, refs, monkeypatch) -> list[str]:
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+        monkeypatch.setattr(cli_ws, "ui", lambda msg="": messages.append(msg))
         cli.cmd_ws(_ws_args(paper_refs=refs), _ws_cfg(tmp_path, db=tmp_db))
         return messages
 
@@ -304,7 +305,7 @@ class TestCmdWsAddUnresolvedRefs:
     def test_all_unresolved_raises(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
         build_index(tmp_papers, tmp_db)
         create(tmp_path / "workspace" / "ws")
-        monkeypatch.setattr(cli, "ui", lambda msg="": None)
+        monkeypatch.setattr(cli_ws, "ui", lambda msg="": None)
 
         with pytest.raises(ValueError, match="无法解析"):
             cli.cmd_ws(_ws_args(paper_refs=["bogus-1", "bogus-2"]), _ws_cfg(tmp_path, db=tmp_db))

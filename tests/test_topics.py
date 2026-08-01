@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from scholaraio import cli
+from scholaraio.cli import misc as cli_misc
 from scholaraio.index import build_index
 from scholaraio.topics import get_outliers, get_topic_overview, get_topic_papers
 
@@ -96,7 +97,7 @@ def _overview_messages(tmp_papers, tmp_db, tmp_path, monkeypatch, model_paper_id
     monkeypatch.setattr("scholaraio.topics.load_model", lambda path: model)
 
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+    monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))
 
     cfg = SimpleNamespace(topics_model_dir=tmp_path / "topic_model", index_db=tmp_db)
     args = Namespace(

@@ -154,6 +154,7 @@ module = [
     "scholaraio.topics",
     "scholaraio.vectors",
     "scholaraio.cli",
+    "scholaraio.cli.*",
 
     "scholaraio.explore",
     "scholaraio.ingest.*",
@@ -171,7 +172,6 @@ markers = [
 # ---------- coverage ----------
 [tool.coverage.run]
 source = ["scholaraio"]
-omit = ["scholaraio/cli.py"]
 
 [tool.coverage.report]
 show_missing = true

@@ -7,11 +7,12 @@ from argparse import Namespace
 from types import SimpleNamespace
 
 from scholaraio import cli
+from scholaraio.cli import ingest as cli_ingest
 
 
 def _run_pending(tmp_path, monkeypatch) -> list[str]:
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+    monkeypatch.setattr(cli_ingest, "ui", lambda msg="": messages.append(msg))
     cfg = SimpleNamespace(_root=tmp_path)
     cli.cmd_pending(Namespace(), cfg)
     return messages

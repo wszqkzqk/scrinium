@@ -10,6 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **OpenAI-compatible embedding backend support**: Added `embed.provider` config with `local` / `openai-compat` / `none` options; cloud API supports configurable `api_base`, `api_key`, `api_timeout`, `batch_size`, and `max_retries`; `provider=none` disables embeddings gracefully and falls back to keyword-only search
+- **Central LLM prompt registry**: All 12 embedded LLM prompts now live in `scholaraio/prompts.py` as named, versioned templates with a unified `parse_llm_json()` response parser (fence stripping + bare-JSON extraction + LaTeX backslash repair); DOI hallucination guards now apply to all extractor modes; golden tests lock the parsing contract
+- **`scholaraio pending` command**: Lists items blocked in `data/pending/` and `data/duplicates/` grouped by issue (`no_doi` / `no_pub_num` / `duplicate`) with titles, `duplicate_of` targets, and actionable resolution hints; ingest summary points to it
+- **Structured output and CLI robustness**: `--json` on `search` / `usearch` / `show` / `ws show` / `top-cited`; `--version` flag; one-line errors instead of tracebacks for invalid arguments; clean exit when output is piped to `head`; `show` header prints the canonical directory name; `export` accepts dir name / UUID / DOI like `show` does; pre-notice before the first ~1.2GB embedding model download; `topics` reports model staleness against the current library size
+- **Shared search stack**: New `scholaraio/search_common.py` holds the single FTS5 query sanitizer, RRF fusion (k=60), and FTS table DDL used by both the main library and explore databases
+
+### Changed
+
+- **Workspace typo safety**: `ws add` / `ws show` on a nonexistent workspace now fail with rc!=0 and list existing workspaces instead of silently auto-creating; `ws add` reports every unresolvable reference
+- **Ingest pipeline hardening**: untyped `opts` dict replaced by a frozen `PipelineOptions` dataclass across the pipeline; library-level `sys.exit` in the pipeline now raises `PipelineError` handled at the CLI boundary; dedup meta.json read failures are counted and surfaced instead of silently skipped
+- **Insights diagnosis accuracy**: semantic-neighbor recommendations now distinguish "vector index not built" from "embedding model unavailable" instead of misattributing the cause
+- **Explore query behavior aligned**: explore keyword search uses the same FTS5 query sanitization as the main library (hand-written FTS5 syntax is no longer interpreted, consistent with the main library)
+- **CLI package split**: `scholaraio/cli.py` (3900 lines) split into the `scholaraio/cli/` package by domain (`common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`); coverage `omit` removed so the CLI layer is measured
+- **Skill governance**: unified frontmatter and routing across all 34 skills, intent-to-skill routing table in AGENTS.md/CLAUDE.md, discipline checklists for citation-check and audit, document skill slimmed with API references moved to `reference.md`, skill bodies unified to Chinese
+
+### Removed
+
+- **toolref legacy snapshot**: Deleted `toolref/_legacy_snapshot.py` (2430 lines) and the `_ToolrefModule` attribute-hijack shim; the toolref test suite is now behavior-contract based, and the package exports an explicit 7-name public API
 
 ## [1.3.0] — 2026-04-06
 
