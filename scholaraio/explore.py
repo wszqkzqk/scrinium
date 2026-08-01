@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 import requests
 
 from scholaraio.log import ui
+from scholaraio.search_common import fts_create_sql, rrf_merge, sanitize_fts_query
 
 _log = logging.getLogger(__name__)
 
@@ -722,16 +723,16 @@ def explore_vsearch(name: str, query: str, *, top_k: int = 10, cfg: Config | Non
 #  FTS5 keyword search for explore silos
 # ============================================================================
 
-_FTS_SCHEMA = """
-CREATE VIRTUAL TABLE IF NOT EXISTS papers_fts USING fts5(
-    paper_id   UNINDEXED,
-    title,
-    authors,
-    abstract,
-    year       UNINDEXED,
-    tokenize='unicode61'
-);
-"""
+_FTS_SCHEMA = fts_create_sql(
+    "papers_fts",
+    [
+        ("paper_id", False),
+        ("title", True),
+        ("authors", True),
+        ("abstract", True),
+        ("year", False),
+    ],
+)
 
 
 def _ensure_fts(db_path: Path) -> None:
@@ -792,7 +793,7 @@ def explore_search(name: str, query: str, *, top_k: int = 20, cfg: Config | None
 
     Args:
         name: 探索库名称。
-        query: 查询文本。
+        query: 查询文本（先经 ``sanitize_fts_query`` 净化，与主库策略一致）。
         top_k: 返回条数。
         cfg: 可选的全局配置。
 
@@ -817,19 +818,18 @@ def explore_search(name: str, query: str, *, top_k: int = 20, cfg: Config | None
 
     conn = sqlite3.connect(db)
     try:
-        rows = conn.execute(
-            "SELECT paper_id, rank FROM papers_fts WHERE papers_fts MATCH ? ORDER BY rank LIMIT ?",
-            (query, top_k),
-        ).fetchall()
-    except Exception:
-        # FTS query syntax error — try quoting
-        safe_query = '"' + query.replace('"', "") + '"'
+        # Sanitize with the same strategy as the main library; an empty
+        # sanitized query has no usable terms and must skip MATCH.
+        safe_query = sanitize_fts_query(query)
+        if not safe_query:
+            return []
         try:
             rows = conn.execute(
                 "SELECT paper_id, rank FROM papers_fts WHERE papers_fts MATCH ? ORDER BY rank LIMIT ?",
                 (safe_query, top_k),
             ).fetchall()
-        except Exception:
+        except sqlite3.OperationalError:
+            # Best-effort API: degrade to "no hits" instead of raising.
             rows = []
     finally:
         conn.close()
@@ -865,29 +865,13 @@ def explore_unified_search(name: str, query: str, *, top_k: int = 20, cfg: Confi
     except (FileNotFoundError, ImportError):
         pass
 
-    # RRF merge (k=60, same as main library)
-    rrf_k = 60
-    merged: dict[str, dict] = {}
-
-    for rank, r in enumerate(fts_results):
-        pid = r.get("doi") or r.get("openalex_id", "")
-        if not pid:
-            continue
-        merged[pid] = {**r, "score": 1.0 / (rrf_k + rank + 1), "match": "fts"}
-
-    for rank, r in enumerate(vec_results):
-        pid = r.get("doi") or r.get("openalex_id", "")
-        if not pid:
-            continue
-        rrf_score = 1.0 / (rrf_k + rank + 1)
-        if pid in merged:
-            merged[pid]["score"] += rrf_score
-            merged[pid]["match"] = "both"
-        else:
-            merged[pid] = {**r, "score": rrf_score, "match": "vec"}
-
-    results = sorted(merged.values(), key=lambda x: x["score"], reverse=True)
-    return results[:top_k]
+    # RRF merge (shared implementation; explore papers key on DOI/openalex_id)
+    return rrf_merge(
+        fts_results,
+        vec_results,
+        get_id=lambda r: r.get("doi") or r.get("openalex_id", ""),
+        top_k=top_k,
+    )
 
 
 def list_explore_libs(cfg: Config | None = None) -> list[str]:

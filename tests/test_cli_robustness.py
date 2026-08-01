@@ -58,6 +58,36 @@ class TestMainValueError:
         assert "Traceback" not in combined
 
 
+class TestMainPipelineError:
+    def test_pipeline_error_prints_message_without_traceback(self, tmp_path, monkeypatch, capsys):
+        from scholaraio import log
+        from scholaraio.ingest.pipeline import PipelineError
+
+        log.reset()
+        monkeypatch.setattr(cli, "load_config", lambda: _fake_main_cfg(tmp_path, tmp_path / "index.db"))
+        monkeypatch.setattr("scholaraio.metrics.init", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_session", lambda *_: None)
+        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_s2_session", lambda *_: None)
+
+        def fake_run_pipeline(*_args, **_kwargs):
+            raise PipelineError("MinerU 不可达且未配置 MinerU token")
+
+        monkeypatch.setattr("scholaraio.ingest.pipeline.run_pipeline", fake_run_pipeline)
+        monkeypatch.setattr(sys, "argv", ["scholaraio", "pipeline", "full", "--dry-run"])
+
+        with pytest.raises(SystemExit) as exc_info:
+            try:
+                cli.main()
+            finally:
+                log.reset()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "错误: MinerU 不可达且未配置 MinerU token" in combined
+        assert "Traceback" not in combined
+
+
 class TestVersionFlag:
     def test_version_flag_prints_version_and_exits_zero(self, capsys):
         from scholaraio import __version__

@@ -26,10 +26,9 @@ import json
 import logging
 import re
 import shutil
-import sys
 import time
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field, fields, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -40,6 +39,61 @@ from scholaraio.metrics import timer
 from scholaraio.prompts import DETECT_TYPE_PARAMS, parse_llm_json, render_detect_prompt
 
 _log = logging.getLogger(__name__)
+
+
+class PipelineError(RuntimeError):
+    """Fatal pipeline error raised by library code (replaces in-library ``sys.exit``).
+
+    The CLI boundary (``scholaraio.cli.main``) converts this into a one-line
+    ``错误: ...`` message plus exit code 1; library callers may catch it.
+    """
+
+
+@dataclass(frozen=True)
+class PipelineOptions:
+    """Typed pipeline run options (formerly the untyped ``opts: dict``).
+
+    Defaults match the legacy ``opts.get(key, default)`` behavior. Per-file
+    overrides (e.g. ``office_path``) are applied via ``dataclasses.replace``.
+    ``__getitem__`` / ``get`` are read-only shims for dict-style access during
+    migration; new code should use attribute access.
+    """
+
+    dry_run: bool = False
+    no_api: bool = False
+    force: bool = False
+    inspect: bool = False
+    max_retries: int = 2
+    rebuild: bool = False
+    inbox_dir: Path | None = None
+    papers_dir: Path | None = None
+    include_aux_inboxes: bool = True
+    translate_lang: str | None = None
+    office_path: Path | None = None
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> PipelineOptions:
+        """Build from a legacy ``opts`` dict; unknown keys raise ``TypeError``."""
+        unknown = set(data) - {f.name for f in fields(cls)}
+        if unknown:
+            raise TypeError(f"unknown pipeline option(s): {', '.join(sorted(unknown))}")
+        return cls(**dict(data))
+
+    def __getitem__(self, key: str) -> Any:
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key) from None
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+
+def _coerce_opts(opts: PipelineOptions | Mapping[str, Any]) -> PipelineOptions:
+    """Return ``opts`` as :class:`PipelineOptions`, converting legacy dicts."""
+    if isinstance(opts, PipelineOptions):
+        return opts
+    return PipelineOptions.from_mapping(opts)
 
 
 # ============================================================================
@@ -80,7 +134,8 @@ class InboxCtx:
         papers_dir: 已入库论文目录路径。
         existing_dois: 已入库论文的 DOI → JSON 路径映射（用于去重）。
         cfg: 全局配置。
-        opts: 运行选项（dry_run, no_api, force 等）。
+        opts: 运行选项（:class:`PipelineOptions`；传入旧 dict 会在
+            ``__post_init__`` 中自动转换）。
         pending_dir: 无 DOI 论文的待审目录。
         md_path: Markdown 文件路径（MinerU 输出或直接放入）。
         meta: 提取后的 :class:`~scholaraio.ingest.metadata.PaperMetadata`。
@@ -93,7 +148,7 @@ class InboxCtx:
     papers_dir: Path
     existing_dois: dict[str, Path]
     cfg: Config
-    opts: dict[str, Any]
+    opts: PipelineOptions
 
     pending_dir: Path | None = None
     md_path: Path | None = None
@@ -105,6 +160,9 @@ class InboxCtx:
     existing_pub_nums: dict[str, Path] | None = None  # patent publication number dedup
     existing_arxiv_ids: dict[str, Path] | None = None  # arXiv preprint dedup
 
+    def __post_init__(self) -> None:
+        self.opts = _coerce_opts(self.opts)
+
 
 # ============================================================================
 #  Inbox steps
@@ -114,7 +172,7 @@ class InboxCtx:
 def step_office_convert(ctx: InboxCtx) -> StepResult:
     """Office 文档（DOCX / XLSX / PPTX）→ Markdown 转换（MarkItDown）。
 
-    仅当 ``ctx.opts["office_path"]`` 存在时执行（由 ``_process_inbox`` 在扫描
+    仅当 ``ctx.opts.office_path`` 存在时执行（由 ``_process_inbox`` 在扫描
     Office 文件时注入；非 Office 文件入口时 ``office_path`` 不存在，步骤直接跳过）。
     已有同名 ``.md`` 时跳过转换并直接使用已有文件。
 
@@ -124,7 +182,7 @@ def step_office_convert(ctx: InboxCtx) -> StepResult:
     Returns:
         ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败。
     """
-    office_path: Path | None = ctx.opts.get("office_path")
+    office_path: Path | None = ctx.opts.office_path
     if office_path is None:
         # Not an office file entry — skip this step
         return StepResult.OK
@@ -136,7 +194,7 @@ def step_office_convert(ctx: InboxCtx) -> StepResult:
         ctx.md_path = md_path
         return StepResult.OK
 
-    if ctx.opts.get("dry_run"):
+    if ctx.opts.dry_run:
         _log.debug("would convert office: %s -> %s", office_path.name, md_path.name)
         ctx.md_path = md_path
         return StepResult.OK
@@ -196,7 +254,7 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
 
     # md-only entry (no PDF): skip MinerU entirely
     if ctx.pdf_path is None:
-        if ctx.md_path and (ctx.md_path.exists() or ctx.opts.get("dry_run")):
+        if ctx.md_path and (ctx.md_path.exists() or ctx.opts.dry_run):
             _log.debug("no PDF, using existing .md: %s", ctx.md_path.name)
             return StepResult.OK
         _log.error("no PDF and no .md")
@@ -211,7 +269,7 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
         ctx.md_path = md_path
         return StepResult.OK
 
-    if ctx.opts.get("dry_run"):
+    if ctx.opts.dry_run:
         _log.debug("would convert: %s -> %s", pdf_path.name, md_path.name)
         ctx.md_path = md_path
         return StepResult.OK
@@ -357,7 +415,7 @@ def step_extract_doc(ctx: InboxCtx) -> StepResult:
     Returns:
         ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败。
     """
-    if ctx.opts.get("dry_run"):
+    if ctx.opts.dry_run:
         _log.debug("would extract document metadata from: %s", ctx.md_path.name if ctx.md_path else "?")
         return StepResult.OK
 
@@ -400,7 +458,7 @@ def step_extract(ctx: InboxCtx) -> StepResult:
     """
     from scholaraio.ingest.extractor import get_extractor
 
-    if ctx.opts.get("dry_run"):
+    if ctx.opts.dry_run:
         _log.debug("would extract metadata from: %s", ctx.md_path.name if ctx.md_path else "?")
         return StepResult.OK
 
@@ -436,7 +494,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
     """
     from scholaraio.ingest.metadata import enrich_metadata
 
-    if ctx.opts.get("dry_run"):
+    if ctx.opts.dry_run:
         _log.debug("would check dedup and query APIs")
         return StepResult.OK
 
@@ -482,7 +540,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
         return StepResult.OK
 
     # API query
-    if not ctx.opts.get("no_api"):
+    if not ctx.opts.no_api:
         _log.debug("querying APIs")
         ctx.meta = enrich_metadata(ctx.meta)
         ui(f"DOI (after API): {ctx.meta.doi or 'none'}")
@@ -599,7 +657,7 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
     from scholaraio.ingest.metadata import generate_new_stem, write_metadata_json
     from scholaraio.papers import generate_uuid
 
-    if ctx.opts.get("dry_run"):
+    if ctx.opts.dry_run:
         _log.debug("would ingest paper to papers_dir")
         ctx.status = "ingested"
         return StepResult.OK
@@ -670,7 +728,7 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
 
     _cleanup_inbox(ctx.pdf_path, None, dry_run=False)
     # Clean up original Office source file (DOCX/XLSX/PPTX) if present
-    office_src: Path | None = ctx.opts.get("office_path")
+    office_src: Path | None = ctx.opts.office_path
     if office_src and office_src.exists():
         try:
             office_src.unlink()
@@ -687,25 +745,26 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
 # ============================================================================
 
 
-def step_toc(json_path: Path, cfg: Config, opts: dict) -> StepResult:
+def step_toc(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
     """LLM 提取 TOC 写入 JSON（papers 作用域封装）。
 
     Args:
         json_path: 论文 JSON 路径（meta.json）。
         cfg: 全局配置。
-        opts: 运行选项。
+        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
 
     Returns:
         ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败, ``StepResult.SKIP`` 跳过。
     """
     from scholaraio.loader import enrich_toc
 
+    opts = _coerce_opts(opts)
     md_path = json_path.parent / "paper.md"
     if not md_path.exists():
         _log.debug("skipping (no paper.md): %s", json_path.parent.name)
         return StepResult.SKIP
 
-    if opts.get("dry_run"):
+    if opts.dry_run:
         _log.debug("would run toc: %s", json_path.stem)
         return StepResult.OK
 
@@ -713,31 +772,32 @@ def step_toc(json_path: Path, cfg: Config, opts: dict) -> StepResult:
         json_path,
         md_path,
         cfg,
-        force=opts.get("force", False),
-        inspect=opts.get("inspect", False),
+        force=opts.force,
+        inspect=opts.inspect,
     )
     return StepResult.OK if ok else StepResult.FAIL
 
 
-def step_l3(json_path: Path, cfg: Config, opts: dict) -> StepResult:
+def step_l3(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
     """LLM 提取结论段写入 JSON（papers 作用域封装）。
 
     Args:
         json_path: 论文 JSON 路径（meta.json）。
         cfg: 全局配置。
-        opts: 运行选项。
+        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
 
     Returns:
         ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败, ``StepResult.SKIP`` 跳过。
     """
     from scholaraio.loader import enrich_l3
 
+    opts = _coerce_opts(opts)
     md_path = json_path.parent / "paper.md"
     if not md_path.exists():
         _log.debug("skipping (no paper.md): %s", json_path.parent.name)
         return StepResult.SKIP
 
-    if opts.get("dry_run"):
+    if opts.dry_run:
         _log.debug("would run l3: %s", json_path.stem)
         return StepResult.OK
 
@@ -745,9 +805,9 @@ def step_l3(json_path: Path, cfg: Config, opts: dict) -> StepResult:
         json_path,
         md_path,
         cfg,
-        force=opts.get("force", False),
-        max_retries=opts.get("max_retries", 2),
-        inspect=opts.get("inspect", False),
+        force=opts.force,
+        max_retries=opts.max_retries,
+        inspect=opts.inspect,
     )
     return StepResult.OK if ok else StepResult.FAIL
 
@@ -757,30 +817,31 @@ def step_l3(json_path: Path, cfg: Config, opts: dict) -> StepResult:
 # ============================================================================
 
 
-def step_translate(json_path: Path, cfg: Config, opts: dict) -> StepResult:
+def step_translate(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
     """翻译论文 Markdown 到目标语言（papers 作用域）。
 
     Args:
         json_path: 论文 JSON 路径（meta.json）。
         cfg: 全局配置。
-        opts: 运行选项。
+        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
 
     Returns:
         ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败, ``StepResult.SKIP`` 跳过。
     """
     from scholaraio.translate import SKIP_ALL_CHUNKS_FAILED, translate_paper
 
+    opts = _coerce_opts(opts)
     paper_d = json_path.parent
     md_path = paper_d / "paper.md"
     if not md_path.exists():
         _log.debug("skipping translate (no paper.md): %s", paper_d.name)
         return StepResult.SKIP
 
-    if opts.get("dry_run"):
+    if opts.dry_run:
         _log.debug("would translate: %s", paper_d.name)
         return StepResult.OK
 
-    target_lang = opts.get("translate_lang") or cfg.translate.target_lang
+    target_lang = opts.translate_lang or cfg.translate.target_lang
     try:
         from scholaraio.translate import validate_lang
 
@@ -788,8 +849,7 @@ def step_translate(json_path: Path, cfg: Config, opts: dict) -> StepResult:
     except ValueError as exc:
         ui(f"  跳过翻译（语言无效: {exc}）")
         return StepResult.SKIP
-    force = opts.get("force", False)
-    tr = translate_paper(paper_d, cfg, target_lang=target_lang, force=force)
+    tr = translate_paper(paper_d, cfg, target_lang=target_lang, force=opts.force)
     if tr.partial:
         ui(f"  翻译中断: 已完成 {tr.completed_chunks}/{tr.total_chunks} 块，可稍后继续续翻")
         return StepResult.FAIL
@@ -802,13 +862,13 @@ def step_translate(json_path: Path, cfg: Config, opts: dict) -> StepResult:
     return StepResult.OK
 
 
-def step_embed(papers_dir: Path, cfg: Config, opts: dict) -> StepResult:
+def step_embed(papers_dir: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
     """生成语义向量写入 index.db（global 作用域）。
 
     Args:
         papers_dir: 论文目录。
         cfg: 全局配置。
-        opts: 运行选项。
+        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
 
     Returns:
         ``StepResult.OK``；缺少 embed 依赖时跳过并返回 ``StepResult.SKIP``。
@@ -819,10 +879,11 @@ def step_embed(papers_dir: Path, cfg: Config, opts: dict) -> StepResult:
         ui("跳过 embed 步骤：缺少依赖，安装: pip install scholaraio[embed]")
         return StepResult.SKIP
 
+    opts = _coerce_opts(opts)
     db_path = cfg.index_db
-    rebuild = opts.get("rebuild", False)
+    rebuild = opts.rebuild
 
-    if opts.get("dry_run"):
+    if opts.dry_run:
         _log.debug("would %s vectors: %s -> %s", "rebuild" if rebuild else "update", papers_dir, db_path)
         return StepResult.OK
 
@@ -831,23 +892,24 @@ def step_embed(papers_dir: Path, cfg: Config, opts: dict) -> StepResult:
     return StepResult.OK
 
 
-def step_index(papers_dir: Path, cfg: Config, opts: dict) -> StepResult:
+def step_index(papers_dir: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
     """更新 SQLite FTS5 索引（global 作用域）。
 
     Args:
         papers_dir: 论文目录。
         cfg: 全局配置。
-        opts: 运行选项。
+        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
 
     Returns:
         ``StepResult.OK``。
     """
     from scholaraio.index import build_index
 
+    opts = _coerce_opts(opts)
     db_path = cfg.index_db
-    rebuild = opts.get("rebuild", False)
+    rebuild = opts.rebuild
 
-    if opts.get("dry_run"):
+    if opts.dry_run:
         _log.debug("would %s index: %s -> %s", "rebuild" if rebuild else "update", papers_dir, db_path)
         return StepResult.OK
 
@@ -857,19 +919,20 @@ def step_index(papers_dir: Path, cfg: Config, opts: dict) -> StepResult:
     return StepResult.OK
 
 
-def step_refetch(json_path: Path, cfg: Config, opts: dict) -> StepResult:
+def step_refetch(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
     """重新查询 API 补全引用量等缺失字段（papers 作用域封装）。
 
     Args:
         json_path: 论文 JSON 路径。
         cfg: 全局配置。
-        opts: 运行选项。
+        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
 
     Returns:
         ``StepResult.OK`` 有更新, ``StepResult.SKIP`` 跳过。
     """
     import json as _json
 
+    opts = _coerce_opts(opts)
     data = _json.loads(json_path.read_text(encoding="utf-8"))
     doi = data.get("doi", "")
     cc = data.get("citation_count") or {}
@@ -879,14 +942,14 @@ def step_refetch(json_path: Path, cfg: Config, opts: dict) -> StepResult:
         _log.debug("skipping (no DOI): %s", json_path.stem)
         return StepResult.SKIP
 
-    if has_citations and not opts.get("force", False):
+    if has_citations and not opts.force:
         return StepResult.SKIP
 
-    if opts.get("dry_run"):
+    if opts.dry_run:
         _log.debug("would refetch: %s (doi=%s)", json_path.stem, doi)
         return StepResult.OK
 
-    if opts.get("no_api"):
+    if opts.no_api:
         _log.debug("skipping (--no-api): %s", json_path.stem)
         return StepResult.SKIP
 
@@ -950,7 +1013,7 @@ def _process_inbox(
     existing_dois: dict[str, Path],
     inbox_steps: list[str],
     cfg: Config,
-    opts: dict[str, Any],
+    opts: PipelineOptions | dict[str, Any],
     dry_run: bool,
     ingested_jsons: list[Path],
     *,
@@ -969,14 +1032,18 @@ def _process_inbox(
         existing_dois: 已入库 DOI 映射（会被原地更新）。
         inbox_steps: inbox 作用域步骤名列表。
         cfg: 全局配置。
-        opts: 运行选项。
+        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
         dry_run: 是否预览模式。
         ingested_jsons: 新入库的 JSON 路径列表（会被原地追加）。
         is_thesis: 是否为 thesis inbox（跳过 DOI 去重，标记 paper_type）。
         is_patent: 是否为 patent inbox（跳过 DOI 去重，用公开号去重）。
         existing_pub_nums: 已入库专利公开号映射（用于去重）。
         existing_arxiv_ids: 已入库 arXiv ID 映射（用于预印本去重）。
+
+    Raises:
+        PipelineError: 需要 MinerU 但本地与云端均不可用时。
     """
+    opts = _coerce_opts(opts)
     if not inbox_dir.exists():
         return
 
@@ -1018,8 +1085,10 @@ def _process_inbox(
                 _log.debug("local MinerU unreachable, will use MinerU cloud CLI")
                 use_cloud_batch = True
             else:
-                _log.error("MinerU unreachable (local: %s, no MinerU token)", cfg.ingest.mineru_endpoint)
-                sys.exit(1)
+                raise PipelineError(
+                    f"MinerU 不可达（本地: {cfg.ingest.mineru_endpoint}，且未配置 MinerU token），"
+                    "无法解析 inbox 中的 PDF；请先启动本地 MinerU 服务或配置 MINERU_TOKEN"
+                )
 
     extra_info = []
     if md_only_count:
@@ -1123,7 +1192,7 @@ def _process_inbox(
     per_file_steps = inbox_steps
     batch_skip_mineru = use_cloud_batch and "mineru" in per_file_steps
 
-    has_api = "dedup" in per_file_steps and not dry_run and not opts.get("no_api") and not is_thesis
+    has_api = "dedup" in per_file_steps and not dry_run and not opts.no_api and not is_thesis
     api_delay = 2.0 if has_api else 0
 
     stats: dict[str, int] = {"ingested": 0, "duplicate": 0, "needs_review": 0, "failed": 0, "skipped": 0}
@@ -1155,9 +1224,9 @@ def _process_inbox(
                 file_steps = [s for s in per_file_steps if s != "mineru"]
 
         # Inject office_path for office-only entries (no PDF) so downstream steps can clean up the source file
-        file_opts = dict(opts)
+        file_opts = opts
         if office_path and not paths["pdf"]:
-            file_opts["office_path"] = office_path
+            file_opts = replace(opts, office_path=office_path)
 
         ctx = InboxCtx(
             pdf_path=paths["pdf"],
@@ -1226,7 +1295,7 @@ def _process_inbox(
 def run_pipeline(
     step_names: list[str],
     cfg: Config,
-    opts: dict[str, Any],
+    opts: PipelineOptions | dict[str, Any],
 ) -> None:
     """执行指定步骤序列。
 
@@ -1242,17 +1311,14 @@ def run_pipeline(
         step_names: 步骤名称列表，如 ``["extract", "dedup", "ingest"]``。
             可用步骤见 :data:`STEPS`。
         cfg: 全局配置。
-        opts: 运行选项字典，支持的键:
+        opts: 运行选项（:class:`PipelineOptions`；旧 dict 自动转换）。
+            字段说明见 :class:`PipelineOptions`，``inbox_dir`` / ``papers_dir``
+            为 ``None`` 时分别回退到 ``cfg._root / "data/inbox"`` 和 ``cfg.papers_dir``。
 
-            - ``dry_run`` (bool): 预览模式，不写文件。
-            - ``no_api`` (bool): 跳过外部 API 查询。
-            - ``force`` (bool): 强制重新处理（toc/l3）。
-            - ``inspect`` (bool): 展示处理详情。
-            - ``max_retries`` (int): l3 最大重试次数。
-            - ``rebuild`` (bool): 重建索引（index/embed）。
-            - ``inbox_dir`` (Path): 自定义 inbox 目录。
-            - ``papers_dir`` (Path): 自定义 papers 目录。
+    Raises:
+        PipelineError: 步骤名未知，或 inbox 中的 PDF 需要 MinerU 但本地与云端均不可用。
     """
+    opts = _coerce_opts(opts)
     # Auto-inject translate step when config.translate.auto_translate is enabled.
     # Only inject when the pipeline includes inbox steps (i.e. new papers are being ingested),
     # to avoid triggering LLM translation on unrelated runs like reindex/embed.
@@ -1268,24 +1334,28 @@ def run_pipeline(
     # Validate steps
     for name in step_names:
         if name not in STEPS:
-            _log.error("unknown step '%s'. available: %s", name, ", ".join(STEPS))
-            sys.exit(1)
+            raise PipelineError(f"未知步骤 '{name}'，可用步骤: {', '.join(STEPS)}")
 
-    inbox_dir: Path = opts.get("inbox_dir", cfg._root / "data/inbox")
-    papers_dir: Path = opts.get("papers_dir", cfg.papers_dir)
+    inbox_dir: Path = opts.inbox_dir or cfg._root / "data/inbox"
+    papers_dir: Path = opts.papers_dir or cfg.papers_dir
     pending_dir: Path = cfg._root / "data" / "pending"
-    include_aux_inboxes: bool = opts.get("include_aux_inboxes", True)
+    include_aux_inboxes: bool = opts.include_aux_inboxes
 
     inbox_steps = [n for n in step_names if STEPS[n].scope == "inbox"]
     papers_steps = [n for n in step_names if STEPS[n].scope == "papers"]
     global_steps = [n for n in step_names if STEPS[n].scope == "global"]
 
-    dry_run = opts.get("dry_run", False)
+    dry_run = opts.dry_run
     ingested_jsons: list[Path] = []  # track newly ingested papers
 
     # ---- Inbox scope ----
     if inbox_steps:
-        existing_dois, existing_pub_nums, existing_arxiv_ids = _collect_existing_ids(papers_dir)
+        collected = _collect_existing_ids(papers_dir)
+        existing_dois, existing_pub_nums, existing_arxiv_ids = collected
+        # Test doubles may still return a plain 3-tuple; tolerate that here.
+        failed_reads: list[Path] = getattr(collected, "failed", [])
+        if failed_reads:
+            ui(f"警告: {len(failed_reads)} 篇已入库论文的 meta.json 读取失败，去重可能不完整")
 
         # Process regular inbox
         _result = _process_inbox(
@@ -1513,7 +1583,7 @@ def import_external(
     pending_dir = cfg._root / "data" / "pending"
     existing_dois, existing_pub_nums, existing_arxiv_ids = _collect_existing_ids(papers_dir)
 
-    opts: dict[str, Any] = {"dry_run": dry_run, "no_api": no_api}
+    opts = PipelineOptions(dry_run=dry_run, no_api=no_api)
     stats: dict[str, int] = {"ingested": 0, "duplicate": 0, "needs_review": 0, "failed": 0, "skipped": 0}
     ingested_jsons: list[Path] = []
 
@@ -1577,8 +1647,8 @@ def import_external(
 
     # Batch embed + index
     if not dry_run and ingested_jsons:
-        step_embed(papers_dir, cfg, {"dry_run": False, "rebuild": False})
-        step_index(papers_dir, cfg, {"dry_run": False, "rebuild": False})
+        step_embed(papers_dir, cfg, PipelineOptions())
+        step_index(papers_dir, cfg, PipelineOptions())
 
     return stats
 
@@ -1959,7 +2029,7 @@ def _batch_postprocess(
     if enrich:
         enriched = 0
         failed = 0
-        opts: dict[str, Any] = {"dry_run": False, "force": False, "max_retries": 2}
+        opts = PipelineOptions()
         for pdir in converted_dirs:
             json_path = pdir / "meta.json"
             if not json_path.exists():
@@ -1974,42 +2044,67 @@ def _batch_postprocess(
         ui(f"Enrich 完成: {enriched} ok | {failed} failed")
 
     # Re-embed + re-index once
-    step_embed(cfg.papers_dir, cfg, {"dry_run": False, "rebuild": False})
-    step_index(cfg.papers_dir, cfg, {"dry_run": False, "rebuild": False})
+    step_embed(cfg.papers_dir, cfg, PipelineOptions())
+    step_index(cfg.papers_dir, cfg, PipelineOptions())
 
 
-def _collect_existing_ids(papers_dir: Path) -> tuple[dict[str, Path], dict[str, Path], dict[str, Path]]:
+@dataclass
+class DedupIndex:
+    """Existing-library identifier maps used for dedup, plus unreadable meta files.
+
+    ``failed`` lists ``meta.json`` paths that could not be parsed; when non-empty,
+    dedup coverage is incomplete (those papers are invisible to duplicate checks).
+
+    Iterating/unpacking yields exactly ``(dois, pub_nums, arxiv_ids)`` so legacy
+    three-way unpacking keeps working.
+    """
+
+    dois: dict[str, Path]
+    pub_nums: dict[str, Path]
+    arxiv_ids: dict[str, Path]
+    failed: list[Path] = field(default_factory=list)
+
+    def __iter__(self):
+        yield self.dois
+        yield self.pub_nums
+        yield self.arxiv_ids
+
+
+def _collect_existing_ids(papers_dir: Path) -> DedupIndex:
     """Collect existing DOIs, patent publication numbers, and arXiv IDs for dedup.
 
+    Papers whose ``meta.json`` cannot be read are logged at warning level and
+    recorded in :attr:`DedupIndex.failed` instead of being silently skipped.
+
     Returns:
-        (dois, pub_nums, arxiv_ids) — DOI map lowercase key → json_path,
+        :class:`DedupIndex` — DOI map lowercase key → json_path,
         pub_nums map uppercase key → json_path,
-        arxiv_ids map normalized key → json_path.
+        arxiv_ids map normalized key → json_path,
+        plus the list of unreadable meta.json paths.
     """
     from scholaraio.papers import iter_paper_dirs
 
-    dois: dict[str, Path] = {}
-    pub_nums: dict[str, Path] = {}
-    arxiv_ids: dict[str, Path] = {}
+    collected = DedupIndex(dois={}, pub_nums={}, arxiv_ids={})
     if not papers_dir.exists():
-        return dois, pub_nums, arxiv_ids
+        return collected
     for pdir in iter_paper_dirs(papers_dir):
         json_path = pdir / "meta.json"
         try:
             data = json.loads(json_path.read_text(encoding="utf-8"))
             doi = data.get("doi") or (data.get("ids") or {}).get("doi")
             if doi and doi.strip():
-                dois[doi.lower().strip()] = json_path
+                collected.dois[doi.lower().strip()] = json_path
             pub_num = (data.get("ids") or {}).get("patent_publication_number", "")
             if pub_num and pub_num.strip():
-                pub_nums[pub_num.upper().strip()] = json_path
+                collected.pub_nums[pub_num.upper().strip()] = json_path
             arxiv_id = data.get("arxiv_id") or (data.get("ids") or {}).get("arxiv", "")
             arxiv_key = _normalize_arxiv_id(arxiv_id)
             if arxiv_key:
-                arxiv_ids[arxiv_key] = json_path
+                collected.arxiv_ids[arxiv_key] = json_path
         except Exception as e:
-            _log.debug("failed to read %s: %s", json_path.name, e)
-    return dois, pub_nums, arxiv_ids
+            _log.warning("failed to read %s, dedup may miss this paper: %s", json_path, e)
+            collected.failed.append(json_path)
+    return collected
 
 
 def _collect_existing_dois(papers_dir: Path) -> dict[str, Path]:
@@ -2189,7 +2284,7 @@ def _ingest_proceedings_ctx(ctx: InboxCtx, *, force: bool) -> bool:
     if not ctx.md_path or not ctx.md_path.exists():
         return False
 
-    dry_run = bool(ctx.opts.get("dry_run", False))
+    dry_run = ctx.opts.dry_run
     proceedings_root = ctx.cfg._root / "data" / "proceedings"
     source_name = ctx.pdf_path.name if ctx.pdf_path else ctx.md_path.name
     if dry_run:

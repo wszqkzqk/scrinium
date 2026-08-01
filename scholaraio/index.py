@@ -16,53 +16,53 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scholaraio.papers import best_citation, parse_year_range
+from scholaraio.search_common import fts_create_sql, rrf_merge, sanitize_fts_query
 
 if TYPE_CHECKING:
     from scholaraio.config import Config
 
-_SCHEMA = """
-CREATE VIRTUAL TABLE IF NOT EXISTS papers USING fts5(
-    paper_id       UNINDEXED,
-    title,
-    authors,
-    year,
-    journal,
-    abstract,
-    conclusion,
-    doi            UNINDEXED,
-    paper_type     UNINDEXED,
-    citation_count UNINDEXED,
-    md_path        UNINDEXED,
-    tokenize       = 'unicode61'
-);
-"""
+_SCHEMA = fts_create_sql(
+    "papers",
+    [
+        ("paper_id", False),
+        ("title", True),
+        ("authors", True),
+        ("year", True),
+        ("journal", True),
+        ("abstract", True),
+        ("conclusion", True),
+        ("doi", False),
+        ("paper_type", False),
+        ("citation_count", False),
+        ("md_path", False),
+    ],
+)
 
-_PROCEEDINGS_SCHEMA = """
-CREATE VIRTUAL TABLE IF NOT EXISTS proceedings_fts USING fts5(
-    paper_id          UNINDEXED,
-    title,
-    authors,
-    year,
-    journal,
-    abstract,
-    conclusion,
-    doi               UNINDEXED,
-    paper_type        UNINDEXED,
-    citation_count    UNINDEXED,
-    md_path           UNINDEXED,
-    dir_name          UNINDEXED,
-    proceeding_id     UNINDEXED,
-    proceeding_dir    UNINDEXED,
-    proceeding_title  UNINDEXED,
-    tokenize          = 'unicode61'
-);
-"""
+_PROCEEDINGS_SCHEMA = fts_create_sql(
+    "proceedings_fts",
+    [
+        ("paper_id", False),
+        ("title", True),
+        ("authors", True),
+        ("year", True),
+        ("journal", True),
+        ("abstract", True),
+        ("conclusion", True),
+        ("doi", False),
+        ("paper_type", False),
+        ("citation_count", False),
+        ("md_path", False),
+        ("dir_name", False),
+        ("proceeding_id", False),
+        ("proceeding_dir", False),
+        ("proceeding_title", False),
+    ],
+)
 
 
 _HASH_SCHEMA = """
@@ -745,9 +745,7 @@ def _build_filter_clause(
     return sql, params
 
 
-def _safe_query(query: str) -> str:
-    """去除 FTS5 特殊字符，避免语法错误。"""
-    return re.sub(r"[^\w\s]", " ", query).strip()
+_safe_query = sanitize_fts_query  # backward compat alias
 
 
 def _enrich_dir_names(results: list[dict], conn: sqlite3.Connection) -> list[dict]:
@@ -898,35 +896,8 @@ def unified_search(
         # environments; unified search must still return FTS results.
         pass
 
-    # -- Merge via Reciprocal Rank Fusion (RRF) --
-    # RRF score = sum of 1/(k + rank) across retrieval legs.
-    # k=60 is the standard constant from Cormack et al. (2009).
-    rrf_k = 60
-    merged: dict[str, dict] = {}  # paper_id → result dict
-
-    for rank, r in enumerate(fts_results):
-        pid = r["paper_id"]
-        merged[pid] = {
-            **r,
-            "score": 1.0 / (rrf_k + rank + 1),
-            "match": "fts",
-        }
-
-    for rank, r in enumerate(vec_results):
-        pid = r["paper_id"]
-        rrf_score = 1.0 / (rrf_k + rank + 1)
-        if pid in merged:
-            merged[pid]["score"] += rrf_score
-            merged[pid]["match"] = "both"
-        else:
-            merged[pid] = {
-                **r,
-                "score": rrf_score,
-                "match": "vec",
-            }
-
-    results = sorted(merged.values(), key=lambda x: x["score"], reverse=True)
-    return results[:top_k]
+    # -- Merge via Reciprocal Rank Fusion (shared implementation) --
+    return rrf_merge(fts_results, vec_results, top_k=top_k)
 
 
 # ============================================================================

@@ -750,7 +750,7 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
 
 
 def cmd_pipeline(args: argparse.Namespace, cfg) -> None:
-    from scholaraio.ingest.pipeline import PRESETS, STEPS, run_pipeline
+    from scholaraio.ingest.pipeline import PRESETS, STEPS, PipelineOptions, run_pipeline
 
     if args.list_steps:
         ui("可用步骤：")
@@ -773,18 +773,16 @@ def cmd_pipeline(args: argparse.Namespace, cfg) -> None:
         _log.error("请指定一个预设名称或使用 --steps")
         sys.exit(1)
 
-    opts = {
-        "dry_run": args.dry_run,
-        "no_api": args.no_api,
-        "force": args.force,
-        "inspect": args.inspect,
-        "max_retries": args.max_retries,
-        "rebuild": args.rebuild,
-    }
-    if args.inbox:
-        opts["inbox_dir"] = Path(args.inbox).resolve()
-    if args.papers:
-        opts["papers_dir"] = Path(args.papers).resolve()
+    opts = PipelineOptions(
+        dry_run=args.dry_run,
+        no_api=args.no_api,
+        force=args.force,
+        inspect=args.inspect,
+        max_retries=args.max_retries,
+        rebuild=args.rebuild,
+        inbox_dir=Path(args.inbox).resolve() if args.inbox else None,
+        papers_dir=Path(args.papers).resolve() if args.papers else None,
+    )
 
     run_pipeline(step_names, cfg, opts)
 
@@ -2487,7 +2485,7 @@ def cmd_arxiv_search(args: argparse.Namespace, cfg) -> None:
 
 
 def cmd_arxiv_fetch(args: argparse.Namespace, cfg) -> None:
-    from scholaraio.ingest.pipeline import PRESETS, run_pipeline
+    from scholaraio.ingest.pipeline import PRESETS, PipelineOptions, run_pipeline
     from scholaraio.sources.arxiv import download_arxiv_pdf, normalize_arxiv_ref
 
     canonical_id = normalize_arxiv_ref(args.arxiv_ref)
@@ -2512,7 +2510,7 @@ def cmd_arxiv_fetch(args: argparse.Namespace, cfg) -> None:
                 run_pipeline(
                     PRESETS["ingest"],
                     cfg,
-                    {"inbox_dir": tmp_inbox, "force": args.force, "include_aux_inboxes": False},
+                    PipelineOptions(inbox_dir=tmp_inbox, force=args.force, include_aux_inboxes=False),
                 )
         except Exception as e:
             ui(f"arXiv 下载或入库失败: {e}")
@@ -3111,10 +3109,10 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
             ui(f"abstract 已补全 ({len(abstract)} chars)")
 
     # Incremental re-embed + re-index
-    from scholaraio.ingest.pipeline import step_embed, step_index
+    from scholaraio.ingest.pipeline import PipelineOptions, step_embed, step_index
 
-    step_embed(cfg.papers_dir, cfg, {"dry_run": False, "rebuild": False})
-    step_index(cfg.papers_dir, cfg, {"dry_run": False, "rebuild": False})
+    step_embed(cfg.papers_dir, cfg, PipelineOptions())
+    step_index(cfg.papers_dir, cfg, PipelineOptions())
 
 
 # ============================================================================
@@ -3889,6 +3887,7 @@ def main() -> None:
         from scholaraio import log as _log
         from scholaraio import metrics as _metrics
         from scholaraio.ingest.metadata._models import configure_s2_session, configure_session
+        from scholaraio.ingest.pipeline import PipelineError
 
         session_id = _log.setup(cfg)
         if getattr(args, "json", False):
@@ -3906,9 +3905,10 @@ def main() -> None:
 
         try:
             args.func(args, cfg)
-        except ValueError as exc:
-            # CLI boundary: argument-level ValueError (e.g. bad --year) gets a
-            # one-line message instead of a traceback; the message is still shown.
+        except (ValueError, PipelineError) as exc:
+            # CLI boundary: argument-level ValueError (e.g. bad --year) and fatal
+            # pipeline errors (e.g. MinerU unreachable) get a one-line message
+            # instead of a traceback; the message is still shown.
             ui(f"错误: {exc}")
             sys.exit(1)
         # Surface a buffered broken pipe here instead of at interpreter shutdown.
