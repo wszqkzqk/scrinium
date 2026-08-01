@@ -64,3 +64,13 @@ scholaraio pipeline reindex
 
 用户说："修复那些错配的论文"
 → 执行阶段三
+
+## 完成前检查
+
+- **笔记写了吗**：LLM 逐篇诊断确认的真实内容错配（非无害 H1 问题），已通过 CLI 写入对应论文的笔记：
+  ```bash
+  scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <任务来源> | audit
+  - 关键发现"
+  ```
+- **修复闭环了吗**：确认的错配都已 `repair` 并执行 `pipeline reindex`，重跑 `audit` 不再复现相同问题
+- **输出在 workspace 吗**：批量诊断结果和修复清单已保存到 `workspace/` 下

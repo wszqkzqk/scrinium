@@ -104,3 +104,20 @@ stats = batch_convert_pdfs(cfg, enrich=True)
 ```
 
 自动扫描 `data/papers/` 中有 PDF 无 paper.md 的论文，云端模式使用批量 API 转换，完成后运行 abstract backfill + toc + l3 + embed + index。
+
+## 示例
+
+用户说："我把 Endnote 库导出来了，帮我导入"
+→ 执行 `import-endnote <file.xml>`
+
+用户说："从 Zotero 导入我的文献库"
+→ 执行 `import-zotero --local /path/to/zotero.sqlite`（本地模式；有 API 凭据时用 Web API 模式）
+
+用户说："先看看会导入什么，别真动"
+→ 执行 `import-endnote <file.xml> --dry-run`
+
+用户说："只导元数据，PDF 先不转"
+→ 执行 `import-endnote <file.xml> --no-convert`
+
+用户说："这篇论文刚拿到 PDF，帮我补上"
+→ 执行 `attach-pdf <paper-id> <path/to/paper.pdf>`

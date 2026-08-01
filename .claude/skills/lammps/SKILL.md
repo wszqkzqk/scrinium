@@ -1,6 +1,10 @@
 ---
 name: lammps
 description: Use when working on classical materials simulations with LAMMPS, especially interatomic-potential selection, shock or deformation setups, thermodynamic runs, and structure analysis for solids or nanomaterials.
+version: 1.0.0
+author: ZimoLiao/scholaraio
+license: MIT
+tags: ["scientific-computing", "lammps", "molecular-dynamics", "materials"]
 ---
 
 # LAMMPS 材料科学模拟
@@ -11,6 +15,11 @@ description: Use when working on classical materials simulations with LAMMPS, es
 - 它负责告诉 agent 什么时候该用 LAMMPS、该遵守什么科学规范、完整工作流长什么样
 - 它**不**承担完整接口手册的职责
 - 具体命令、参数、语法、package 限制，统一去查 `scholaraio toolref`
+
+本 skill 应与 `scientific-runtime` 一起理解：
+- `lammps` skill 负责经典 MD 路由、工作流和科学规范
+- `scientific-runtime` 负责运行时的 `toolref-first` 行为和覆盖缺口退化策略
+- `toolref` 负责命令、参数页和 package 限制说明
 
 ## Agent 默认协议（toolref-first）
 

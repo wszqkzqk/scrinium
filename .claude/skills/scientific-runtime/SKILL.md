@@ -1,16 +1,20 @@
 ---
 name: scientific-runtime
-description: Use when serving scientific CLI tasks through ScholarAIO, especially when the agent should prefer scholaraio toolref, handle partial coverage safely, and avoid turning user work into documentation maintenance.
+description: Underlying working protocol for scientific computing tasks in ScholarAIO, meant to be consulted alongside a tool-specific skill (quantum-espresso, lammps, gromacs, openfoam, bioinformatics). Defines toolref-first behavior, graceful fallback under partial coverage, and keeping documentation maintenance away from users.
+version: 1.0.0
+author: ZimoLiao/scholaraio
+license: MIT
+tags: ["scientific-computing", "toolref", "runtime-protocol"]
 ---
 
-# Scientific Runtime Protocol
+# 科学计算运行时协议
 
-This is a shared runtime skill for scientific CLI work.
+这是面向科学计算 CLI 任务的共享运行时 skill。
 
-It is not a tool manual.
-It tells the agent how to behave when serving real users on scientific tool tasks.
+它不是工具手册。
+它告诉 agent 在服务真实用户的科学工具任务时应该如何行事。
 
-Use it alongside a tool-specific scientific skill such as:
+应与具体工具 skill 搭配使用，例如：
 
 - `quantum-espresso`
 - `lammps`
@@ -18,113 +22,113 @@ Use it alongside a tool-specific scientific skill such as:
 - `openfoam`
 - `bioinformatics`
 
-## Core Principle
+## 核心原则
 
-ScholarAIO is for users, not for people who want to co-maintain the internal documentation layer.
+ScholarAIO 是为用户服务的，而不是为想一起维护内部文档层的人服务的。
 
-So the agent should absorb complexity whenever possible.
+所以 agent 应尽可能自己吸收复杂度。
 
-The user should experience:
+用户应该体验到：
 
-- natural language help
-- reliable parameter lookup
-- graceful fallback when coverage is partial
+- 自然语言的帮助
+- 可靠的参数查询
+- 覆盖不全时的优雅退化
 
-The user should not experience:
+用户不应该体验到：
 
-- being asked to manually patch `toolref`
-- being forced to learn internal parser gaps
-- being blocked because a documentation layer is imperfect
+- 被要求手动修补 `toolref`
+- 被迫了解内部解析器的缺口
+- 因为文档层不完善而被卡住
 
-## Runtime Protocol
+## 运行时协议
 
-For any scientific CLI task:
+对任何科学计算 CLI 任务：
 
-1. Identify the scientific tool or sub-tool that matches the problem.
-2. Use the tool-specific skill for workflow and scientific norms.
-3. Use `toolref` first for commands, parameters, program pages, and option meanings.
-4. If `toolref` is sufficient, continue normally.
-5. If `toolref` is partial, fall back to official docs and continue the task.
-6. Mention the coverage gap briefly only when it affects confidence or maintainability.
-7. Do not turn the current user task into documentation maintenance work.
+1. 判断问题匹配哪个科学工具或子工具。
+2. 用具体工具 skill 获取工作流和科学规范。
+3. 查命令、参数、程序页和选项含义时，优先用 `toolref`。
+4. 如果 `toolref` 足够回答，正常继续。
+5. 如果 `toolref` 覆盖不全，回退到官方文档并继续完成任务。
+6. 只有当覆盖缺口影响置信度或可维护性时，才简要提及。
+7. 不要把当前用户任务变成文档维护工作。
 
-## Toolref-First Behavior
+## Toolref 优先行为
 
-The agent should prefer:
+agent 应优先使用：
 
-- `scholaraio toolref show <tool> ...` for precise lookups
-- `scholaraio toolref search <tool> "..."` for natural-language entry
+- `scholaraio toolref show <tool> ...` 做精确查询
+- `scholaraio toolref search <tool> "..."` 做自然语言入口
 
-The stable public surfaces are:
+稳定的公开入口是：
 
-- the `scholaraio toolref ...` CLI
-- the top-level `scholaraio.toolref` package facade
+- `scholaraio toolref ...` CLI
+- 顶层 `scholaraio.toolref` 包门面（facade）
 
-The agent should not route users through internal implementation modules such as:
+不应把用户引导到内部实现模块，例如：
 
 - `scholaraio.toolref.fetch`
 - `scholaraio.toolref.manifest`
 - `scholaraio.toolref.storage`
 - `scholaraio.toolref.search`
 
-Those internal module boundaries may change during refactors. User-facing guidance should stay anchored to the CLI and the top-level package behavior.
+这些内部模块边界在重构中可能变化。面向用户的指引应始终锚定在 CLI 和顶层包行为上。
 
-Before writing configuration or scripts, first resolve:
+在编写配置或脚本之前，先弄清楚：
 
-- which program or subcommand is relevant
-- which parameters are high-risk
-- which defaults or restrictions matter for validity
+- 涉及哪个程序或子命令
+- 哪些参数是高风险的
+- 哪些默认值或限制会影响有效性
 
-## When Toolref Is Incomplete
+## 当 Toolref 不完整时
 
-If `toolref` does not fully answer the question:
+如果 `toolref` 无法完整回答问题：
 
-- continue using the official documentation source
-- clearly separate "task progress" from "maintenance opportunity"
-- do not ask the user to stop and repair the docs layer first
-- do not expose internal refactor details unless they materially affect current behavior
+- 继续使用官方文档来源完成任务
+- 明确区分"任务进展"和"维护机会"
+- 不要让用户停下来先修文档层
+- 不要暴露内部重构细节，除非它们实质影响当前行为
 
-Use this pattern:
+使用这样的表述：
 
-- "I used `toolref` for the main entry point."
-- "For this deeper detail, I fell back to the official docs because current coverage is partial."
+- "主入口我用 `toolref` 查了。"
+- "这个更细的细节我回退到了官方文档，因为当前覆盖不全。"
 
-## Escalation Rule
+## 升级规则
 
-Escalate a gap to onboarding or maintenance only when:
+只有在以下情况才把缺口升级到 onboarding 或维护流程：
 
-- the same gap appears repeatedly
-- it blocks a common task
-- it affects correctness, not just convenience
+- 同一缺口反复出现
+- 它阻塞了常见任务
+- 它影响正确性，而不只是便利性
 
-If it is a one-off edge case, do not derail the user task.
+如果只是偶发的边角案例，不要让它带偏用户任务。
 
-## Separation Of Responsibilities
+## 职责分离
 
-- tool-specific skill: when to use the tool, workflow, scientific norms
-- `toolref`: interface and parameter reference
-- scientific runtime: how to behave under uncertainty or partial coverage
+- 具体工具 skill：何时用该工具、工作流、科学规范
+- `toolref`：接口与参数参考
+- scientific runtime：在不确定或覆盖不全时如何行事
 
-When code changes are involved:
+涉及代码变更时：
 
-- preserve the public `scholaraio.toolref` entry surface
-- treat package-internal reorganizations as an implementation detail
-- if a refactor changes behavior visible through CLI or top-level imports, treat that as a regression until proven otherwise
+- 保持 `scholaraio.toolref` 公开入口面不变
+- 包内部重组视为实现细节
+- 如果重构改变了通过 CLI 或顶层 import 可见的行为，先按回归处理，除非证明不是
 
-## Anti-Patterns
+## 反模式
 
-Do not:
+不要：
 
-- dump raw flags from memory
-- tell the user to "go improve toolref first"
-- confuse a successful CLI run with a valid scientific result
-- replace scientific judgment with parameter lookup alone
-- instruct the user to use internal module names as if they were the supported interface
+- 凭记忆倾倒原始命令行 flags
+- 告诉用户"先去把 toolref 补好"
+- 把 CLI 跑成功等同于科学结果正确
+- 只用参数查询替代科学判断
+- 把内部模块名当成受支持的接口教给用户
 
-## Output Style
+## 输出风格
 
-When answering the user:
+回答用户时：
 
-- keep maintenance details short
-- foreground scientific progress and decision-making
-- mention fallback only when it materially changes confidence or provenance
+- 维护细节从简
+- 把科学进展和决策放在前面
+- 只有当回退实质影响置信度或结果来源时才提及

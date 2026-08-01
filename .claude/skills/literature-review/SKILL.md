@@ -10,6 +10,8 @@ tags: ["academic", "writing", "literature-review", "survey"]
 
 基于工作区中的论文，撰写结构化的文献综述。
 
+> **路由**：如果目标是系统性识别研究空白和开放问题（而非撰写综述），转交 `/research-gap` skill。
+
 ## 前提
 
 用户必须指定一个 **workspace**（`--ws NAME`）。如果用户未指定：
@@ -41,6 +43,8 @@ scholaraio topics                             # 主题聚类概览（如已建�
 ```bash
 scholaraio show <paper-id> --layer 2          # 逐篇扫描摘要
 ```
+
+> 工作区论文超过 30 篇时，逐篇扫描应派 subagent 分批执行，只把结论摘要带回主 context，避免长列表和全文堆进主 context。
 
 ### 3. 构建综述骨架
 

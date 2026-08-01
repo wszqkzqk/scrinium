@@ -1,6 +1,10 @@
 ---
 name: quantum-espresso
 description: Use when working on first-principles materials calculations with Quantum ESPRESSO, especially SCF, band structures, DOS, phonons, electron-phonon coupling, Fermi surfaces, or charge-density analysis.
+version: 1.0.0
+author: ZimoLiao/scholaraio
+license: MIT
+tags: ["scientific-computing", "quantum-espresso", "dft", "first-principles"]
 ---
 
 # Quantum ESPRESSO 第一性原理计算
@@ -11,6 +15,11 @@ description: Use when working on first-principles materials calculations with Qu
 - 它负责告诉 agent 什么时候该用 QE、标准计算链路是什么、哪些物理与数值规范不能忽略
 - 它**不**承担输入文件字段和程序参数手册的职责
 - 具体输入变量、namelist 字段、程序差异统一去查 `scholaraio toolref`
+
+本 skill 应与 `scientific-runtime` 一起理解：
+- `quantum-espresso` skill 负责 QE 路由、工作流和科学规范
+- `scientific-runtime` 负责运行时的 `toolref-first` 行为和覆盖缺口退化策略
+- `toolref` 负责输入变量、namelist 字段和程序页
 
 ## Agent 默认协议（toolref-first）
 

@@ -10,6 +10,8 @@ tags: ["academic", "research", "gap-analysis", "discovery"]
 
 从工作区文献中系统性地发现研究空白和开放问题。
 
+> **路由**：如果目标是把文献组织成一篇完整的综述（空白识别只是其中一环），转交 `/literature-review` skill。
+
 ## 前提
 
 用户必须指定一个 **workspace**（`--ws NAME`），且工作区中应有足够数量的论文（建议 10+ 篇）。

@@ -1,6 +1,6 @@
 ---
 name: search
-description: Search academic papers in the local ScholarAIO knowledge base. Supports unified search (keyword + semantic fusion), keyword-only (FTS5), semantic-only (FAISS), author search, and federated search across main library, explore databases, and arXiv. Use when the user wants to find papers, look up literature, search by author, explore research topics, or search across multiple sources. For citation rankings and citation count updates, see the /citations skill.
+description: Search academic papers in the local ScholarAIO knowledge base. Supports unified search (keyword + semantic fusion), keyword-only (FTS5), semantic-only (FAISS), author search, and federated search across main library, explore databases, and arXiv. Use when the user wants to find papers, look up literature, search by author, or search across multiple sources. For citation rankings and citation count updates, see the /citations skill.
 version: 1.0.0
 author: ZimoLiao/scholaraio
 license: MIT

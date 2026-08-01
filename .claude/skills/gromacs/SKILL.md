@@ -1,6 +1,10 @@
 ---
 name: gromacs
 description: Use when working on biomolecular molecular dynamics with GROMACS, especially system setup, equilibration, production runs, trajectory analysis, or MM/PBSA-style post-processing.
+version: 1.0.0
+author: ZimoLiao/scholaraio
+license: MIT
+tags: ["scientific-computing", "gromacs", "molecular-dynamics", "biomolecular"]
 ---
 
 # GROMACS 分子动力学
@@ -11,6 +15,11 @@ description: Use when working on biomolecular molecular dynamics with GROMACS, e
 - 它负责告诉 agent 什么时候该用 GROMACS、标准工作流是什么、哪些科学规范不能踩
 - 它**不**充当完整命令手册
 - 具体命令行选项、`.mdp` 参数、子命令语法统一去查 `scholaraio toolref`
+
+本 skill 应与 `scientific-runtime` 一起理解：
+- `gromacs` skill 负责生物分子 MD 路由、工作流和科学规范
+- `scientific-runtime` 负责运行时的 `toolref-first` 行为和覆盖缺口退化策略
+- `toolref` 负责子命令、选项和 `.mdp` 参数页
 
 ## Agent 默认协议（toolref-first）
 

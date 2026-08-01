@@ -40,7 +40,7 @@ tags: ["academic", "writing", "peer-review", "rebuttal"]
    scholaraio show <paper-id> --layer 3      # 读结论找证据
    scholaraio show <paper-id> --layer 4      # 必要时读全文
    ```
-4. 从引用图谱中找额外支撑：
+5. 从引用图谱中找额外支撑：
    ```bash
    scholaraio refs "<id>"                    # 相关论文的参考文献
    scholaraio usearch "<补充关键词>"          # 全库搜索（工作区外）

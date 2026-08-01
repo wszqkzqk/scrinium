@@ -10,7 +10,7 @@ tags: ["academic", "citations", "verification", "hallucination"]
 
 检查文本中的引用是否真实、准确，防止 AI 幻觉引用和元数据错误。
 
-**重要背景**：AI 生成的学术文本中约 40% 的引用可能是幻觉（编造的论文、张冠李戴、元数据拼凑）。即使是人类写的文本也常有年份/期刊名错误。本 skill 的目标是在投稿前消灭所有引用问题。
+**重要背景**：AI 生成的学术文本中，引用有相当比例是幻觉或错配（编造的论文、张冠李戴、元数据拼凑）。即使是人类写的文本也常有年份/期刊名错误。本 skill 的目标是在投稿前消灭所有引用问题。
 
 ## CLI 命令（首选方法）
 
@@ -79,3 +79,13 @@ scholaraio show <paper-id> --layer 3
 
 用户说："检查 workspace/my-paper/introduction.md 里的引用"
 → 运行 `scholaraio citation-check workspace/my-paper/introduction.md --ws my-paper`
+
+## 完成前检查
+
+- **笔记写了吗**：对做过 Layer 3 内容一致性核验的论文，关键发现已通过 CLI 写入笔记：
+  ```bash
+  scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | citation-check
+  - 关键发现"
+  ```
+- **引用查了吗**：所有 AMBIGUOUS / NOT_IN_LIBRARY 的引用都已逐条处理，没有未经核验就放行的
+- **输出在 workspace 吗**：验证结论和修订建议已写入 `workspace/<name>/` 下的文件，而不只停留在对话里

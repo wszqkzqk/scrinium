@@ -1,6 +1,10 @@
 ---
 name: openfoam
 description: Use when working on CFD cases with OpenFOAM, especially solver selection, dictionary setup, mesh workflow decisions, turbulence-model choices, and verification of fluid-flow or heat-transfer simulations.
+version: 1.0.0
+author: ZimoLiao/scholaraio
+license: MIT
+tags: ["scientific-computing", "openfoam", "cfd", "turbulence"]
 ---
 
 # OpenFOAM 计算流体力学

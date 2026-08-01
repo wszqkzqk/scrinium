@@ -50,7 +50,7 @@ Knowledge base management:
 - `arxiv` - When the user wants to browse arXiv preprints, search arXiv directly, or fetch a preprint PDF into inbox or ingest, use this skill.
 - `show` - When the user wants to read paper metadata, abstract, conclusion, or full text, use this skill for progressive L1-L4 loading.
 - `enrich` - When the user wants to add TOC, conclusion, abstract, citation counts, or other enrichment fields, use this skill.
-- `ingest` - When the user wants to process inbox items, ingest PDF / Office / Markdown files, and rebuild indexes, use this skill.
+- `ingest` - When the user wants to process inbox items and ingest PDF / Office / Markdown files into the knowledge base, use this skill.
 - `topics` - When the user wants topic distributions, clustering, visualizations, or topic merges, start with this skill.
 - `explore` - When the user wants OpenAlex-based multi-dimensional exploration, an exploration database, or topic-level exploration, use this skill.
 - `graph` - When the user cares about citation relationships, shared references, or literature connection structure, use this skill.
@@ -81,13 +81,27 @@ System operations:
 - `metrics` - When the user wants token usage, call timing, or runtime metrics, use this skill.
 
 Scientific computing:
-- `scientific-runtime` - When the user is serving scientific CLI tasks through ScholarAIO and should prefer `toolref`, safe fallbacks, and user-facing execution over maintenance work, use this skill.
+- `scientific-runtime` - Underlying protocol for scientific computing tasks, consulted alongside a tool-specific skill (toolref-first behavior, safe fallback under partial coverage, no maintenance burden on users); not a standalone tool manual.
 - `scientific-tool-onboarding` - When the user is adding or upgrading support for a scientific computing tool and needs docs ingestion, `toolref` integration, lightweight skill design, and end-to-end CLI verification, use this skill.
 - `quantum-espresso` - When the task involves Quantum ESPRESSO input variables, workflows, or first-principles simulation decisions, use this skill.
 - `lammps` - When the task involves LAMMPS potentials, commands, or classical materials simulations, use this skill.
 - `gromacs` - When the task involves GROMACS setup, equilibration, analysis, or biomolecular MD workflows, use this skill.
 - `openfoam` - When the task involves OpenFOAM solvers, dictionaries, mesh workflow, turbulence models, or CFD case setup, use this skill.
 - `bioinformatics` - When the task involves BLAST, minimap2, samtools, bcftools, MAFFT, IQ-TREE, ESMFold, or related bioinformatics toolchains, use this skill.
+
+**Intent → skill routing disambiguation:**
+
+| User intent | Use | Do not use (why) |
+|---|---|---|
+| Ingest PDFs / Office / Markdown files from inbox into the knowledge base | `ingest` | `index` (rebuilds indexes only, never touches inbox) |
+| Rebuild FTS5 / vector indexes without ingesting | `index` | `ingest` (triggers inbox processing) |
+| Retrieve papers already in the local library | `search` | `explore` (fetches external OpenAlex papers into a separate exploration DB) |
+| Survey a field / journal / institution from external literature | `explore` | `search` (only searches what is already ingested) |
+| Write a full literature review | `literature-review` | `research-gap` (produces a gap report, not a review narrative) |
+| Systematically identify research gaps / open questions | `research-gap` | `literature-review` (gap discussion is only its closing section) |
+| Use a specific scientific tool (QE / LAMMPS / GROMACS / OpenFOAM / bioinformatics) | The tool-specific skill, with `scientific-runtime` as the companion protocol | `scientific-runtime` alone (it contains no tool-specific knowledge) |
+| Export BibTeX / RIS / Markdown reference lists, or simple Markdown → DOCX | `export` | `document` (meant for finely typeset Office generation) |
+| Generate or inspect finely typeset Word / PowerPoint / Excel | `document` | `export` (only a simple Markdown converter) |
 
 **Workflow for adding a new skill:**
 

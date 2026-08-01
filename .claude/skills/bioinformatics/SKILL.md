@@ -1,6 +1,10 @@
 ---
 name: bioinformatics
 description: Use when working on bioinformatics toolchains such as alignment, variant calling, phylogenetics, or protein-structure analysis, especially when the agent must route across BLAST, minimap2, samtools, bcftools, MAFFT, IQ-TREE, or ESMFold.
+version: 1.0.0
+author: ZimoLiao/scholaraio
+license: MIT
+tags: ["scientific-computing", "bioinformatics", "sequence-analysis", "phylogenetics"]
 ---
 
 # 生物信息学分析
@@ -11,6 +15,11 @@ description: Use when working on bioinformatics toolchains such as alignment, va
 - 它负责告诉 agent 哪类问题该用哪类工具、标准分析链路是什么、哪些生信规范不能忽略
 - 它**不**承担各个命令行工具的完整手册职责
 - 具体 CLI 选项、子命令、输入输出细节统一去查 `scholaraio toolref`
+
+本 skill 应与 `scientific-runtime` 一起理解：
+- `bioinformatics` skill 负责子工具分流、分析链路和科学规范
+- `scientific-runtime` 负责运行时的 `toolref-first` 行为和覆盖缺口退化策略
+- `toolref` 负责各子工具的命令和参数页
 
 ## Agent 默认协议（toolref-first, toolchain-aware）
 

@@ -108,7 +108,7 @@ scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper
 
 ## 写作原则
 
-- **引用诚实**：只引用工作区中实际存在的论文。如果某个论点需要引用但库中没有对应文献，标注 `[CITATION NEEDED]` 而非编造。AI 生成文本中约 40% 的引用可能是幻觉——必须用 `/citation-check` 验证
+- **引用诚实**：只引用工作区中实际存在的论文。如果某个论点需要引用但库中没有对应文献，标注 `[CITATION NEEDED]` 而非编造。AI 生成文本中的引用有相当比例是幻觉或错配——必须用 `/citation-check` 验证
 - **如有风格参考**：分析范文的句式长度、主被动语态比例、术语密度、段落结构，严格仿照
 - **避免 AI 痕迹**：不用 "it is worth noting"、"in recent years, ... has garnered significant attention" 等套话；用具体、精确的学术表达
 - **数据驱动**：Results 和 Discussion 中的每个断言都应有数据或引用支撑
