@@ -1,6 +1,6 @@
 # ScholarAIO - Project Instructions (General Agent)
 
-This file is the general project guide for ScholarAIO across multiple AI coding agents. `CLAUDE.md` is the Claude Code-compatible version; the technical content of the two files should stay as aligned as possible, and changes to one should be mirrored in the other.
+This file is the single source of truth for project instructions across multiple AI coding agents. Claude Code reads `CLAUDE.md`, which is a thin stub that imports this file via Claude Code's `@`-import mechanism — edit this file only; the stub never needs syncing.
 
 ## Project Positioning
 
@@ -155,11 +155,11 @@ For plugin mode, see `docs/getting-started/agent-setup.md`; for configuration an
 
 ## Multi-Agent Compatibility
 
-This project supports multiple AI coding agents at the same time. `AGENTS.md` is the general project instruction file, while `CLAUDE.md` is the Claude Code-compatible version. The two files should keep their technical content as aligned as possible, differing only where agent-native discovery mechanisms, naming, or a very small number of entry-point instructions require it. Body alignment (everything below the header) is enforced by `tests/test_instruction_files.py`.
+This project supports multiple AI coding agents at the same time. `AGENTS.md` is the general project instruction file and the single source of truth. Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so `CLAUDE.md` is a minimal stub that imports `AGENTS.md` via Claude Code's `@`-import mechanism; `tests/test_instruction_files.py` verifies that the stub keeps importing it.
 
 | Agent | Instruction file | Skills |
 |-------|---------|--------|
-| Claude Code | `CLAUDE.md` | `.claude/skills/` |
+| Claude Code | `CLAUDE.md` (stub -> `@AGENTS.md` import) | `.claude/skills/` |
 | Codex (OpenAI) | `AGENTS.md` | `.agents/skills/` -> `.claude/skills/` |
 | OpenClaw | `AGENTS.md` | `.agents/skills/` -> `.claude/skills/` |
 | Cursor | `.cursorrules` (wrapper -> points to `AGENTS.md`) | - |

@@ -1,9 +1,10 @@
 """Alignment checks for the multi-agent instruction files.
 
-AGENTS.md and CLAUDE.md differ only in their header lines (title and
-audience-specific role description); the body from the first ``## `` section
-onward must stay byte-identical. AGENTS_CN.md is a real translation and
-cannot be byte-compared, so only its top-level section structure is checked.
+`AGENTS.md` is the single source of truth. Claude Code reads `CLAUDE.md`,
+not `AGENTS.md`, so `CLAUDE.md` must stay a minimal stub that imports
+`AGENTS.md` via Claude Code's ``@``-import mechanism. `AGENTS_CN.md` is a
+real translation and cannot be byte-compared, so only its top-level section
+structure is checked.
 """
 
 from pathlib import Path
@@ -15,27 +16,26 @@ def _read(name: str) -> str:
     return (REPO_ROOT / name).read_text(encoding="utf-8")
 
 
-def _body(text: str) -> str:
-    """Content from the first ``## `` section onward (headers may differ)."""
-    idx = text.index("\n## ")
-    return text[idx:]
-
-
-class TestAgentsClaudeAlignment:
-    def test_body_byte_identical(self):
-        agents = _read("AGENTS.md")
+class TestClaudeStub:
+    def test_imports_agents_md(self):
         claude = _read("CLAUDE.md")
-        assert _body(agents) == _body(claude), (
-            "AGENTS.md and CLAUDE.md bodies diverged; "
-            "mirror the change in both files (only the title/role header lines may differ)"
+        # The import must not be wrapped in backticks, or Claude Code keeps it literal
+        assert "\n@AGENTS.md\n" in f"\n{claude}", (
+            "CLAUDE.md lost its @AGENTS.md import; Claude Code reads CLAUDE.md, "
+            "not AGENTS.md, so the stub must keep importing it"
         )
 
-    def test_only_header_lines_differ(self):
-        agents_head = _read("AGENTS.md").split("\n## ")[0]
-        claude_head = _read("CLAUDE.md").split("\n## ")[0]
-        # Headers should stay short; a long divergence means content leaked into the header
-        assert len(agents_head.splitlines()) <= 5
-        assert len(claude_head.splitlines()) <= 5
+    def test_stays_a_thin_stub(self):
+        lines = [ln for ln in _read("CLAUDE.md").splitlines() if ln.strip()]
+        assert len(lines) <= 6, (
+            f"CLAUDE.md has {len(lines)} non-empty lines; shared content belongs in AGENTS.md "
+            "(the single source of truth), not in the Claude Code stub"
+        )
+
+    def test_agents_md_holds_shared_content(self):
+        agents = _read("AGENTS.md")
+        for anchor in ("## Agent Skills", "## Deep Reference", "T1", "T2"):
+            assert anchor in agents
 
 
 class TestAgentsCnStructure:

@@ -1,6 +1,6 @@
 # ScholarAIO — 项目指令（通用 Agent）
 
-本文件是 ScholarAIO 面向多种 AI coding agent 的通用项目说明。`CLAUDE.md` 是 Claude Code 的兼容版本；两者的技术内容应尽量保持一致，修改一方时应同步另一方。
+本文件是 ScholarAIO 面向多种 AI coding agent 的项目指令，是所有共享内容的唯一事实源。Claude Code 读取的是 `CLAUDE.md`——它只是一个通过 Claude Code 的 `@` 导入机制引用本文件的极简 stub，因此只需维护本文件，stub 永远不需要同步。
 
 ## 项目定位
 
@@ -155,11 +155,11 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 
 ## 多 Agent 兼容
 
-本项目同时支持多种 AI coding agent。`AGENTS.md` 是通用项目指令，`CLAUDE.md` 是 Claude Code 兼容版本。两者应保持技术内容尽量一致，仅在 agent 原生发现机制、命名和极少量入口说明上有所区别。
+本项目同时支持多种 AI coding agent。`AGENTS.md` 是通用项目指令，也是唯一事实源。Claude Code 读取 `CLAUDE.md` 而非 `AGENTS.md`，因此 `CLAUDE.md` 是一个通过 Claude Code 的 `@` 导入机制引用 `AGENTS.md` 的极简 stub；`tests/test_instruction_files.py` 会校验该 stub 始终保持导入。
 
 | Agent | 指令文件 | Skills |
 |-------|---------|--------|
-| Claude Code | `CLAUDE.md` | `.claude/skills/` |
+| Claude Code | `CLAUDE.md`（stub -> `@AGENTS.md` 导入） | `.claude/skills/` |
 | Codex (OpenAI) | `AGENTS.md`（本文件） | `.agents/skills/` → `.claude/skills/` |
 | OpenClaw | `AGENTS.md`（本文件） | `.agents/skills/` → `.claude/skills/` |
 | Cursor | `.cursorrules`（wrapper → 指向 `AGENTS.md`） | — |
