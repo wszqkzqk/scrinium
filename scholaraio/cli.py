@@ -57,12 +57,14 @@ import argparse
 import concurrent.futures
 import json
 import logging
+import os
 import shutil
 import sys
 import tempfile
 import time
 from pathlib import Path
 
+from scholaraio import __version__
 from scholaraio.config import load_config
 from scholaraio.log import ui
 
@@ -2432,6 +2434,13 @@ def cmd_insights(args: argparse.Namespace, cfg) -> None:
                     ui(f"  {rank}. {label}  (分数: {score:.3f})")
             else:
                 ui("  未找到合适的邻近论文（可能向量索引未建立）")
+        except insights.VectorIndexNotReady as exc:
+            # vsearch FileNotFoundError messages already name the fix (embed/index).
+            ui(f"  {exc}")
+        except insights.EmbeddingBackendUnavailable as exc:
+            ui("  嵌入模型未下载或不可用，语义邻居功能暂不可用")
+            ui(f"  原因: {exc}")
+            ui("  解决: 运行 `scholaraio embed` 下载嵌入模型，或在 config.yaml 检查 embed.provider / embed.source 配置")
         except ImportError:
             ui("  语义搜索不可用（需安装 embed 依赖）")
     ui()
@@ -3115,6 +3124,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="scholaraio",
         description="面向 AI coding agent 的研究终端",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     # --- index ---
@@ -3603,28 +3613,48 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    # A downstream pipe closing early (e.g. `| head`) makes every logging flush
+    # fail with BrokenPipeError; don't dump "--- Logging error ---" tracebacks
+    # for that. The pipe itself is handled below (exit 0).
+    logging.raiseExceptions = False
+
     parser = _build_parser()
 
-    args = parser.parse_args()
-    cfg = load_config()
-    cfg.ensure_dirs()
-
-    from scholaraio import log as _log
-    from scholaraio import metrics as _metrics
-    from scholaraio.ingest.metadata._models import configure_s2_session, configure_session
-
-    session_id = _log.setup(cfg)
-    is_setup_cmd = args.command == "setup"
     try:
-        _metrics.init(cfg.metrics_db_path, session_id)
-    except Exception as exc:
-        if not is_setup_cmd:
-            raise
-        ui(f"警告：metrics 初始化失败，已跳过，不影响 setup: {exc}")
-    configure_session(cfg.ingest.contact_email)
-    configure_s2_session(cfg.resolved_s2_api_key())
+        args = parser.parse_args()
+        cfg = load_config()
+        cfg.ensure_dirs()
 
-    args.func(args, cfg)
+        from scholaraio import log as _log
+        from scholaraio import metrics as _metrics
+        from scholaraio.ingest.metadata._models import configure_s2_session, configure_session
+
+        session_id = _log.setup(cfg)
+        is_setup_cmd = args.command == "setup"
+        try:
+            _metrics.init(cfg.metrics_db_path, session_id)
+        except Exception as exc:
+            if not is_setup_cmd:
+                raise
+            ui(f"警告：metrics 初始化失败，已跳过，不影响 setup: {exc}")
+        configure_session(cfg.ingest.contact_email)
+        configure_s2_session(cfg.resolved_s2_api_key())
+
+        try:
+            args.func(args, cfg)
+        except ValueError as exc:
+            # CLI boundary: argument-level ValueError (e.g. bad --year) gets a
+            # one-line message instead of a traceback; the message is still shown.
+            ui(f"错误: {exc}")
+            sys.exit(1)
+        # Surface a buffered broken pipe here instead of at interpreter shutdown.
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # Downstream closed the pipe early (e.g. `| head`): not a failure.
+        # Redirect stdout to devnull so the shutdown flush cannot raise again.
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(0)
 
 
 if __name__ == "__main__":

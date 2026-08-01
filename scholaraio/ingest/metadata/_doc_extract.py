@@ -8,9 +8,7 @@ _doc_extract.py — 非论文文档的元数据提取
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,6 +16,7 @@ if TYPE_CHECKING:
     from scholaraio.config import Config
 
 from scholaraio.ingest.metadata._models import PaperMetadata
+from scholaraio.prompts import build_doc_extract_prompt, parse_llm_json
 
 _log = logging.getLogger(__name__)
 
@@ -162,63 +161,9 @@ def _fallback_document_metadata(
 
 def _build_prompt(text: str, *, has_title: bool, has_abstract: bool, existing_title: str = "") -> str:
     """Build LLM prompt for document metadata extraction."""
-    tasks = []
-    if not has_title:
-        tasks.append("1. Generate a concise, descriptive **title** for this document")
-    if not has_abstract:
-        idx = "2" if not has_title else "1"
-        tasks.append(
-            f"{idx}. Write a **summary** (150-300 words) "
-            "that captures the main content, key points, and purpose of "
-            "this document. This summary will be used as the document's "
-            "abstract for search indexing."
-        )
-
-    task_str = "\n".join(tasks)
-
-    return (
-        "You are analyzing a document (not necessarily an academic paper). "
-        "It could be a technical report, lecture notes, manual, standard, "
-        "book chapter, or any other type of document.\n\n"
-        f"Your tasks:\n{task_str}\n\n"
-        "Also extract if present:\n"
-        "- **authors**: list of author/editor names\n"
-        "- **year**: publication/creation year\n"
-        "- **document_type**: one of: technical-report, lecture-notes, "
-        "standard, book-chapter, manual, white-paper, presentation, "
-        "meeting-notes, or document (generic fallback)\n\n"
-        + (f"Existing title: {existing_title}\n" if existing_title else "")
-        + "Respond in JSON format:\n"
-        "```json\n"
-        "{\n"
-        '  "title": "...",\n'
-        '  "summary": "...",\n'
-        '  "authors": ["..."],\n'
-        '  "year": 2024,\n'
-        '  "document_type": "..."\n'
-        "}\n"
-        "```\n\n"
-        "--- DOCUMENT CONTENT ---\n\n"
-        f"{text}"
-    )
+    return build_doc_extract_prompt(text, has_title=has_title, has_abstract=has_abstract, existing_title=existing_title)
 
 
 def _parse_llm_response(text: str) -> dict:
     """Extract JSON from LLM response."""
-    # Try ```json ... ``` block
-    m = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    # Try bare JSON object
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            pass
-
-    return {}
+    return parse_llm_json(text) or {}

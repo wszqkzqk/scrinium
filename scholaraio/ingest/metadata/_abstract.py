@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 import requests
 
+from scholaraio.prompts import PROMPTS
+
 if TYPE_CHECKING:
     from scholaraio.config import Config
 
@@ -185,13 +187,7 @@ def _call_llm_text(prompt: str, cfg, max_tokens: int = 1000) -> str | None:
 def _llm_extract_abstract(md_head: str, cfg) -> str | None:
     """Use LLM to extract abstract from markdown header text."""
     snippet = md_head[:3000]
-    prompt = (
-        "Below is the beginning of an academic paper in markdown format. "
-        "Extract the abstract/summary of the paper. "
-        "Return ONLY the abstract text, nothing else. "
-        "If there is no abstract in the text, return exactly: NO_ABSTRACT\n\n"
-        f"---\n{snippet}\n---"
-    )
+    prompt = PROMPTS["abstract.extract"].render(text=snippet)
     text = _call_llm_text(prompt, cfg)
     if not text or "NO_ABSTRACT" in text:
         return None
@@ -205,19 +201,7 @@ def _llm_verify_abstract(regex_abstract: str, md_head: str, cfg) -> str | None:
     fall back to the regex result).
     """
     snippet = md_head[:3000]
-    prompt = (
-        "Below is an academic paper's markdown header, followed by an abstract "
-        "that was extracted by regex. Check if this is a correct abstract.\n\n"
-        "If it IS a valid abstract, return it as-is (clean up any obvious OCR "
-        "artifacts or formatting issues if needed).\n"
-        "If it is NOT a valid abstract (e.g., it's an address, keywords, funding "
-        "info, or other non-abstract text), extract the real abstract from the "
-        "markdown and return it.\n"
-        "If there is no abstract at all, return exactly: NO_ABSTRACT\n\n"
-        "Return ONLY the abstract text, nothing else.\n\n"
-        f"--- MARKDOWN ---\n{snippet}\n\n"
-        f"--- REGEX RESULT ---\n{regex_abstract}\n---"
-    )
+    prompt = PROMPTS["abstract.verify"].render(markdown=snippet, regex_result=regex_abstract)
     text = _call_llm_text(prompt, cfg)
     if not text or "NO_ABSTRACT" in text:
         return None

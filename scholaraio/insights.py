@@ -7,6 +7,15 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+
+class VectorIndexNotReady(Exception):
+    """Vector index missing or empty; the fix is running `scholaraio embed`."""
+
+
+class EmbeddingBackendUnavailable(Exception):
+    """Query embedding failed (model not downloaded or backend unreachable)."""
+
+
 STOPWORDS = {
     "a",
     "an",
@@ -158,6 +167,9 @@ def recommend_unread_neighbors(
         raise
 
     candidate_scores: dict[str, float] = {}
+    attempted = False
+    succeeded = False
+    first_error: Exception | None = None
     for pid in recent_paper_ids:
         meta_path = cfg.papers_dir / pid / "meta.json"
         if not meta_path.exists():
@@ -171,10 +183,16 @@ def recommend_unread_neighbors(
         query_text = f"{title}\n{abstract}".strip()
         if not query_text:
             continue
+        attempted = True
         try:
             neighbors = vsearch(query_text, cfg.index_db, top_k=10, cfg=cfg)
-        except Exception:
+        except ImportError:
+            raise
+        except Exception as exc:
+            if first_error is None:
+                first_error = exc
             continue
+        succeeded = True
         for row in neighbors:
             neighbor_pid = row.get("dir_name") or row.get("paper_id", "")
             if not neighbor_pid or neighbor_pid in all_read_pids:
@@ -182,6 +200,13 @@ def recommend_unread_neighbors(
             score = row.get("score", 0.0)
             if neighbor_pid not in candidate_scores or candidate_scores[neighbor_pid] < score:
                 candidate_scores[neighbor_pid] = score
+
+    if attempted and not succeeded and first_error is not None:
+        # Every vsearch call failed: classify the cause so the CLI can point at
+        # the real fix instead of blaming a missing index by default.
+        if isinstance(first_error, FileNotFoundError):
+            raise VectorIndexNotReady(str(first_error)) from first_error
+        raise EmbeddingBackendUnavailable(f"{type(first_error).__name__}: {first_error}") from first_error
 
     recommendations: list[tuple[str, str, float]] = []
     for pid, score in sorted(candidate_scores.items(), key=lambda item: -item[1])[:top_k]:

@@ -30,6 +30,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scholaraio.prompts import PROMPTS, parse_llm_json
+
 if TYPE_CHECKING:
     from scholaraio.config import Config
 
@@ -270,26 +272,8 @@ def enrich_toc(
     if toc is None:
         # LLM path for normal papers
         _log.debug("sending %d headers to LLM", len(raw_headers))
-        prompt = (
-            "The following are ALL lines starting with '#' extracted from an academic paper "
-            "markdown file (converted from PDF by MinerU). Some are real section headers; "
-            "others are NOISE to discard: author running headers (e.g. '# Smith and others'), "
-            "journal name headers (e.g. '# Journal of Fluid Mechanics'), repeated paper titles, "
-            "or publisher metadata (e.g. '# ARTICLEINFO', '# AFFILIATIONS', '# Articles You May Be Interested In').\n\n"
-            "KEEP the following as real headers (they are needed as section boundary markers):\n"
-            "- Numbered/lettered sections and subsections\n"
-            "- Introduction, Abstract, Conclusion, Conclusions, Concluding Remarks, Summary\n"
-            "- References, Bibliography\n"
-            "- Appendix (any variant)\n"
-            "- Post-matter sections: Acknowledgments, Acknowledgements, Funding, "
-            "CRediT authorship contribution statement, Declaration of competing interest, "
-            "Conflict of interest, Data availability, Author contributions, Author ORCIDs, "
-            "Declaration of interests\n\n"
-            "Assign level: 1=top-level, 2=subsection (e.g. '2.1'), 3=sub-subsection (e.g. '2.1.1').\n\n"
-            "Headers:\n"
-            + "\n".join(f"Line {h['line']}: {'#' * h['level']} {h['text']}" for h in raw_headers)
-            + "\n\nReturn JSON only:\n"
-            '{"toc": [{"line": <N>, "level": <1|2|3>, "title": "<title>"}, ...]}'
+        prompt = PROMPTS["loader.toc"].render(
+            headers="\n".join(f"Line {h['line']}: {'#' * h['level']} {h['text']}" for h in raw_headers)
         )
 
         try:
@@ -701,14 +685,7 @@ def _primary_path(
     inspect: bool,
 ) -> tuple[str | None, str | None]:
     header_list = "\n".join(f"Line {h['line']}: {'#' * h['level']} {h['text']}" for h in headers)
-    prompt = (
-        "Below are all section headers (with line numbers) from an academic paper markdown file.\n"
-        "Identify the header that marks the START of the conclusion section "
-        "(may be named 'Conclusion', 'Conclusions', 'Concluding Remarks', 'Summary', etc.).\n\n"
-        f"{header_list}\n\n"
-        'Return JSON only: {"line": <line_number>, "header": "<header_text>"}\n'
-        'If no conclusion section exists, return: {"line": null, "header": null}'
-    )
+    prompt = PROMPTS["loader.l3_primary"].render(headers=header_list)
 
     # 1 initial attempt + max_retries retries; range(1, ...) so attempt number is 1-based
     for attempt in range(1, max_retries + 2):
@@ -765,14 +742,7 @@ def _fallback_path(
         tail = "\n".join(f"{tail_start + i + 1}: {l}" for i, l in enumerate(lines[tail_start:]))
         sample = f"[Lines 1–100]\n{head}\n\n...[中间省略]...\n\n[Lines {tail_start + 1}–{n}]\n{tail}"
 
-    prompt = (
-        "Find the conclusion section in this academic paper (markdown format). "
-        "Return the 1-indexed line number where the conclusion STARTS and where it ENDS "
-        "(last line before References/Appendix/end of file).\n\n"
-        f"{sample}\n\n"
-        'Return JSON only: {"start_line": <N>, "end_line": <N>}\n'
-        'If no conclusion exists, return: {"start_line": null, "end_line": null}'
-    )
+    prompt = PROMPTS["loader.l3_fallback"].render(sample=sample)
 
     # 1 initial attempt + max_retries retries; range(1, ...) so attempt number is 1-based
     for attempt in range(1, max_retries + 2):
@@ -815,21 +785,7 @@ def _validate_and_clean(text: str, config: Config) -> tuple[str | None, str]:
     if len(text.strip()) < 100:
         return None, "文本过短"
 
-    prompt = (
-        "The following text was extracted as the conclusion section of an academic paper. "
-        "Your tasks:\n"
-        "1. Check if it contains actual conclusion content (summary of findings, contributions, or future work).\n"
-        "2. If yes, return a CLEANED version:\n"
-        "   - Remove the section header line (e.g. '# 6. Conclusion', '# Concluding Remarks')\n"
-        "   - Remove any in-text running headers (e.g. '# Author and others', '# Journal Name')\n"
-        "   - Remove everything AFTER the conclusion ends: Acknowledgments, Funding statements, "
-        "CRediT authorship statements, Declaration of interests/competing interest, "
-        "Data availability, Author ORCIDs, Author contributions, conflict of interest, etc.\n"
-        "   - Keep only the actual conclusion/summary paragraphs. Do NOT truncate mid-sentence.\n"
-        "3. If it contains NO conclusion content at all, set conclusion to null.\n\n"
-        f"{text}\n\n"
-        'Return JSON only: {"conclusion": "<cleaned text or null>", "reason": "<one sentence>"}'
-    )
+    prompt = PROMPTS["loader.l3_validate"].render(text=text)
     try:
         result = _parse_json(_call_llm(prompt, config, timeout=config.llm.timeout_clean))
         cleaned = result.get("conclusion")
@@ -854,22 +810,16 @@ def _call_llm(prompt: str, config: Config, timeout: int | None = None) -> str:
 
 
 def _parse_json(text: str) -> dict:
-    text = text.strip()
-    # Strip markdown code fences if present
-    text = re.sub(r"^```\w*\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        # Fix unescaped backslashes (e.g. LaTeX: \alpha, \vec, \frac).
-        # Only runs when initial parse fails. Valid JSON escapes are
-        # preserved: \" \\ \/ \b \f \n \r \t \uXXXX
-        fixed = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", text)
-        try:
-            return json.loads(fixed)
-        except json.JSONDecodeError:
-            # If escaping made things worse, raise with original text
-            return json.loads(text)
+    """Parse an LLM JSON response; raise ``ValueError`` when unparseable.
+
+    Delegates to :func:`scholaraio.prompts.parse_llm_json` (fences, bare
+    objects, and LaTeX backslash fix-up) and converts its ``None`` into an
+    exception so existing retry/except paths keep working.
+    """
+    result = parse_llm_json(text)
+    if result is None:
+        raise ValueError(f"failed to parse LLM JSON response: {text[:200]!r}")
+    return result
 
 
 def _slice_lines(lines: list[str], start: int, end: int | None) -> str:

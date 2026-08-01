@@ -426,6 +426,8 @@ MinerU configuration constraints (aligned with current code):
 ## Code Style
 
 - **Code comments**: English only, and only when the logic is not self-evident.
+- **LLM prompts**: all new LLM prompts must be registered in `scholaraio/prompts.py` (English instructions + Chinese glossary where needed); any prompt change must be recorded in the changelog.
+- **LLM JSON output**: prompts must request "Return JSON only, no fencing"; responses are parsed with `parse_llm_json()`.
 
 ## Getting Started
 

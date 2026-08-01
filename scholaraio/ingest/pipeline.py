@@ -37,6 +37,7 @@ from typing import Any
 from scholaraio.config import Config
 from scholaraio.log import ui
 from scholaraio.metrics import timer
+from scholaraio.prompts import DETECT_TYPE_PARAMS, parse_llm_json, render_detect_prompt
 
 _log = logging.getLogger(__name__)
 
@@ -2030,22 +2031,7 @@ def _normalize_arxiv_id(arxiv_id: str) -> str:
 
 def _parse_detect_json(text: str) -> dict:
     """Tolerant JSON extraction from LLM response (handles fences/extra text)."""
-    text = text.strip()
-    # Strip ```json ... ``` fences
-    m = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass
-    # Try bare JSON object (greedy to handle nested braces)
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            pass
-    return {}
+    return parse_llm_json(text) or {}
 
 
 def _detect_patent(ctx: InboxCtx) -> bool:
@@ -2093,77 +2079,103 @@ def _detect_patent(ctx: InboxCtx) -> bool:
     return False
 
 
-def _detect_thesis(ctx: InboxCtx) -> bool:
-    """LLM 判断无 DOI 论文是否为学位论文。
+# Fast-path heuristics for _detect_type, keyed by detect kind
+_DETECT_HEURISTICS: dict[str, dict] = {
+    "thesis": {
+        "paper_types": (),
+        "title_keywords": (
+            "thesis",
+            "dissertation",
+            "学位论文",
+            "硕士论文",
+            "博士论文",
+            "毕业论文",
+            "master's thesis",
+            "doctoral dissertation",
+        ),
+    },
+    "book": {
+        "paper_types": ("book", "monograph", "edited-book", "reference-book"),
+        "title_keywords": (
+            "handbook",
+            "textbook",
+            "monograph",
+            "专著",
+            "教材",
+            "手册",
+        ),
+    },
+}
+
+
+def _detect_type(ctx: InboxCtx, kind: str, cfg: Config) -> bool:
+    """LLM 判断无 DOI 文档是否属于指定类型（thesis/book）。
 
     读取 MD 前 30000 字符，让 LLM 判断文档类型。
     LLM 不可用时退回 False（走 pending 流程）。
 
     Args:
         ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
+        kind: 检测类型，``"thesis"`` 或 ``"book"``。
+        cfg: 全局配置。
 
     Returns:
-        ``True`` 如果判定为 thesis/dissertation。
+        ``True`` 如果判定为对应类型。
     """
     if not ctx.md_path or not ctx.md_path.exists():
         return False
+
+    heuristics = _DETECT_HEURISTICS[kind]
+
+    # Fast heuristic: paper_type already set (e.g. by API metadata)
+    paper_type = (ctx.meta.paper_type or "").lower().strip() if ctx.meta else ""
+    if paper_type and paper_type in heuristics["paper_types"]:
+        _log.debug("%s detected by API paper_type: %s", kind, paper_type)
+        return True
+
+    # Fast heuristic: title keywords
+    title = (ctx.meta.title or "").lower() if ctx.meta else ""
+    for keyword in heuristics["title_keywords"]:
+        if keyword in title:
+            _log.debug("%s detected by title keyword: %s", kind, keyword)
+            return True
 
     try:
         with open(ctx.md_path, encoding="utf-8") as f:
             text = f.read(30000)
     except Exception as e:
-        _log.debug("failed to read md for thesis detection: %s", e)
+        _log.debug("failed to read md for %s detection: %s", kind, e)
         return False
-
-    # Fast heuristic: title/metadata already hints thesis
-    title = (ctx.meta.title or "").lower() if ctx.meta else ""
-    for keyword in (
-        "thesis",
-        "dissertation",
-        "学位论文",
-        "硕士论文",
-        "博士论文",
-        "毕业论文",
-        "master's thesis",
-        "doctoral dissertation",
-    ):
-        if keyword in title:
-            _log.debug("thesis detected by title keyword: %s", keyword)
-            return True
 
     # LLM detection
     try:
-        api_key = ctx.cfg.resolved_api_key()
+        api_key = cfg.resolved_api_key()
     except Exception as e:
         _log.debug("failed to resolve API key: %s", e)
         api_key = None
     if not api_key:
-        _log.debug("no LLM API key, skipping thesis detection")
+        _log.debug("no LLM API key, skipping %s detection", kind)
         return False
 
     from scholaraio.metrics import call_llm
 
-    prompt = (
-        "Analyze the following document excerpt and determine if it is a "
-        "thesis or dissertation (学位论文/硕士论文/博士论文/毕业论文). "
-        "Look for indicators such as: degree awarding institution, "
-        "advisor/supervisor, thesis committee, degree type (PhD/Master/Bachelor), "
-        "declaration of originality, or thesis-specific formatting.\n\n"
-        'Respond in JSON: {"is_thesis": true/false, "reason": "brief explanation"}\n\n'
-        f"--- DOCUMENT START ---\n{text}\n--- DOCUMENT END ---"
-    )
+    json_key = DETECT_TYPE_PARAMS[kind]["json_key"]
     try:
-        result = call_llm(prompt, ctx.cfg, purpose="detect_thesis", max_tokens=200)
+        result = call_llm(render_detect_prompt(kind, text), cfg, purpose=f"detect_{kind}", max_tokens=200)
         data = _parse_detect_json(result.content)
-        is_thesis = bool(data.get("is_thesis", False))
-        if is_thesis:
-            reason = data.get("reason", "")
-            _log.debug("thesis detected by LLM: %s", reason)
-        return is_thesis
+        is_kind = bool(data.get(json_key, False))
+        if is_kind:
+            _log.debug("%s detected by LLM: %s", kind, data.get("reason", ""))
+        return is_kind
     except Exception as e:
-        _log.debug("thesis detection LLM call failed: %s", e)
+        _log.debug("%s detection LLM call failed: %s", kind, e)
 
     return False
+
+
+def _detect_thesis(ctx: InboxCtx) -> bool:
+    """LLM 判断无 DOI 论文是否为学位论文（``_detect_type`` 的薄包装）。"""
+    return _detect_type(ctx, "thesis", ctx.cfg)
 
 
 def _ingest_proceedings_ctx(ctx: InboxCtx, *, force: bool) -> bool:
@@ -2192,81 +2204,8 @@ def _ingest_proceedings_ctx(ctx: InboxCtx, *, force: bool) -> bool:
 
 
 def _detect_book(ctx: InboxCtx) -> bool:
-    """LLM 判断无 DOI 论文是否为书籍/专著。
-
-    读取 MD 前 30000 字符，让 LLM 判断文档类型。
-    LLM 不可用时退回 False（走 pending 流程）。
-
-    Args:
-        ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
-
-    Returns:
-        ``True`` 如果判定为 book/monograph。
-    """
-    if not ctx.md_path or not ctx.md_path.exists():
-        return False
-
-    # Fast heuristic: paper_type already set by API (Crossref/S2/OpenAlex)
-    _BOOK_TYPES = {"book", "monograph", "edited-book", "reference-book"}
-    if ctx.meta and ctx.meta.paper_type and ctx.meta.paper_type.lower().strip() in _BOOK_TYPES:
-        _log.debug("book detected by API paper_type: %s", ctx.meta.paper_type)
-        return True
-
-    # Fast heuristic: title keywords
-    title = (ctx.meta.title or "").lower() if ctx.meta else ""
-    for keyword in (
-        "handbook",
-        "textbook",
-        "monograph",
-        "专著",
-        "教材",
-        "手册",
-    ):
-        if keyword in title:
-            _log.debug("book detected by title keyword: %s", keyword)
-            return True
-
-    try:
-        with open(ctx.md_path, encoding="utf-8") as f:
-            text = f.read(30000)
-    except Exception as e:
-        _log.debug("failed to read md for book detection: %s", e)
-        return False
-
-    # LLM detection
-    try:
-        api_key = ctx.cfg.resolved_api_key()
-    except Exception as e:
-        _log.debug("failed to resolve API key: %s", e)
-        api_key = None
-    if not api_key:
-        _log.debug("no LLM API key, skipping book detection")
-        return False
-
-    from scholaraio.metrics import call_llm
-
-    prompt = (
-        "Analyze the following document excerpt and determine if it is a "
-        "book or monograph (书籍/专著/教材/手册). "
-        "Look for indicators such as: ISBN, publisher information, "
-        "table of contents with chapters, preface/foreword, "
-        "book-specific formatting (parts/chapters rather than sections), "
-        "or multiple self-contained chapters with distinct topics.\n\n"
-        'Respond in JSON: {"is_book": true/false, "reason": "brief explanation"}\n\n'
-        f"--- DOCUMENT START ---\n{text}\n--- DOCUMENT END ---"
-    )
-    try:
-        result = call_llm(prompt, ctx.cfg, purpose="detect_book", max_tokens=200)
-        data = _parse_detect_json(result.content)
-        is_book = bool(data.get("is_book", False))
-        if is_book:
-            reason = data.get("reason", "")
-            _log.debug("book detected by LLM: %s", reason)
-        return is_book
-    except Exception as e:
-        _log.debug("book detection LLM call failed: %s", e)
-
-    return False
+    """LLM 判断无 DOI 论文是否为书籍/专著（``_detect_type`` 的薄包装）。"""
+    return _detect_type(ctx, "book", ctx.cfg)
 
 
 def _find_assets(inbox_dir: Path, asset_prefix: str, md_stem: str) -> tuple[Path | None, list[Path], list[Path]]:

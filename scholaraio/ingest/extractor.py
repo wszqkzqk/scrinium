@@ -21,11 +21,12 @@ extractor.py — 论文元数据提取器
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+from scholaraio.prompts import PROMPTS, parse_llm_json
 
 _log = logging.getLogger(__name__)
 
@@ -81,26 +82,6 @@ class RegexExtractor:
 #  LLM extractor (OpenAI-compatible API)
 # ============================================================================
 
-_EXTRACT_PROMPT = """\
-从以下学术论文页面提取元数据，以 JSON 格式返回，字段如下：
-{{
-  "title": "论文完整标题，找不到填 null",
-  "authors": ["姓名1", "姓名2", ...],
-  "year": 2024,
-  "doi": "10.xxx/xxx（不含 https://doi.org/，找不到填 null）",
-  "journal": "期刊或会议名称，找不到填 null"
-}}
-
-注意：
-- 期刊扫描页（如 Nature、Science）可能包含多篇文章片段。请识别有完整结构（标题 + 作者 + 正文）的主文章，忽略仅出现片段的其他文章
-- 如果文中出现多个 DOI（来自不同文章），说明 DOI 不可信，doi 字段填 null
-- authors 找不到时填空列表 []
-- year 必须是整数或 null
-- 只返回 JSON，不要任何解释文字
-
---- 论文内容 ---
-{header}"""
-
 
 def _clean_llm_str(val) -> str:
     """LLM 有时返回字符串 "null"/"None" 而非 JSON null，统一清洗。"""
@@ -115,7 +96,7 @@ def _clean_llm_str(val) -> str:
 class LLMExtractor:
     """纯 LLM 元数据提取器（OpenAI 兼容协议）。
 
-    将 Markdown 头部前 80 行发送给 LLM，由 LLM 直接返回结构化元数据。
+    将 Markdown 前 50000 字符发送给 LLM，由 LLM 直接返回结构化元数据。
     API 调用失败时自动降级为正则提取。
 
     Args:
@@ -141,7 +122,9 @@ class LLMExtractor:
 
         try:
             raw_json = self._call_api(header)
-            data = json.loads(raw_json)
+            data = parse_llm_json(raw_json)
+            if data is None:
+                raise ValueError("LLM returned unparseable JSON")
         except Exception as e:
             _log.debug("[LLM] extraction failed: %s, falling back to regex", e)
             from scholaraio.ingest.metadata import extract_metadata_from_markdown
@@ -152,7 +135,7 @@ class LLMExtractor:
         meta.title = _clean_llm_str(data.get("title"))
         meta.authors = [a for a in (data.get("authors") or []) if a]
         meta.year = data.get("year") if isinstance(data.get("year"), int) else None
-        meta.doi = _clean_llm_str(data.get("doi"))
+        meta.doi = _guard_llm_doi(_clean_llm_str(data.get("doi")), regex_meta.doi, text, tag="LLM")
         meta.journal = _clean_llm_str(data.get("journal"))
         meta.arxiv_id = regex_meta.arxiv_id
 
@@ -181,7 +164,7 @@ class LLMExtractor:
         from scholaraio.metrics import call_llm
 
         result = call_llm(
-            _EXTRACT_PROMPT.format(header=header_text),
+            PROMPTS["extract.llm"].render(header=header_text),
             self._config,
             api_key=self._api_key,
             purpose="extract.llm",
@@ -239,48 +222,6 @@ class FallbackExtractor:
 #  Robust extractor (regex + LLM always)
 # ============================================================================
 
-_ROBUST_PROMPT = """\
-以下是从一篇学术论文 PDF（经 OCR 转换为 markdown）中用正则提取的元数据，可能有 OCR 错误或缺失。
-请对照论文原文内容，校正并补全元数据，以 JSON 格式返回。
-
-正则提取结果：
-  title:   {regex_title}
-  authors: {regex_authors}
-  year:    {regex_year}
-  doi:     {regex_doi}
-  journal: {regex_journal}
-
-返回格式：
-{{
-  "title": "校正后的完整标题（修复 OCR 错误如连字、断字、乱码）",
-  "authors": ["姓名1", "姓名2", ...],
-  "year": 2024,
-  "doi": "10.xxx/xxx（不含 https://doi.org/，找不到填 null）",
-  "journal": "期刊或会议名称，找不到填 null"
-}}
-
-注意：
-- 优先信任论文原文，正则结果仅作参考
-- **学位论文处理**：如果检测到这是学位论文（博士/硕士论文、dissertation/thesis），请：
-  1. 根据正文主体（非封面/摘要）判断论文的主要写作语言
-  2. title 和 authors 使用主要语言版本（例如中文论文用中文标题和中文姓名，英文论文用英文）
-  3. 学位论文通常有中英文双封面，不要因为正则提取到了英文封面就用英文——以正文语言为准
-- **多篇文章识别**：期刊扫描页（如 Nature、Science）的 PDF 可能包含多篇文章的片段。
-  请根据以下标准识别主文章：找到有完整结构（标题 + 作者 + 正文主体 + 结论/参考文献）的研究论文，
-  忽略仅出现了尾部/参考文献/摘要片段的其他文章
-- 忽略期刊栏目标题（如 PERSPECTIVES, EDITORIAL, NEWS, COMMENTARY, LETTERS, REVIEW 等），这些不是论文标题
-- **PDF 解析错误修复**：输入的 markdown 由 PDF 解析器自动生成，可能存在以下问题，请结合上下文修正：
-  - OCR 字符错误：ln→In, rn→m, l→I, 0→O 等
-  - 标题/作者被截断或断行（尤其是封面页表格中的长标题，可能被拆成多行导致不完整）
-  - 连字/断字未合并
-  - 标题截断是常见问题：封面上的标题可能只有前半句。请务必与正文中出现的完整标题交叉验证（如摘要、引言首段、页眉等处），确保返回的是完整标题
-- authors 找不到时填空列表 []
-- year 必须是整数或 null
-- 只返回 JSON，不要任何解释文字
-
---- 论文内容 ---
-{header}"""
-
 
 class RobustExtractor:
     """Regex + LLM 双跑元数据提取器（``robust`` 模式）。
@@ -308,15 +249,11 @@ class RobustExtractor:
         # Step 1: regex
         regex_meta = self._regex.extract(filepath)
 
-        # Step 2: scan full text for distinct DOIs (detect multi-paper PDFs)
+        # Step 2: LLM with regex results + paper content (up to 50k chars)
         text = filepath.read_text(encoding="utf-8", errors="replace")
-        all_dois = set(re.findall(r"10\.\d{4,}/[^\s)]+", text))
-        multi_doi = len(all_dois) > 1
-
-        # Step 3: LLM with regex results + paper content (up to 50k chars)
         header = text[:50000]
 
-        prompt = _ROBUST_PROMPT.format(
+        prompt = PROMPTS["extract.robust"].render(
             regex_title=regex_meta.title or "(未提取到)",
             regex_authors=", ".join(regex_meta.authors) if regex_meta.authors else "(未提取到)",
             regex_year=regex_meta.year or "(未提取到)",
@@ -327,7 +264,9 @@ class RobustExtractor:
 
         try:
             raw_json = self._call_api(prompt)
-            data = json.loads(raw_json)
+            data = parse_llm_json(raw_json)
+            if data is None:
+                raise ValueError("LLM returned unparseable JSON")
         except Exception as e:
             _log.debug("[robust] LLM correction failed: %s, using regex result", e)
             return regex_meta
@@ -339,18 +278,7 @@ class RobustExtractor:
         llm_year = data.get("year")
         meta.year = (llm_year if isinstance(llm_year, int) else None) or regex_meta.year
         # DOI: multi-DOI or hallucination guard
-        if multi_doi:
-            _log.debug("[robust] found %d different DOIs in fulltext, discarding for title search", len(all_dois))
-            meta.doi = ""
-        else:
-            llm_doi = _clean_llm_str(data.get("doi")) or ""
-            # If LLM produced a DOI that doesn't exist in the text and regex
-            # didn't find it either, it's likely a hallucination — discard
-            if llm_doi and not regex_meta.doi and llm_doi not in text:
-                _log.debug("[robust] LLM DOI not found in source text, suspected hallucination, discarding")
-                meta.doi = ""
-            else:
-                meta.doi = llm_doi or regex_meta.doi or ""
+        meta.doi = _guard_llm_doi(_clean_llm_str(data.get("doi")), regex_meta.doi, text, tag="robust")
         meta.journal = _clean_llm_str(data.get("journal")) or regex_meta.journal or ""
         meta.arxiv_id = regex_meta.arxiv_id
 
@@ -384,6 +312,34 @@ class RobustExtractor:
             purpose="extract.robust",
         )
         return result.content
+
+
+# ============================================================================
+#  DOI hallucination guard (shared by LLM-based extractors)
+# ============================================================================
+
+_DOI_SCAN_RE = re.compile(r"10\.\d{4,}/[^\s)]+")
+
+
+def _guard_llm_doi(llm_doi: str, regex_doi: str, text: str, *, tag: str) -> str:
+    """Validate an LLM-returned DOI against the source text.
+
+    - Multiple distinct DOIs in the fulltext indicate a multi-paper PDF;
+      no DOI is trustworthy, so discard.
+    - An LLM DOI that appears nowhere in the text and was not found by
+      regex either is likely a hallucination, so discard.
+
+    Returns:
+        The DOI to keep (LLM result, else regex fallback), or ``""``.
+    """
+    all_dois = set(_DOI_SCAN_RE.findall(text))
+    if len(all_dois) > 1:
+        _log.debug("[%s] found %d different DOIs in fulltext, discarding for title search", tag, len(all_dois))
+        return ""
+    if llm_doi and not regex_doi and llm_doi not in text:
+        _log.debug("[%s] LLM DOI not found in source text, suspected hallucination, discarding", tag)
+        return ""
+    return llm_doi or regex_doi or ""
 
 
 # ============================================================================

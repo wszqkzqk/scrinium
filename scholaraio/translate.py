@@ -34,6 +34,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from scholaraio.prompts import build_translate_prompt
+
 if TYPE_CHECKING:
     from scholaraio.config import Config
 
@@ -259,39 +261,10 @@ def _split_into_chunks(text: str, chunk_size: int) -> list[str]:
 #  Translation via LLM
 # ============================================================================
 
-_TRANSLATE_PROMPT_HEADER = """\
-翻译以下学术论文段落至{target_lang}。
-
-重要事项：
-- 保留所有 markdown 格式（#, **, ``, [links]、表格等）
-- 保留 LaTeX 公式（$...$, $$...$$）不翻译
-- 保留代码块（```...```）不翻译
-- 保留图片引用（![...](...)）不翻译
-- 保留作者姓名和引用格式（如 [Smith et al., 2023]）"""
-
-_TRANSLATE_PROMPT_FOOTER = """\
-- 只返回翻译文本，不要任何解释
-
-原文：
-{text}"""
-
-# Terminology annotation rules per target language
-_TERMINOLOGY_RULES: dict[str, str] = {
-    "zh": "- 对于专业术语，在首次出现时用「英文 (中文翻译)」格式",
-    "ja": "- 専門用語は初出時に「英語 (日本語訳)」の形式で記載すること",
-    "ko": "- 전문 용어는 처음 등장할 때 「영어 (한국어 번역)」 형식을 사용",
-}
-
 
 def _build_translate_prompt(text: str, target_lang: str, lang_name: str) -> str:
     """Build the translation prompt with language-appropriate terminology rule."""
-    header = _TRANSLATE_PROMPT_HEADER.format(target_lang=lang_name)
-    rule = _TERMINOLOGY_RULES.get(target_lang)
-    parts = [header]
-    if rule:
-        parts.append(rule)
-    parts.append(_TRANSLATE_PROMPT_FOOTER.format(text=text))
-    return "\n".join(parts)
+    return build_translate_prompt(text, target_lang, lang_name)
 
 
 def _translate_chunk(text: str, target_lang: str, config: Config, timeout: int | None = None) -> str:
