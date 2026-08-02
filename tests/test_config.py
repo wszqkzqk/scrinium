@@ -266,6 +266,28 @@ class TestBuildConfig:
         cfg = _build_config({}, tmp_path)
         assert cfg.embed.provider == "local"
 
+    def test_embed_provider_valid_choices_pass_through(self, tmp_path):
+        for provider in ("local", "openai-compat", "none"):
+            cfg = _build_config({"embed": {"provider": provider}}, tmp_path)
+            assert cfg.embed.provider == provider
+
+    def test_embed_provider_invalid_falls_back_to_local(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING):
+            cfg = _build_config({"embed": {"provider": "bedrock"}}, tmp_path)
+        assert cfg.embed.provider == "local"
+        assert "embed.provider" in caplog.text
+
+    def test_embed_provider_is_case_insensitive(self, tmp_path):
+        cfg = _build_config({"embed": {"provider": "None"}}, tmp_path)
+        assert cfg.embed.provider == "none"
+
+    def test_embed_provider_invalid_env_var_falls_back_to_local(self, tmp_path, monkeypatch, caplog):
+        monkeypatch.setenv("SCHOLARAIO_EMBED_PROVIDER", "bogus")
+        with caplog.at_level(logging.WARNING):
+            cfg = _build_config({"embed": {"provider": "none"}}, tmp_path)
+        assert cfg.embed.provider == "local"
+        assert "embed.provider" in caplog.text
+
     def test_embed_batch_size_min_1(self, tmp_path):
         cfg = _build_config({"embed": {"batch_size": 0}}, tmp_path)
         assert cfg.embed.batch_size == 1

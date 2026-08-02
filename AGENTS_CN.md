@@ -169,6 +169,7 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 | Windsurf | `.windsurfrules`（wrapper → 指向 `AGENTS.md`） | — |
 | GitHub Copilot | `.github/copilot-instructions.md`（wrapper → 指向 `AGENTS.md`） | — |
 | Cline | `.clinerules`（wrapper → 指向 `AGENTS.md`） | `.claude/skills/`（原生支持） |
+| Qwen Code | `QWEN.md`（wrapper → 指向 `AGENTS.md`） | — |
 
 Skills 采用 [AgentSkills.io](https://agentskills.io) 开放标准（`SKILL.md` 格式）。规范位置为 `.claude/skills/`；`.agents/skills/` 是面向跨 agent 发现的符号链接，`skills/` 是面向 Claude 插件/技能系统发现的符号链接。
 

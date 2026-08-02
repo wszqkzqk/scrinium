@@ -53,7 +53,7 @@ scholaraio setup
 | ----------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
 | **PDF 解析**                  | 深度结构提取                   | 将 PDF 转成结构化 Markdown，尽可能保留公式、图片和版面结构                                  |
 | **不只是论文**                | 各种文档都能入                 | 期刊论文、学位论文、专利、技术报告、标准、讲义——四种 inbox 分类入库，各有针对性的元数据处理 |
-| **融合检索**                  | 关键词 + 语义                  | FTS5 + Qwen3 嵌入 + FAISS → RRF 排序融合                                                    |
+| **融合检索**                  | 关键词 + 语义                  | 全文 + 向量混合检索（可关闭嵌入，走纯关键词模式）                                         |
 | **主题发现**                  | 看清你的文献库在研究什么       | 自动把论文归成研究主题，并用交互式图形帮助你快速把握整体结构                                |
 | **文献探索**                  | 多维度发现                     | 按期刊、主题、作者、机构、关键词、年份、引用影响力等多个维度探索一个研究方向                |
 | **引用图谱**                  | 参考文献与影响力               | 正向引用、反向引用、共同引用分析                                                            |
@@ -81,6 +81,7 @@ ScholarAIO 的设计目标是 **agent 无关**，但不同 agent 的接入方式
 | [Cursor](https://cursor.sh)                                   | `.cursorrules`                    | CLI + skills               |
 | [Windsurf](https://codeium.com/windsurf)                      | `.windsurfrules`                  | CLI + skills               |
 | [GitHub Copilot](https://github.com/features/copilot)         | `.github/copilot-instructions.md` | CLI + skills               |
+| [Qwen Code](https://github.com/QwenLM/qwen-code)              | `QWEN.md`                         | CLI + skills               |
 
 Skills 遵循开放的 [AgentSkills.io](https://agentskills.io) 标准，`.agents/skills/` 是 `.claude/skills/` 的符号链接，方便不同 agent 发现和复用。
 
@@ -115,6 +116,9 @@ scholaraio/             # Python 包——CLI、所有核心模块
 data/papers/            # 你的论文库（不进 git）
 data/proceedings/       # 论文集库（不进 git）
 data/inbox/             # 放入 PDF 即可入库
+data/inbox-thesis/      # 放入学位论文（自动打标，跳过 DOI 判重）
+data/inbox-patent/      # 放入专利（按公开号判重）
+data/inbox-doc/         # 放入非论文文档（技术报告、标准、讲义等）
 data/inbox-proceedings/ # 显式放入论文集 PDF/MD，走专用 proceedings 流程
 ```
 

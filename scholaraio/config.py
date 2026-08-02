@@ -43,6 +43,7 @@ VALID_LOCAL_MINERU_BACKENDS = {
 VALID_PDF_CLOUD_MODEL_VERSIONS = {"pipeline", "vlm"}
 VALID_MINERU_PARSE_METHODS = {"auto", "txt", "ocr"}
 VALID_PDF_PREFERRED_PARSERS = {"mineru", "docling", "pymupdf"}
+VALID_EMBED_PROVIDERS = {"local", "openai-compat", "none"}
 
 # ============================================================================
 #  Config dataclasses
@@ -183,8 +184,9 @@ class IngestConfig:
             ``vlm-http-client`` | ``hybrid-auto-engine`` | ``hybrid-http-client``）。
         mineru_model_version_cloud: 云端 PDF 解析 model_version（``pipeline`` | ``vlm``）。
         mineru_lang: MinerU OCR 语言（``ch`` | ``en`` | ``latin`` 等）。
-        mineru_parse_method: 解析方式（``auto`` | ``txt`` | ``ocr``）。对云端精确解析 API，
-            仅 ``ocr`` 会映射为 ``file.is_ocr=true``。
+        mineru_parse_method: 解析方式（``auto`` | ``txt`` | ``ocr``）。云端经
+            `mineru-open-api` 解析时仅 ``ocr`` 会映射为 ``--ocr`` flag（``txt``
+            无对应模式，按默认处理并告警）。
         mineru_enable_formula: 是否启用公式解析。仅对云端 ``pipeline``/``vlm`` 生效。
         mineru_enable_table: 是否启用表格解析。仅对云端 ``pipeline``/``vlm`` 生效。
         abstract_llm_mode: abstract 提取时的 LLM 介入模式：
@@ -680,7 +682,12 @@ def _build_config(data: dict, root: Path) -> Config:
     )
 
     embed_data = data.get("embed", {}) or {}
-    embed_provider = os.environ.get("SCHOLARAIO_EMBED_PROVIDER") or embed_data.get("provider") or "local"
+    embed_provider = _normalize_choice(
+        os.environ.get("SCHOLARAIO_EMBED_PROVIDER") or embed_data.get("provider"),
+        default="local",
+        valid=VALID_EMBED_PROVIDERS,
+        field_name="embed.provider",
+    )
     embed_source = os.environ.get("SCHOLARAIO_EMBED_SOURCE") or embed_data.get("source") or "modelscope"
     embed_cache_dir = (
         os.environ.get("SCHOLARAIO_EMBED_CACHE_DIR") or embed_data.get("cache_dir") or "~/.cache/modelscope/hub/models"

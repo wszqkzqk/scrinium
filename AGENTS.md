@@ -169,6 +169,7 @@ This project supports multiple AI coding agents at the same time. `AGENTS.md` is
 | Windsurf | `.windsurfrules` (wrapper -> points to `AGENTS.md`) | - |
 | GitHub Copilot | `.github/copilot-instructions.md` (wrapper -> points to `AGENTS.md`) | - |
 | Cline | `.clinerules` (wrapper -> points to `AGENTS.md`) | `.claude/skills/` (natively supported) |
+| Qwen Code | `QWEN.md` (wrapper -> points to `AGENTS.md`) | - |
 
 Skills follow the [AgentSkills.io](https://agentskills.io) open standard (`SKILL.md` format). The canonical location is `.claude/skills/`; `.agents/skills/` is the symlink for cross-agent discovery, and `skills/` is the symlink for Claude plugin / skill-system discovery.
 

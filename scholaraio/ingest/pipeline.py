@@ -872,6 +872,8 @@ def step_embed(papers_dir: Path, cfg: Config, opts: PipelineOptions | dict[str, 
 
     Returns:
         ``StepResult.OK``；缺少 embed 依赖时跳过并返回 ``StepResult.SKIP``。
+        ``embed.provider=none`` 时 ``build_vectors`` 静默返回 0（不生成向量），
+        本步仍返回 ``StepResult.OK``。
     """
     try:
         from scholaraio.vectors import build_vectors

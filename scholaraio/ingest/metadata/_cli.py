@@ -284,7 +284,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Ensure S2 API key is configured for standalone CLI usage
-    # (the main scholaraio CLI does this in cli.py; this covers
+    # (the main scholaraio CLI does this in cli/__init__.py:main(); this covers
     # `python -m scholaraio.ingest.metadata` invocations.)
     from scholaraio.config import load_config
 

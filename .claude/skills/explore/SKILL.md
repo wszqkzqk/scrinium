@@ -10,6 +10,16 @@ tags: ["academic", "research", "literature", "discovery", "openalex"]
 
 从 OpenAlex 拉取文献（支持多维过滤），本地嵌入 + BERTopic 聚类 + 多模式搜索，用于文献调研。数据与主库完全隔离。
 
+## 嵌入后端依赖（重要）
+
+explore 库的语义能力依赖嵌入后端（`embed.provider: local` 或 `openai-compat`）。若配置为 `embed.provider: none`，或探索库尚未执行 `explore embed`：
+
+- **不可用**：`explore embed`；`explore search` 的默认 semantic 模式与 `--mode unified`（会明确报错提示缺少嵌入后端）；`explore topics --build` / `--rebuild`
+- **不受影响**：`explore fetch` 拉取、`explore search --mode keyword`（FTS5 关键词搜索）；`explore topics` 浏览已有主题模型
+- 无嵌入时，搜索必须显式加 `--mode keyword`
+
+注意：主库的 curator 标签体系（`/curate`）不覆盖 explore 库——explore 库没有标签，无嵌入时关键词搜索是唯一的检索路径。
+
 ## 执行逻辑
 
 ### 拉取论文

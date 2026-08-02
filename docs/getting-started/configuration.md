@@ -77,15 +77,22 @@ ingest:
 
 `ingest.extractor: robust` (default) means regex + LLM dual pass, where the LLM corrects OCR errors and detects multiple DOIs in the full text. Other modes: `auto` (LLM only as fallback), `regex` (pure regex), and `llm` (pure LLM).
 
-### Embedding Source
+### Embedding
 
 ```yaml
 embed:
+  provider: local  # local | openai-compat | none
   source: modelscope  # default (China)
   # source: huggingface  # for international users
 ```
 
-The embedding model (Qwen3-Embedding-0.6B, ~1.2GB) downloads automatically on the first `embed` / `vsearch`.
+`embed.provider` selects the embedding backend:
+
+- `local` (default): runs the embedding model locally. The model (Qwen3-Embedding-0.6B, ~1.2GB) downloads automatically on the first `embed` / `vsearch`
+- `openai-compat`: calls an OpenAI-compatible embeddings API instead of running a local model; requires `embed.api_base`, `embed.api_key`, and `embed.model` (the key can also come from `config.local.yaml` or the `SCHOLARAIO_EMBED_API_KEY` environment variable)
+- `none`: disables embeddings entirely
+
+With `embed.provider: none`, all semantic features are disabled: `vsearch` / `usearch` are unavailable, topic models cannot be rebuilt, and retrieval degrades to pure keyword search. In this mode, the curated tag vocabulary in `data/tags.yaml` plus the citation graph replace semantic discovery ("tags as topics"; see the `data/tags.yaml` section in `docs/guide/architecture.md`).
 
 ### MinerU Constraints
 

@@ -9,7 +9,8 @@ cli/ — scholaraio 命令行入口（按域拆分的包）
     scholaraio search-author <query> [--top N] [--year Y] [--journal J] [--type T]
     scholaraio vsearch <query> [--top N] [--year Y] [--journal J] [--type T]
     scholaraio usearch <query> [--top N] [--year Y] [--journal J] [--type T] [--tag T]
-    scholaraio show <paper-id> [--layer 1|2|3|4]
+    scholaraio fsearch <query> [--scope main,proceedings,explore:*,arxiv] [--top N]
+    scholaraio show <paper-id> [--layer 1|2|3|4] [--lang LANG] [--json] [--append-notes TEXT]
     scholaraio enrich-toc [<paper-id> | --all] [--force] [--inspect]
     scholaraio enrich-l3 [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
     scholaraio top-cited [--top N] [--year Y] [--journal J] [--type T]
@@ -27,20 +28,34 @@ cli/ — scholaraio 命令行入口（按域拆分的包）
     scholaraio topics [--build] [--rebuild] [--viz] [--topic ID]
     scholaraio pipeline <preset> | --steps <s1,s2,...> [--list] [--dry-run] ...
     scholaraio metrics [--summary] [--last N] [--category CAT] [--since DATE]
+    scholaraio insights [--days N]
     scholaraio setup [check] [--lang en|zh]
-    scholaraio explore fetch --issn <ISSN> [--name NAME] [--year-range Y]
+    scholaraio explore fetch [--issn X] [--concept C] [--topic-id T] [--author A] [--institution I]
+                              [--keyword K] [--source-type T] [--oa-type T] [--min-citations N]
+                              [--name NAME] [--year-range Y] [--incremental] [--limit N]
     scholaraio explore embed --name <NAME> [--rebuild]
     scholaraio explore topics --name <NAME> [--build] [--rebuild] [--topic ID]
-    scholaraio explore search --name <NAME> <query> [--top N]
+    scholaraio explore search --name <NAME> <query> [--mode semantic|keyword|unified] [--top N]
     scholaraio explore viz --name <NAME>
     scholaraio explore list
     scholaraio explore info [--name NAME]
-    scholaraio export bibtex [<paper-id> ...] [--all] [--year Y] [--journal J] [-o FILE]
+    scholaraio export bibtex|ris|markdown [<paper-id> ...] [--all] [--year Y] [--journal J] [-o FILE]
+    scholaraio export docx [-i input.md] [-o output.docx] [--title T]
     scholaraio translate [<paper-id> | --all] [--lang LANG] [--force]
     scholaraio import-endnote <file.xml|file.ris> [--no-api] [--dry-run] [--no-convert]
     scholaraio import-zotero [--api-key KEY] [--library-id ID] [--local PATH] [--list-collections] ...
+    scholaraio arxiv search [<query> ...] [--category CAT] [--sort relevance|recent] [--top N]
+    scholaraio arxiv fetch <arxiv-id-or-url> [--ingest] [--force] [--dry-run]
     scholaraio attach-pdf <paper-id> <path/to/paper.pdf>
     scholaraio citation-check [<file>] [--ws <workspace-name>]
+    scholaraio style list
+    scholaraio style show <name>
+    scholaraio document inspect <file> [--format docx|pptx|xlsx]
+    scholaraio toolref fetch <tool> [--version V] [--force]
+    scholaraio toolref show <tool> <path...>
+    scholaraio toolref search <tool> <query> [--top N] [--program P] [--section S]
+    scholaraio toolref list [<tool>]
+    scholaraio toolref use <tool> <version>
     scholaraio proceedings apply-split <proceeding_dir> <split_plan.json>
     scholaraio proceedings build-clean-candidates <proceeding_dir>
     scholaraio proceedings apply-clean <proceeding_dir> <clean_plan.json>

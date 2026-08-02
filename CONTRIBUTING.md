@@ -34,7 +34,7 @@ See existing skills (e.g., `literature-review`, `writing-polish`) for examples.
 For new functionality that requires code:
 
 1. Implement in `scholaraio/` (library module)
-2. Expose via `cli.py` (CLI subcommand)
+2. Expose it as a subcommand in the matching domain module under `scholaraio/cli/`
 3. Add contract-level tests in `tests/`
 4. Optionally create a skill in `.claude/skills/`
 
@@ -74,7 +74,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - **Linter/formatter**: ruff (configured in `pyproject.toml`)
 - **Type hints**: encouraged, checked by mypy with `ignore_missing_imports`
 - **Docstrings**: Google-style for public API functions in library modules
-- **CLI handlers** (`cmd_*` in `cli.py`): no docstrings needed
+- **CLI handlers** (`cmd_*` in `scholaraio/cli/`): no docstrings needed
 - **UI text** (CLI output, help, errors): Chinese
 - **Code comments**: English, only when logic isn't self-evident
 

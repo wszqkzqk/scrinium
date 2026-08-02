@@ -700,8 +700,14 @@ def explore_vsearch(name: str, query: str, *, top_k: int = 10, cfg: Config | Non
 
     Returns:
         论文列表，按 cosine similarity 降序。
+
+    Raises:
+        FileNotFoundError: 向量库不存在/为空，或 ``embed.provider=none``。
     """
-    from scholaraio.vectors import _vsearch_faiss
+    from scholaraio.vectors import _embed_provider, _vsearch_faiss
+
+    if _embed_provider(cfg) == "none":
+        raise FileNotFoundError("当前 embed.provider=none，已禁用语义向量检索")
 
     index, paper_ids = _build_faiss_index(name, cfg)
     hits = _vsearch_faiss(query, index, paper_ids, top_k, cfg=cfg)

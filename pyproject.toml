@@ -12,7 +12,7 @@ license = "MIT"
 authors = [
     {name = "Zimo Liao", email = "zimoliao@mail.ustc.edu.cn"},
 ]
-keywords = ["academic", "literature", "research", "knowledge-base", "semantic-search", "claude"]
+keywords = ["academic", "literature", "literature-management", "research", "knowledge-base", "semantic-search", "claude", "agent-skills"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -60,6 +60,7 @@ office = [
     "python-pptx>=1.0",
     "openpyxl>=3.1",
 ]
+# Only used by ad-hoc agent scripts from skills/draw; package code never imports these.
 draw = [
     "cli-anything-inkscape>=1.0.0",
     "mermaid-py>=0.3",

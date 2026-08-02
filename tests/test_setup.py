@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
+
+import yaml
 
 from scholaraio.config import Config
 from scholaraio.setup import (
+    _CONFIG_TEMPLATE,
     ParserChoice,
     _check_docling,
     _check_huggingface,
     _check_mineru,
+    _editable_project_root,
     _prompt_text,
     _wizard_deps,
     _wizard_keys,
@@ -502,3 +507,113 @@ def test_wizard_keys_cleans_redundant_default_parser_override(tmp_path, monkeypa
     local_cfg = (tmp_path / "config.local.yaml").read_text(encoding="utf-8")
     assert "pdf_preferred_parser" not in local_cfg
     assert "existing-mineru-key" in local_cfg
+
+
+def test_config_template_stays_in_sync_with_config_yaml():
+    """The setup wizard template must not drift behind the shipped config.yaml."""
+    template = yaml.safe_load(_CONFIG_TEMPLATE)
+    repo_root = Path(__file__).resolve().parent.parent
+    shipped = yaml.safe_load((repo_root / "config.yaml").read_text(encoding="utf-8"))
+
+    assert set(shipped) <= set(template), f"template missing sections: {set(shipped) - set(template)}"
+    for section in ("llm", "ingest"):
+        missing = set(shipped[section]) - set(template[section])
+        assert not missing, f"template {section} section missing keys: {missing}"
+
+
+class _FakeDist:
+    """Minimal importlib.metadata Distribution stand-in for editable probing."""
+
+    def __init__(self, name, direct_url=None):
+        self.metadata = {"Name": name}
+        self._direct_url = direct_url
+
+    def read_text(self, filename):
+        if filename == "direct_url.json":
+            return self._direct_url
+        return None
+
+
+def test_editable_project_root_detects_editable_install(monkeypatch):
+    dists = [
+        _FakeDist("scholaraio"),  # stale egg-info without direct_url.json
+        _FakeDist("requests"),
+        _FakeDist("scholaraio", '{"url": "file:///src/scholaraio", "dir_info": {"editable": true}}'),
+    ]
+    monkeypatch.setattr("scholaraio.setup.importlib.metadata.distributions", lambda: dists)
+
+    root = _editable_project_root()
+
+    assert root is not None
+    assert (root / "pyproject.toml").exists()
+
+
+def test_editable_project_root_returns_none_for_regular_install(monkeypatch):
+    dists = [
+        _FakeDist("scholaraio", '{"url": "https://pypi.org", "dir_info": {}}'),
+    ]
+    monkeypatch.setattr("scholaraio.setup.importlib.metadata.distributions", lambda: dists)
+
+    assert _editable_project_root() is None
+
+
+def test_wizard_deps_uses_editable_install_for_local_checkout(tmp_path, monkeypatch, capsys):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'scholaraio'\n", encoding="utf-8")
+    monkeypatch.setattr("scholaraio.setup._editable_project_root", lambda: tmp_path)
+    monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: "y")
+    monkeypatch.setattr(
+        "scholaraio.setup.check_dep_group",
+        lambda group: type("Status", (), {"installed": group != "pdf", "missing": ["pymupdf"]})(),
+    )
+
+    calls = []
+
+    class _Result:
+        returncode = 0
+        stderr = ""
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _Result()
+
+    monkeypatch.setattr("scholaraio.setup.subprocess.run", fake_run)
+
+    _wizard_deps("zh")
+
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert "-e" in args
+    assert ".[pdf]" in args
+    assert kwargs["cwd"] == tmp_path
+    out = capsys.readouterr().out
+    assert 'pip install -e ".[pdf]"' in out
+
+
+def test_wizard_deps_uses_pypi_name_for_regular_install(monkeypatch, capsys):
+    monkeypatch.setattr("scholaraio.setup._editable_project_root", lambda: None)
+    monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: "y")
+    monkeypatch.setattr(
+        "scholaraio.setup.check_dep_group",
+        lambda group: type("Status", (), {"installed": group != "pdf", "missing": ["pymupdf"]})(),
+    )
+
+    calls = []
+
+    class _Result:
+        returncode = 0
+        stderr = ""
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _Result()
+
+    monkeypatch.setattr("scholaraio.setup.subprocess.run", fake_run)
+
+    _wizard_deps("zh")
+
+    assert len(calls) == 1
+    args, _ = calls[0]
+    assert "scholaraio[pdf]" in args
+    assert "-e" not in args
+    out = capsys.readouterr().out
+    assert "pip install scholaraio[pdf]" in out

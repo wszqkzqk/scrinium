@@ -14,7 +14,7 @@ tags: ["academic", "research", "gap-analysis", "discovery"]
 
 ## 前提
 
-用户必须指定一个 **workspace**（`--ws NAME`），且工作区中应有足够数量的论文（建议 10+ 篇）。
+用户必须指定一个**工作区名称**，且工作区中应有足够数量的论文（建议 10+ 篇）。
 报告语言由用户指定（中文 / English）。
 
 ## 执行逻辑

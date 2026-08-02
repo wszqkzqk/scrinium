@@ -688,10 +688,7 @@ def _embed_batch_openai_compat(texts: list[str], cfg: Config | None = None) -> l
             raise RuntimeError(f"调用 embedding API 失败: {last_err}")
 
         if len(data_items) != len(batch):
-            raise RuntimeError(
-                "embedding API 返回数量与请求不一致: "
-                f"request={len(batch)} response={len(data_items)}"
-            )
+            raise RuntimeError(f"embedding API 返回数量与请求不一致: request={len(batch)} response={len(data_items)}")
 
         for item in sorted(data_items, key=lambda x: x.get("index", 0)):
             vec = item.get("embedding")
@@ -972,7 +969,8 @@ def _build_faiss_from_db(
         ``(faiss_index, paper_ids)`` tuple.
 
     Raises:
-        FileNotFoundError: No vectors in the database.
+        FileNotFoundError: No vectors in the database, or the ``paper_vectors``
+            table does not exist yet (embed never ran for this DB).
     """
     import faiss
     import numpy as np
@@ -984,7 +982,14 @@ def _build_faiss_from_db(
 
     conn = sqlite3.connect(db_path)
     try:
-        rows = conn.execute("SELECT paper_id, embedding FROM paper_vectors").fetchall()
+        try:
+            rows = conn.execute("SELECT paper_id, embedding FROM paper_vectors").fetchall()
+        except sqlite3.OperationalError as exc:
+            if "no such table" in str(exc):
+                # Normalize a missing paper_vectors table (e.g. explore silo with
+                # FTS only) to the same "empty index" signal callers already catch.
+                raise FileNotFoundError(empty_msg) from exc
+            raise
     finally:
         conn.close()
 

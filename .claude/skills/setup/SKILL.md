@@ -46,10 +46,13 @@ scholaraio setup check --lang zh
 ## 2. 根据缺失项引导用户
 
 ### 依赖缺失
-- 告诉用户缺少哪些依赖，解释每组依赖的用途：
+- 告诉用户缺少哪些依赖，解释每组依赖的用途（`setup check` 共检查 core / embed / topics / import / pdf / office / draw 七组）：
   - `embed`: 语义向量检索（Qwen3 嵌入模型）
   - `topics`: BERTopic 主题建模
   - `import`: Endnote / Zotero 导入
+  - `pdf`: PyMuPDF 兜底 PDF 解析（无 MinerU / Docling 时的后备解析路径）
+  - `office`: MarkItDown + Office 文档生成（inbox-doc 转换、DOCX/PPTX/XLSX 生成）
+  - `draw`: 绘图工具链（mermaid 图表、Inkscape 矢量图）
   - `full`: 全部功能
 - 运行 `pip install -e ".[full]"` 或按需安装
 

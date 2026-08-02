@@ -31,6 +31,7 @@ See [CONTRIBUTING.md](https://github.com/zimoliao/scholaraio/blob/main/CONTRIBUT
 | `audit.py` | Data-quality auditing + repair |
 | `tags.py` | Agent-curated tag system (taxonomy in `data/tags.yaml` with aliases + `meta.json["tags"]` read/write + usage counts) |
 | `sources/` | External source adapters (endnote / zotero / arxiv) |
+| `toolref/` | Scientific tool documentation pipeline (fetch + manifest + storage + search + parsers) |
 | `cli/` | Main CLI entry point (package split by domain: `common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`) |
 | `setup.py` | Environment detection + setup wizard |
 | `metrics.py` | LLM token usage + API timing |

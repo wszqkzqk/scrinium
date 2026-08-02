@@ -80,6 +80,7 @@ ScholarAIO is designed to be **agent-agnostic**, but different agents expose dif
 | [Cursor](https://cursor.sh) | `.cursorrules` | CLI + skills |
 | [Windsurf](https://codeium.com/windsurf) | `.windsurfrules` | CLI + skills |
 | [GitHub Copilot](https://github.com/features/copilot) | `.github/copilot-instructions.md` | CLI + skills |
+| [Qwen Code](https://github.com/QwenLM/qwen-code) | `QWEN.md` | CLI + skills |
 
 Skills follow the open [AgentSkills.io](https://agentskills.io) standard, and `.agents/skills/` is a symlink to `.claude/skills/` so different agents can discover and reuse the same skills.
 
@@ -114,6 +115,9 @@ scholaraio/             # Python package — CLI and all core modules
 data/papers/            # Your paper library (gitignored)
 data/proceedings/       # Proceedings library (gitignored)
 data/inbox/             # Drop PDFs here for ingestion
+data/inbox-thesis/      # Drop theses here (auto-tagged, skips DOI dedup)
+data/inbox-patent/      # Drop patents here (deduplicated by publication number)
+data/inbox-doc/         # Drop non-paper documents here (reports, standards, lecture notes)
 data/inbox-proceedings/ # Drop proceedings volumes here for dedicated ingest
 ```
 

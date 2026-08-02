@@ -49,7 +49,7 @@ scholaraio pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
 - `--list` — 列出所有可用步骤和预设
 
 3. pipeline 依次处理五个 inbox 目录：
-   - `data/inbox/` — 普通论文（有 DOI 才入库，无 DOI 且非 thesis 转 pending）
+   - `data/inbox/` — 普通论文（有 DOI 才入库；无 DOI 时依次检测 thesis / book / arXiv 预印本，命中即入库，否则转 pending）
    - `data/inbox-thesis/` — 学位论文（跳过 DOI 去重，自动标记 thesis）
    - `data/inbox-patent/` — 专利文献（按公开号去重，自动标记 patent，跳过 DOI 去重）
    - `data/inbox-doc/` — 非论文文档（技术报告、讲义、Word/Excel/PPT、标准文档等，跳过 DOI 去重，LLM 生成标题/摘要）
@@ -107,9 +107,11 @@ scholaraio proceedings apply-clean <proceeding_dir> <clean_plan.json>
 9. 无 DOI 论文的处理逻辑：
    - 来自 `data/inbox-thesis/` → 直接标记为 thesis 并入库
    - 来自 `data/inbox-doc/` → 标记为 document 类型，LLM 生成标题和摘要后入库
-   - 来自 `data/inbox/` → LLM 分析判断是否 thesis
-     - 是 thesis → 标记并入库
-     - 不是 thesis → 转入 `data/pending/` 待人工确认
+   - 来自 `data/inbox/` → 依次检测 thesis、book、arXiv 预印本
+     - LLM 判断是 thesis → 标记并入库
+     - LLM 判断是 book → 标记并入库
+     - 提取到 arXiv ID → 标记为 preprint 并入库
+     - 三者都不是 → 转入 `data/pending/` 待人工确认
 
 10. 待确认项查看：ingest 结束后若有 pending / duplicate 条目，运行 `scholaraio pending` 查看清单（按 issue 分组，含标题、duplicate_of 和处理建议）。处理 pending 是 ingest 工作流的一部分——入库操作后应主动检查一次。
 

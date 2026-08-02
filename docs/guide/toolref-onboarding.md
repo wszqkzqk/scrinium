@@ -23,6 +23,7 @@ The stable public surfaces are:
 - `scholaraio toolref list [tool]`
 - `scholaraio toolref show <tool> ...`
 - `scholaraio toolref search <tool> "..."`
+- `scholaraio toolref use <tool> <version>` — switch the active version
 - the top-level Python facade `scholaraio.toolref`
 
 User-facing documentation should stay anchored to those surfaces.

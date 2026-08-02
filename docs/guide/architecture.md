@@ -182,13 +182,17 @@ Patents are ingested automatically (from the patent inbox), deduplicated by publ
 
 **Important**: the `missing_md` issue reported by `audit` means an already ingested paper in `data/papers/` is missing `paper.md`; it is a quality problem, not a `data/pending/` status. Pending only contains papers blocked during the ingestion flow (missing DOI or duplicates); `missing_md` means the item has already been ingested but not yet parsed into full text, so full-text search is unavailable.
 
+## `data/duplicates/` Directory
+
+Duplicate entries left over from ingest dedup judgments (for example, items confirmed as duplicates of papers already in the library). `scholaraio pending` scans this directory together with `data/pending/` and lists its entries with the `duplicate` issue.
+
 ## `data/explore/` Directory
 
 ```text
 data/explore/<name>/
 ├── papers.jsonl        # Full paper list fetched from OpenAlex (title/abstract/authors/year/doi/cited_by_count)
 ├── meta.json           # Exploration-library metadata (query parameters/count/fetched_at)
-├── explore.db          # SQLite (paper_vectors table + explore_fts FTS5 full-text index)
+├── explore.db          # SQLite (paper_vectors table + papers_fts FTS5 full-text index)
 ├── faiss.index         # FAISS IndexFlatIP (cosine similarity)
 ├── faiss_ids.json      # List of paper_ids corresponding to the FAISS index
 └── topic_model/

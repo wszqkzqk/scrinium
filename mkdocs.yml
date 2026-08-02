@@ -35,6 +35,8 @@ nav:
       - Architecture: guide/architecture.md
       - CLI Reference: guide/cli-reference.md
       - Search & Browse: guide/search.md
+      - Insights: guide/insights.md
+      - Translation: guide/translate.md
       - Scientific Tool Onboarding: guide/toolref-onboarding.md
       - Ingestion: guide/ingestion.md
       - Writing: guide/writing.md

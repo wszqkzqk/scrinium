@@ -12,7 +12,7 @@ tags: ["academic", "writing", "research", "sections"]
 
 ## 前提
 
-用户必须指定一个 **workspace**（`--ws NAME`）。如果用户未指定：
+用户必须指定一个**工作区名称**。如果用户未指定：
 1. 运行 `scholaraio ws list` 列出已有工作区
 2. 让用户选择或创建一个
 

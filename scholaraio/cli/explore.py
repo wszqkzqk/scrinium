@@ -154,7 +154,13 @@ def cmd_explore(args: argparse.Namespace, cfg) -> None:
                 from scholaraio.explore import explore_vsearch
             except ImportError as e:
                 _check_import_error(e)
-            results = explore_vsearch(args.name, query, top_k=top_k, cfg=cfg)
+            try:
+                results = explore_vsearch(args.name, query, top_k=top_k, cfg=cfg)
+            except FileNotFoundError as e:
+                # Empty/missing vector index or embed.provider=none: clean exit,
+                # same contract as the main-library `vsearch` command.
+                _log.error("%s", e)
+                sys.exit(1)
         if not results:
             ui("未找到结果。")
             return

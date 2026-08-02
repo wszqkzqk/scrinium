@@ -6,7 +6,7 @@ This project is an AI-powered research terminal. Full project instructions are i
 
 - CLI entry point: `scholaraio --help`
 - Python package: `scholaraio/`
-- Paper data: `data/papers/<Author-Year-Title>/` (meta.json + paper.md)
+- Paper data: `data/papers/<Author-Year-Title>/` (meta.json + paper.md + notes.md)
 - User output: always write to `workspace/`, never to project root or `scholaraio/`
 - Skills (reusable workflows): `.claude/skills/*/SKILL.md` (Cline reads these natively)
 - Tests: `python -m pytest tests/ -v`

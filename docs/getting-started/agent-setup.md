@@ -38,6 +38,7 @@ Then start your agent in the repository root:
 | Cursor | Reads `.cursorrules` |
 | Windsurf | Reads `.windsurfrules` |
 | GitHub Copilot | Reads `.github/copilot-instructions.md` |
+| Qwen Code | Reads `QWEN.md` |
 
 This mode is best when you want the full project context, not just the ScholarAIO skills.
 
@@ -78,13 +79,15 @@ In plugin mode, all data lives under `~/.scholaraio/`:
 ├── config.local.yaml     # API keys (created manually by the user or via the setup wizard)
 ├── data/
 │   ├── papers/           # Ingested papers
+│   ├── proceedings/      # Ingested proceedings volumes
 │   ├── inbox/            # PDFs waiting for ingest
 │   ├── inbox-thesis/     # Theses
 │   ├── inbox-patent/     # Patents
 │   ├── inbox-doc/        # Non-paper documents
+│   ├── inbox-proceedings/ # Proceedings volumes waiting for dedicated ingest
 │   ├── pending/          # Items awaiting confirmation
-│   ├── explore/          # Literature exploration data
-│   ├── topic_model/      # Topic models
+│   ├── explore/          # Literature exploration data (created on demand)
+│   ├── topic_model/      # Topic models (created on demand)
 │   ├── index.db          # SQLite index
 │   └── metrics.db        # Runtime metrics
 └── workspace/            # Workspaces
@@ -108,6 +111,8 @@ scripts/check-deps.sh       # Dependency detection / installation script invoked
 ```
 
 Users can install it through `/plugin marketplace add ZimoLiao/scholaraio`. Skill markets such as SkillsMP automatically index it by crawling GitHub for `filename:SKILL.md`.
+
+Platform note: the SessionStart hook is a bash script, so it runs automatically on macOS and Linux. On native Windows the hook cannot execute; run `pip install -e ".[full]"` (or `pip install scholaraio`) manually instead — the session itself is not blocked.
 
 ## Codex / OpenClaw Skill Registration
 

@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import importlib.metadata
 import importlib.util
 import io
+import json
 import shutil
 import subprocess
 import sys
@@ -82,30 +84,26 @@ _S: dict[str, dict[Lang, str]] = {
     "welcome": {"en": "\n=== ScholarAIO Setup Wizard ===\n", "zh": "\n=== ScholarAIO 安装向导 ===\n"},
     "step_deps": {"en": "Step 1: Checking dependencies...", "zh": "步骤 1: 检查依赖..."},
     "step_config": {"en": "Step 2: Configuration file", "zh": "步骤 2: 配置文件"},
-    "step_keys": {
-        "en": "Step 3: API keys & embedding backend (stored in config.local.yaml, not tracked by git)",
-        "zh": "步骤 3: API 密钥与 embedding 后端（保存在 config.local.yaml，不进 git）",
-    },
     "step_parser": {
         "en": "Step 3: Choose a PDF parser",
         "zh": "步骤 3: 选择 PDF 解析器",
     },
     "step_keys_followup": {
-        "en": "Step 4: API keys (stored in config.local.yaml, not tracked by git)",
-        "zh": "步骤 4: API 密钥（保存在 config.local.yaml，不进 git）",
+        "en": "Step 4: API keys & embedding backend (stored in config.local.yaml, not tracked by git)",
+        "zh": "步骤 4: API 密钥与 embedding 后端（保存在 config.local.yaml，不进 git）",
     },
     "step_verify": {"en": "Step 5: Verification", "zh": "步骤 5: 验证"},
     "install_prompt": {
-        "en": "  {group} deps missing: {pkgs}\n  Install? (pip install scholaraio[{group}])",
-        "zh": "  {group} 依赖缺失: {pkgs}\n  是否安装？(pip install scholaraio[{group}])",
+        "en": "  {group} deps missing: {pkgs}\n  Install? ({cmd})",
+        "zh": "  {group} 依赖缺失: {pkgs}\n  是否安装？({cmd})",
     },
     "yn": {"en": " [Y/n] ", "zh": " [Y/n] "},
     "skip": {"en": "  Skipped.", "zh": "  已跳过。"},
     "installing": {"en": "  Installing {group}...", "zh": "  正在安装 {group}..."},
     "install_ok": {"en": "  Installed successfully.", "zh": "  安装成功。"},
     "install_fail": {
-        "en": "  Installation failed. You can install later with: pip install scholaraio[{group}]",
-        "zh": "  安装失败。你可以稍后手动安装: pip install scholaraio[{group}]",
+        "en": "  Installation failed. You can install later with: {cmd}",
+        "zh": "  安装失败。你可以稍后手动安装: {cmd}",
     },
     "config_exists": {"en": "  config.yaml already exists, skipping.", "zh": "  config.yaml 已存在，跳过。"},
     "config_created": {
@@ -380,6 +378,37 @@ def check_dep_group(group: str) -> DepGroupStatus:
         except Exception:
             missing.append(pip_name)
     return DepGroupStatus(name=group, installed=not missing, missing=missing)
+
+
+def _editable_project_root() -> Path | None:
+    """Return the source checkout root when scholaraio is an editable install.
+
+    Inspects ``direct_url.json`` across all installed scholaraio distributions
+    (a stale ``*.egg-info`` earlier on sys.path can shadow the real dist-info,
+    so a single ``distribution()`` lookup is not enough).
+
+    Returns:
+        Checkout root containing ``pyproject.toml``, or ``None`` for regular
+        (site-packages / PyPI) installs.
+    """
+    try:
+        for dist in importlib.metadata.distributions():
+            if (dist.metadata.get("Name") or "").lower() != "scholaraio":
+                continue
+            direct_url_text = dist.read_text("direct_url.json")
+            if not direct_url_text:
+                continue
+            try:
+                data = json.loads(direct_url_text)
+            except ValueError:
+                continue
+            if not (data.get("dir_info") or {}).get("editable"):
+                continue
+            root = Path(__file__).resolve().parent.parent
+            return root if (root / "pyproject.toml").exists() else None
+    except Exception:
+        pass
+    return None
 
 
 # ============================================================================
@@ -792,6 +821,7 @@ def run_wizard(cfg: Config | None = None) -> None:
 
 def _wizard_deps(lang: Lang) -> None:
     """Check and optionally install missing dependency groups."""
+    editable_root = _editable_project_root()
     for group in ("core", "embed", "topics", "import", "pdf", "office", "draw"):
         status = check_dep_group(group)
         label_key = f"{group}_deps"
@@ -799,7 +829,15 @@ def _wizard_deps(lang: Lang) -> None:
             pkgs = ", ".join(p for _, p in _DEP_GROUPS[group])
             print(f"  [OK] {t(label_key, lang)}: {pkgs}")
         else:
-            msg = t("install_prompt", lang).format(group=group, pkgs=", ".join(status.missing))
+            if editable_root is not None:
+                # Editable checkout: install extras from the local tree so pip
+                # does not replace it with the PyPI release.
+                cmd_hint = f'pip install -e ".[{group}]"'
+                run_args = [sys.executable, "-m", "pip", "install", "-e", f".[{group}]"]
+            else:
+                cmd_hint = f"pip install scholaraio[{group}]"
+                run_args = [sys.executable, "-m", "pip", "install", f"scholaraio[{group}]"]
+            msg = t("install_prompt", lang).format(group=group, pkgs=", ".join(status.missing), cmd=cmd_hint)
             print(msg)
             answer = _prompt_result(t("yn", lang))
             ans = answer.text.lower()
@@ -809,14 +847,15 @@ def _wizard_deps(lang: Lang) -> None:
             if ans in ("", "y", "yes"):
                 print(t("installing", lang).format(group=group))
                 ret = subprocess.run(
-                    [sys.executable, "-m", "pip", "install", f"scholaraio[{group}]"],
+                    run_args,
                     capture_output=True,
                     text=True,
+                    cwd=editable_root,
                 )
                 if ret.returncode == 0:
                     print(t("install_ok", lang))
                 else:
-                    print(t("install_fail", lang).format(group=group))
+                    print(t("install_fail", lang).format(group=group, cmd=cmd_hint))
                     if ret.stderr:
                         # show last 3 lines of error
                         err_lines = ret.stderr.strip().splitlines()[-3:]
@@ -1046,9 +1085,11 @@ llm:
   backend: openai-compat   # openai-compat | anthropic | google
   model: deepseek-chat
   base_url: https://api.deepseek.com
+  api_key: null            # -> config.local.yaml or env SCHOLARAIO_LLM_API_KEY
   timeout: 30
   timeout_toc: 120
   timeout_clean: 90
+  concurrency: 32          # max concurrent LLM calls for enrich (toc/l3); also caps batch translate
 
 # Ingestion pipeline
 ingest:
@@ -1056,6 +1097,7 @@ ingest:
   pdf_preferred_parser: mineru       # mineru | docling | pymupdf
   mineru_endpoint: http://localhost:8000
   mineru_cloud_url: https://mineru.net/api/v4  # mineru-open-api --base-url override for private deployments
+  mineru_api_key: null        # MinerU token -> config.local.yaml or env MINERU_TOKEN / MINERU_API_KEY
   mineru_backend_local: pipeline      # local-only backend; keep default unless you self-host MinerU
   mineru_model_version_cloud: pipeline # mineru-open-api extract --model: pipeline | vlm
   mineru_lang: ch                     # keep ch for Chinese/mixed Chinese-English PDFs; switch to en for English-only PDFs
@@ -1063,6 +1105,16 @@ ingest:
   mineru_enable_formula: true         # only effective for pipeline / vlm
   mineru_enable_table: true           # only effective for pipeline / vlm
   abstract_llm_mode: verify # off | fallback | verify
+  contact_email: null       # Crossref polite pool email -> config.local.yaml
+  s2_api_key: null          # Semantic Scholar API key -> config.local.yaml or env S2_API_KEY
+  mineru_batch_size: 20     # cloud batch size per request (1-200, official limit)
+  mineru_upload_workers: 4  # concurrent cloud conversion tasks (mineru-open-api compat layer)
+  mineru_upload_retries: 3  # cloud upload retries per file, including the first attempt
+  mineru_download_retries: 3 # cloud result download retries; legacy, kept for compatibility
+  mineru_poll_timeout: 900  # single mineru-open-api conversion timeout (seconds)
+  chunk_page_limit: 100     # auto-split PDFs exceeding this page count before conversion
+  pdf_fallback_order: [auto] # fallback parser chain when MinerU is unavailable; auto = detect installed parsers
+  pdf_fallback_auto_detect: true # auto-detect locally installed fallback parsers
 
 # Semantic embeddings (Qwen3-Embedding-0.6B, ~1.2 GB, auto-downloaded)
 embed:
