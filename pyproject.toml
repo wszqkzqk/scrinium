@@ -13,7 +13,7 @@ authors = [
     {name = "Zhou Qiankang", email = "wszqkzqk@qq.com"},
     {name = "Zimo Liao", email = "zimoliao@mail.ustc.edu.cn"},
 ]
-keywords = ["academic", "literature", "literature-management", "research", "knowledge-base", "semantic-search", "claude", "agent-skills"]
+keywords = ["academic", "literature", "literature-management", "research", "knowledge-base", "semantic-search", "ai-agents", "agent-skills"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",

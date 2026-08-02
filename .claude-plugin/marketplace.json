@@ -1,8 +1,8 @@
 {
   "name": "scrinium-marketplace",
   "owner": {
-    "name": "ZimoLiao",
-    "email": "zimoliao@mail.ustc.edu.cn"
+    "name": "Zhou Qiankang",
+    "email": "wszqkzqk@qq.com"
   },
   "metadata": {
     "description": "Scrinium — A research infrastructure for AI agents. Search, read, analyze, and operationalize papers from your local knowledge base while coding.",
@@ -15,8 +15,8 @@
       "description": "Full Scrinium skill suite: literature search, arXiv discovery, layered reading, ingestion, topic modeling, citation graphs, insights analytics, scientific tool docs, Office document inspection, workspace management, academic writing, and more. Requires Python 3.10+; auto-installs on first session.",
       "version": "2.0.0",
       "author": {
-        "name": "ZimoLiao",
-        "email": "zimoliao@mail.ustc.edu.cn"
+        "name": "Zhou Qiankang",
+        "email": "wszqkzqk@qq.com"
       },
       "homepage": "https://github.com/wszqkzqk/scrinium",
       "repository": "https://github.com/wszqkzqk/scrinium",

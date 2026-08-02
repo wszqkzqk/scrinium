@@ -11,7 +11,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 ["![Python 3.10+"](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Claude Code Skills](https://img.shields.io/badge/Claude_Code_Skills-Scrinium-purple.svg)](.claude/skills/)
+[![Agent Skills](https://img.shields.io/badge/Agent_Skills-35-purple.svg)](.claude/skills/)
 
 </div>
 
@@ -89,7 +89,7 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 
 Scrinium follows the [AGENTS.md](https://agents.md) open standard — open this repository in any compatible agent and it just works: [Codex](https://openai.com/codex), OpenClaw, [Cursor](https://cursor.sh), [Windsurf](https://codeium.com/windsurf), [GitHub Copilot](https://github.com/features/copilot), [Cline](https://github.com/cline/cline), opencode, Kimi Code, and others. Two agents use their own entry filename: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) reads `CLAUDE.md` (a stub importing `AGENTS.md`), and [Qwen Code](https://github.com/QwenLM/qwen-code) reads `QWEN.md` (a pointer to `AGENTS.md`).
 
-Skills follow the open [AgentSkills.io](https://agentskills.io) standard and live in `.claude/skills/` (with `.agents/skills/` and `skills/` as discovery symlinks). To reuse the skills from another project, either install the Claude Code plugin from the marketplace or symlink the skills directory into `~/.agents/skills/`.
+Skills follow the open [AgentSkills.io](https://agentskills.io) standard and live in `.claude/skills/` (with `.agents/skills/` and `skills/` as discovery symlinks). To reuse the skills from another project, symlink the skills directory into `~/.agents/skills/`, or install the Claude Code plugin from the marketplace.
 
 **Migrating from existing tools?** Import directly from Endnote (XML/RIS) and Zotero (Web API or local SQLite), with PDFs, metadata, and references brought over together. More import sources are on the roadmap.
 

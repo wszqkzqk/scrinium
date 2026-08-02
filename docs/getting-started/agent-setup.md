@@ -40,9 +40,7 @@ This mode is best when you want the full project context, not just the Scrinium 
 
 ## Claude Code Plugin
 
-Claude Code has the cleanest cross-project install path because Scrinium ships as a plugin and marketplace entry.
-
-### Install into any project
+For Claude Code, Scrinium ships as a plugin with a marketplace entry — a managed install path (one of several ways to use the skills; direct repo open and symlinks work for any AGENTS.md-compatible agent).
 
 Run these commands inside Claude Code as slash-commands, not in your system shell:
 
