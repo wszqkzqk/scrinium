@@ -11,7 +11,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 ["![Python 3.10+"](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Agent Skills](https://img.shields.io/badge/Agent_Skills-35-purple.svg)](.claude/skills/)
+[![Agent Skills](https://img.shields.io/badge/Agent_Skills-35-purple.svg)](.agents/skills/)
 
 </div>
 
@@ -33,7 +33,7 @@ Scrinium 给 AI coding agent 的不只是检索能力，而是一整套真正可
 
 ```mermaid
 flowchart TB
-    U["用户 / AI agent"] --> S["技能 .claude/skills — 35 个工作流"]
+    U["用户 / AI agent"] --> S["技能 .agents/skills — 35 个工作流"]
     U --> C[scrinium CLI]
     S --> C
     C --> ING[摄入管线]
@@ -90,7 +90,7 @@ scrinium setup
 
 Scrinium 遵循 [AGENTS.md](https://agents.md) 开放标准——用任何兼容 agent 直接打开本仓库即可工作：[Codex](https://openai.com/codex)、OpenClaw、[Cursor](https://cursor.sh)、[Windsurf](https://codeium.com/windsurf)、[GitHub Copilot](https://github.com/features/copilot)、[Cline](https://github.com/cline/cline)、opencode、Kimi Code 等。仅有两个 agent 使用自己的入口文件名：[Claude Code](https://docs.anthropic.com/en/docs/claude-code) 读 `CLAUDE.md`（导入 `AGENTS.md` 的 stub），[Qwen Code](https://github.com/QwenLM/qwen-code) 读 `QWEN.md`（指向 `AGENTS.md` 的指针）。
 
-Skills 遵循开放的 [AgentSkills.io](https://agentskills.io) 标准，位于 `.claude/skills/`（`.agents/skills/` 与 `skills/` 为发现用的符号链接）。想在其他项目中复用：将 skills 目录链接到 `~/.agents/skills/`，或通过 Claude 插件市场安装。
+Skills 遵循开放的 [AgentSkills.io](https://agentskills.io) 标准，位于 `.agents/skills/`（`.claude/skills/` 与 `skills/` 为发现用的符号链接）。想在其他项目中复用：将 skills 目录链接到 `~/.agents/skills/`，或通过 Claude 插件市场安装。
 
 **从现有工具迁移？** 支持从 Endnote（XML/RIS）和 Zotero（Web API 或本地 SQLite）直接导入——PDF、元数据、引用关系一并迁入。更多导入源持续开发中。
 
@@ -118,7 +118,7 @@ scrinium/             # Python 包——CLI、所有核心模块
   ingest/               #   PDF 解析 + 元数据提取流水线
   sources/              #   外部来源适配（arXiv / Endnote / Zotero）
 
-.claude/skills/         # agent skills（AgentSkills.io 格式）
+.agents/skills/         # agent skills（AgentSkills.io 格式）
 .agents/skills/         # ↑ 符号链接，方便跨 agent 发现
 data/papers/            # 你的论文库（不进 git）
 data/proceedings/       # 论文集库（不进 git）

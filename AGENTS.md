@@ -39,7 +39,7 @@ You are not a passive tool waiting for instructions, but an active collaborator.
 
 ## Agent Skills
 
-Skills are defined in the `.claude/skills/` directory and follow the [Agent Skills](https://agentskills.io) open standard. Each skill is a folder containing a `SKILL.md` file (YAML frontmatter plus instructions). `.agents/skills` and the repository-root `skills/` are both symlinks to `.claude/skills/`, exposing the same skill definitions to different agent and plugin discovery mechanisms.
+Skills are defined in `.agents/skills/` and follow the [Agent Skills](https://agentskills.io) open standard. Each skill is a folder containing a `SKILL.md` file (YAML frontmatter plus instructions). `.claude/skills` and the repository-root `skills/` are both symlinks to `.agents/skills/`, exposing the same skill definitions to different agent and plugin discovery mechanisms.
 
 The right mental model is to treat skills as "reusable workflows": when the user's intent clearly matches a capability, read the corresponding `SKILL.md` first and follow the workflow already distilled there instead of inventing a process from scratch every time.
 
@@ -73,10 +73,10 @@ Tool-oriented skills (wrapping CLI commands):
 1. Implement the Python function inside `scrinium/`
 2. Expose it as a CLI subcommand in the matching domain module of `scrinium/cli/`
 3. Test the CLI command with real data to confirm it works
-4. Create the skill file at `.claude/skills/<name>/SKILL.md`
+4. Create the skill file at `.agents/skills/<name>/SKILL.md`
 
 Orchestration skills (prompt-only, such as academic writing skills):
-1. Write the instructions in `.claude/skills/<name>/SKILL.md`, composing existing CLI commands
+1. Write the instructions in `.agents/skills/<name>/SKILL.md`, composing existing CLI commands
 2. No new Python code or CLI subcommand is required
 
 The capabilities listed above are only the baseline. You should freely combine these CLI tools with the agent's own abilities (file reading and writing, code execution, multi-turn reasoning) to discover more powerful workflows, such as batch-comparing methodological differences across papers, auto-generating research trend reports, or uncovering undervalued key papers from citation graphs. The tools are finite, but the combination space is open.
@@ -162,7 +162,7 @@ For plugin mode, see `docs/getting-started/agent-setup.md`; for configuration an
 
 Project instructions live only in `AGENTS.md`, following the [AGENTS.md](https://agents.md) open standard. Agents that read it natively — Codex, OpenClaw, Cursor, Windsurf, GitHub Copilot, Cline, opencode, Kimi Code, and others — need no extra files. Two agents use their own entry filename and get a minimal pointer with no duplicated content: Claude Code reads `CLAUDE.md` (a stub importing `AGENTS.md` via Claude Code's `@`-import), and Qwen Code reads `QWEN.md` (a pointer to `AGENTS.md`). `tests/test_instruction_files.py` verifies both pointers.
 
-Skills follow the [AgentSkills.io](https://agentskills.io) open standard (`SKILL.md` format). The canonical location is `.claude/skills/`; `.agents/skills/` is the symlink for cross-agent discovery, and `skills/` is the symlink for Claude plugin / skill-system discovery.
+Skills follow the [AgentSkills.io](https://agentskills.io) open standard (`SKILL.md` format). The canonical location is `.agents/skills/`; `.claude/skills/` is the symlink for agents that read that path natively (Claude Code, Cline, Kimi Code), and `skills/` is the symlink for Claude plugin / skill-system discovery.
 
 ## Deep Reference
 
