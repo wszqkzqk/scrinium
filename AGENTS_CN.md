@@ -137,7 +137,7 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 - **工作区版本管理**：涉及代码开发的 workspace 子目录（如复现项目、数据分析脚本）应使用 `git init` 进行内部版本管理，并添加 `.gitignore` 排除 `__pycache__/`、`.venv/`、大型数据文件等。这不影响 scholaraio 主仓库（`workspace/` 已在主 `.gitignore` 中）
 - **不修改 `scholaraio/ingest/metadata/_extract.py` 的正则逻辑**，只通过 extractor 抽象层扩展
 - `data/`、`workspace/` 不进 git（`.gitignore` 已配置）
-- Python 3.10+，运行环境：项目根目录的 `.venv/`（全新安装时：任何执行过 `pip install -e .` 的环境均可）
+- Python 3.10+；环境管理工具不限（conda / venv / uv / pixi 均可）——使用执行过 `pip install -e .` 的那个环境（`scholaraio` 在 PATH 上，或用该环境的 `python -m pytest`）
 - 测试：`python -m pytest tests/ -v`
 - **代码注释**：仅用英文，且只在逻辑不自明时添加。
 - **LLM prompts**：所有新 LLM prompt 必须注册在 `scholaraio/prompts.py`（英文指令 + 必要时附中文术语表）；任何 prompt 变更都要记录进 changelog。
