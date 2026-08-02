@@ -1,7 +1,6 @@
 <div align="center">
 
-<!-- TODO: Replace with actual logo when available -->
-<!-- <img src="docs/assets/logo.png" width="200" alt="Scrinium Logo"> -->
+<img src="docs/assets/logo.png" width="180" alt="Scrinium Logo">
 
 # Scrinium
 
@@ -26,7 +25,9 @@ Your coding agent already reads code, writes code, and runs experiments. Scriniu
 - When scientific software questions come up, the agent can consult official documentation at runtime instead of guessing from prompts.
 - The system is built to keep expanding as new tools and workflows become worth supporting.
 
-<!-- TODO: record a new demo gif showing the scrinium CLI (the old one showed the pre-fork command) -->
+<div align="center">
+  <img src="docs/assets/scrinium-demo.gif" width="900" alt="Scrinium natural-language research workflow">
+</div>
 
 Scrinium offers more than search. It gives an AI coding agent a research workspace that supports natural-language interaction, papers and notes, more reliable use of scientific software, writing and running code, checking results against the literature, and structured academic writing.
 

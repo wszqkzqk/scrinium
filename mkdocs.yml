@@ -6,6 +6,8 @@ repo_name: wszqkzqk/scrinium
 
 theme:
   name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
   palette:
     - scheme: default
       primary: indigo

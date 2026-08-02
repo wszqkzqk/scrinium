@@ -1,7 +1,6 @@
 <div align="center">
 
-<!-- TODO: 有 logo 后替换 -->
-<!-- <img src="docs/assets/logo.png" width="200" alt="Scrinium Logo"> -->
+<img src="docs/assets/logo.png" width="180" alt="Scrinium Logo">
 
 # Scrinium
 
@@ -26,7 +25,9 @@
 - 遇到科学软件问题时，agent 可以在运行时查阅官方文档，而不是只靠 prompt 猜参数。
 - 系统一开始就按“可以继续扩展更多工具和工作流”的方向来设计。
 
-<!-- TODO: 重新录制 scrinium CLI 演示 gif（旧版演示的是 fork 前的命令） -->
+<div align="center">
+  <img src="docs/assets/scrinium-demo.gif" width="900" alt="Scrinium 自然语言科研工作流">
+</div>
 
 Scrinium 给 AI coding agent 的不只是检索能力，而是一整套真正可用的科研工作台：自然语言交互、论文与研究笔记支撑、更准确地使用科学软件、代码编写与执行、基于文献的结果校验，以及结构化的论文写作。
 

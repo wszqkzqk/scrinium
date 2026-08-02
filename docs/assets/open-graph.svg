@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3F51B5"/>
+      <stop offset="1" stop-color="#5C6BC0"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF8E1"/>
+      <stop offset="1" stop-color="#FFE082"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- logo mark -->
+  <g transform="translate(120,175) scale(0.55)">
+    <rect x="196" y="84" width="172" height="248" rx="12" fill="url(#paper)"/>
+    <rect x="218" y="118" width="128" height="14" rx="7" fill="#3F51B5" opacity="0.8"/>
+    <rect x="218" y="150" width="102" height="14" rx="7" fill="#3F51B5" opacity="0.55"/>
+    <rect x="218" y="182" width="116" height="14" rx="7" fill="#3F51B5" opacity="0.55"/>
+    <rect x="218" y="214" width="84" height="14" rx="7" fill="#3F51B5" opacity="0.55"/>
+    <rect x="96" y="300" width="320" height="116" rx="58" fill="#8D6E63"/>
+    <rect x="96" y="352" width="320" height="64" rx="32" fill="#000" opacity="0.12"/>
+    <circle cx="156" cy="358" r="42" fill="#EFEBE9"/>
+    <circle cx="156" cy="358" r="26" fill="#D7CCC8"/>
+    <circle cx="156" cy="358" r="12" fill="#A1887F"/>
+  </g>
+  <!-- wordmark -->
+  <text x="470" y="300" font-family="Helvetica, Arial, sans-serif" font-size="110" font-weight="bold" fill="#FFFFFF">Scrinium</text>
+  <text x="474" y="372" font-family="Helvetica, Arial, sans-serif" font-size="40" fill="#C5CAE9">A research infrastructure for AI agents</text>
+  <text x="474" y="440" font-family="Helvetica, Arial, sans-serif" font-size="28" fill="#9FA8DA">Literature · tags · citations · notes</text>
+</svg>
