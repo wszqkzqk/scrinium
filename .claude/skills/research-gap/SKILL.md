@@ -3,7 +3,7 @@ name: research-gap
 description: Identify research gaps and open questions from the literature in a workspace. Combines topic clustering, citation analysis, and cross-paper comparison. Use when the user wants to find unexplored areas, formulate research questions, or assess where the field is heading.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "research", "gap-analysis", "discovery"]
 ---
 # 研究空白识别

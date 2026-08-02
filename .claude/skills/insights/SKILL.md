@@ -3,7 +3,7 @@ name: insights
 description: Analyze research behavior data — search hot keywords, most-read papers, reading trends, and semantic neighbors you haven't read yet. Use when the user wants to understand their reading habits, discover overlooked papers, or review recent research activity.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "research", "analytics", "habits", "discovery"]
 ---
 

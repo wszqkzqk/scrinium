@@ -3,7 +3,7 @@ name: import
 description: Import papers from external reference managers (Endnote XML/RIS, Zotero Web API or local SQLite), or attach a PDF to an existing paper. Handles PDF matching, MinerU conversion, metadata enrichment, and index updates. Use when the user wants to import their existing library from Zotero, Endnote, attach/add a PDF to a paper, or supplement a paper with its PDF.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "papers", "import", "zotero", "endnote"]
 ---
 # 导入外部文献管理工具数据 / 补充 PDF

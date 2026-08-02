@@ -8,7 +8,7 @@ version = "2.0.0"
 description = "Scrinium — a research infrastructure for AI agents (hard fork of ScholarAIO)"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.10"
-license = "MIT"
+license = "GPL-3.0-or-later"
 authors = [
     {name = "Zimo Liao", email = "zimoliao@mail.ustc.edu.cn"},
 ]

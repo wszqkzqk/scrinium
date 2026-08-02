@@ -3,7 +3,7 @@ name: arxiv
 description: Use when the user wants to browse arXiv preprints, search arXiv directly, fetch a PDF by arXiv ID or URL, or send a preprint straight into the ingest pipeline.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "papers", "arxiv", "preprint"]
 ---
 

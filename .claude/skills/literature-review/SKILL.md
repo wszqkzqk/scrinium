@@ -3,7 +3,7 @@ name: literature-review
 description: Write a literature review based on papers in a workspace. Covers topic organization, narrative structure, gap identification, and BibTeX export. Use when the user wants to draft a literature review, survey a research area, or summarize the state of the art.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "writing", "literature-review", "survey"]
 ---
 # 文献综述写作

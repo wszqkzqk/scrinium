@@ -3,7 +3,7 @@ name: citation-check
 description: Verify citations in AI-generated or human-written text against the local knowledge base. Catches hallucinated references, wrong metadata, and missing papers. Use when the user wants to check if citations are real and accurate.
 version: 1.1.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "citations", "verification", "hallucination"]
 ---
 # 引用验证

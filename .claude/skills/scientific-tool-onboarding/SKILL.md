@@ -3,7 +3,7 @@ name: scientific-tool-onboarding
 description: Use when adding or upgrading Scrinium support for a new scientific computing tool, especially when the work needs official docs ingestion, toolref integration, lightweight skill design, and end-to-end CLI verification
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["scientific-computing", "toolref", "onboarding", "documentation"]
 ---
 

@@ -106,6 +106,7 @@ class TestExploreSearchWithoutVectors:
         assert results[0]["title"] == "Turbulent drag reduction"
 
     def test_vsearch_raises_clean_error_without_table(self, tmp_path, monkeypatch):
+        pytest.importorskip("faiss", reason="embed extra not installed")
         monkeypatch.delenv("SCRINIUM_EMBED_PROVIDER", raising=False)
         cfg = _build_config({}, tmp_path)
         _make_explore_lib(tmp_path)

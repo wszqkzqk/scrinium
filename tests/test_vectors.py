@@ -4,6 +4,8 @@ import os
 import sqlite3
 from types import SimpleNamespace
 
+import pytest
+
 from scrinium import vectors
 from scrinium.config import _build_config
 
@@ -141,6 +143,7 @@ def test_load_model_fast_fails_when_remote_download_is_unreachable(tmp_path, mon
 
 
 def test_build_vectors_auto_rebuild_on_signature_change(tmp_papers, tmp_db, tmp_path, monkeypatch):
+    pytest.importorskip("faiss", reason="embed extra not installed")
     monkeypatch.setattr(vectors, "_embed_batch", lambda texts, cfg=None: [[0.1, 0.2, 0.3] for _ in texts])
 
     cfg_local = _build_config(
@@ -185,6 +188,7 @@ def test_build_vectors_auto_rebuild_on_signature_change(tmp_papers, tmp_db, tmp_
 
 
 def test_build_vectors_provider_none_clears_vectors(tmp_papers, tmp_db, tmp_path, monkeypatch):
+    pytest.importorskip("faiss", reason="embed extra not installed")
     monkeypatch.setattr(vectors, "_embed_batch", lambda texts, cfg=None: [[0.1, 0.2, 0.3] for _ in texts])
 
     cfg_local = _build_config(
@@ -212,7 +216,7 @@ def test_build_vectors_provider_none_clears_vectors(tmp_papers, tmp_db, tmp_path
 
 
 def test_resolve_model_path_announces_download_when_model_not_cached(tmp_path, monkeypatch):
-    import modelscope
+    modelscope = pytest.importorskip("modelscope", reason="modelscope not installed")
 
     messages: list[str] = []
     monkeypatch.setattr(vectors, "ui", lambda msg="", *args: messages.append(msg))
@@ -237,7 +241,7 @@ def test_resolve_model_path_announces_download_when_model_not_cached(tmp_path, m
 
 
 def test_resolve_model_path_no_download_notice_when_model_cached(tmp_path, monkeypatch):
-    import modelscope
+    modelscope = pytest.importorskip("modelscope", reason="modelscope not installed")
 
     messages: list[str] = []
     monkeypatch.setattr(vectors, "ui", lambda msg="", *args: messages.append(msg))

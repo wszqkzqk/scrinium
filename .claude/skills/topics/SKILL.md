@@ -3,7 +3,7 @@ name: topics
 description: Explore topic distribution in the paper library using BERTopic clustering. Build/rebuild topic models, view topic overview, list papers in a topic, merge similar topics, and generate HTML visualizations. Use when the user asks about research themes, topic distribution, or wants to discover cross-domain connections.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "research", "topic-modeling", "bertopic"]
 ---
 # 主题探索

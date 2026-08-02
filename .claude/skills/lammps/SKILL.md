@@ -3,7 +3,7 @@ name: lammps
 description: Use when working on classical materials simulations with LAMMPS, especially interatomic-potential selection, shock or deformation setups, thermodynamic runs, and structure analysis for solids or nanomaterials.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["scientific-computing", "lammps", "molecular-dynamics", "materials"]
 ---
 

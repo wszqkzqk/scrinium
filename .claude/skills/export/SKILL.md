@@ -3,7 +3,7 @@ name: export
 description: Export papers from the knowledge base to standard citation formats (BibTeX, RIS, Markdown reference list) or export any Markdown content as a Word DOCX file. Supports exporting all papers, specific papers, or filtered by year/journal. Use when the user needs citation files, wants to import into Zotero/Endnote/Mendeley, needs a reference list for writing, or wants to share a document as Word.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "bibtex", "citations", "export", "docx", "ris"]
 ---
 # 导出论文与文档

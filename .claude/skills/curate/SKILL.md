@@ -3,7 +3,7 @@ name: curate
 description: Curate papers with tags in batch — build and maintain a healthy tag vocabulary, tag untagged papers via subagents, and review vocabulary quality. Use when the user wants to tag papers / batch-organize the library with tags / tidy up the tag vocabulary (especially when embedding retrieval is disabled and tags are the discovery mechanism).
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "papers", "curation", "tags"]
 ---
 # 文献策展（标签）

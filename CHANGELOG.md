@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Comprehensive agent-facing audit**: ~30 staleness/executability fixes across skills, docs, configs, and wrappers. Notably: explore semantic/unified search no longer crashes when vectors are missing or `embed.provider: none`; `setup.py` config template re-synced with `config.yaml` (with a drift-prevention test); `config.local.example.yaml` no longer silently overrides `config.yaml` embed settings; setup wizard keeps editable installs editable; `clawhub.yaml` lists all 35 skills; `QWEN.md` wrapper completes Qwen Code support; runtime-env instructions are environment-manager agnostic
 - **Windows compatibility**: stdout/stderr are reconfigured to UTF-8 at logging setup so redirected/piped output (CJK JSON, unicode symbols) no longer crashes or vanishes under ANSI code pages; `toolref use` now creates its `current` marker with `target_is_directory=True` and falls back to a plain text file (readable by `show`/`search`/`list`) when symlink creation is not permitted; CI test matrix adds `windows-latest`; agent-setup docs cover `core.symlinks` and MAX_PATH caveats
+- **License changed to GPL-3.0-or-later**: the fork is now GPL-3.0-or-later (see LICENSE); the upstream ScholarAIO MIT license text is preserved in NOTICE as required
+- **CI test fixes**: tests depending on optional extras (pandas/faiss/modelscope) now skip gracefully when the extra is absent, matching the CI install set (`.[dev,office]`)
 
 ## [1.3.0] — 2026-04-06
 

@@ -3,7 +3,7 @@ name: bioinformatics
 description: Use when working on bioinformatics toolchains such as alignment, variant calling, phylogenetics, or protein-structure analysis, especially when the agent must route across BLAST, minimap2, samtools, bcftools, MAFFT, IQ-TREE, or ESMFold.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["scientific-computing", "bioinformatics", "sequence-analysis", "phylogenetics"]
 ---
 

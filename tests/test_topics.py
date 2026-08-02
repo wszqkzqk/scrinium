@@ -3,7 +3,9 @@ from __future__ import annotations
 from argparse import Namespace
 from types import SimpleNamespace
 
-import pandas as pd
+import pytest
+
+pd = pytest.importorskip("pandas", reason="topics extra not installed")
 
 from scrinium import cli
 from scrinium.cli import misc as cli_misc

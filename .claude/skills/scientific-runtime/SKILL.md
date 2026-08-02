@@ -3,7 +3,7 @@ name: scientific-runtime
 description: Underlying working protocol for scientific computing tasks in Scrinium, meant to be consulted alongside a tool-specific skill (quantum-espresso, lammps, gromacs, openfoam, bioinformatics). Defines toolref-first behavior, graceful fallback under partial coverage, and keeping documentation maintenance away from users.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["scientific-computing", "toolref", "runtime-protocol"]
 ---
 

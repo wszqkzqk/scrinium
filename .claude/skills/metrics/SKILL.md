@@ -3,7 +3,7 @@ name: metrics
 description: View LLM token usage, API call timing, and runtime metrics. Use when the user asks about token consumption, API costs, or performance statistics.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["monitoring", "metrics", "llm", "tokens"]
 ---
 # 查看指标统计

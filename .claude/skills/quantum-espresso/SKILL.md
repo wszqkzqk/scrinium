@@ -3,7 +3,7 @@ name: quantum-espresso
 description: Use when working on first-principles materials calculations with Quantum ESPRESSO, especially SCF, band structures, DOS, phonons, electron-phonon coupling, Fermi surfaces, or charge-density analysis.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["scientific-computing", "quantum-espresso", "dft", "first-principles"]
 ---
 

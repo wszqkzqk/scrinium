@@ -3,7 +3,7 @@ name: gromacs
 description: Use when working on biomolecular molecular dynamics with GROMACS, especially system setup, equilibration, production runs, trajectory analysis, or MM/PBSA-style post-processing.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["scientific-computing", "gromacs", "molecular-dynamics", "biomolecular"]
 ---
 

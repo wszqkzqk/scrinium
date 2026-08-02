@@ -10,7 +10,7 @@
 [English](README.md) | [中文](README_CN.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Claude Code Skills](https://img.shields.io/badge/Claude_Code_Skills-Scrinium-purple.svg)](.claude/skills/)
 
@@ -54,8 +54,9 @@ scrinium setup
 |                               | 功能                           | 说明                                                                                        |
 | ----------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
 | **PDF 解析**                  | 深度结构提取                   | 将 PDF 转成结构化 Markdown，尽可能保留公式、图片和版面结构                                  |
-| **不只是论文**                | 各种文档都能入                 | 期刊论文、学位论文、专利、技术报告、标准、讲义——四种 inbox 分类入库，各有针对性的元数据处理 |
+| **不只是论文**                | 各种文档都能入                 | 期刊论文、学位论文、专利、技术报告、标准、讲义——五种 inbox 分类入库，各有针对性的元数据处理 |
 | **融合检索**                  | 关键词 + 语义                  | 全文 + 向量混合检索（可关闭嵌入，走纯关键词模式）                                         |
+| **策展标签**                  | agent 维护的主题词表           | agent 策展的受控标签体系（`data/tags.yaml`），标签进检索索引、支持 `--tag` 过滤——无嵌入部署下替代语义发现 |
 | **主题发现**                  | 看清你的文献库在研究什么       | 自动把论文归成研究主题，并用交互式图形帮助你快速把握整体结构                                |
 | **文献探索**                  | 多维度发现                     | 按期刊、主题、作者、机构、关键词、年份、引用影响力等多个维度探索一个研究方向                |
 | **引用图谱**                  | 参考文献与影响力               | 正向引用、反向引用、共同引用分析                                                            |
@@ -132,14 +133,14 @@ data/inbox-proceedings/ # 显式放入论文集 PDF/MD，走专用 proceedings �
 
 ```bibtex
 @software{scrinium,
-  author = {Liao, Zi-Mo},
-  title = {Scrinium: AI-Native Research Terminal},
+  author = {Zhou, Qiankang and Liao, Zi-Mo},
+  title = {Scrinium: A Research Infrastructure for AI Agents},
   year = {2026},
   url = {https://github.com/wszqkzqk/scrinium},
-  license = {MIT}
+  license = {GPL-3.0-or-later}
 }
 ```
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 Zi-Mo Liao
+[GPL-3.0-or-later](LICENSE) © 2026 Zhou Qiankang。Scrinium 是 [ScholarAIO](https://github.com/ZimoLiao/scholaraio) 的 hard fork，原作 © 2026 Zi-Mo Liao 的部分仍以 [MIT License](NOTICE) 保留。

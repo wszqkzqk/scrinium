@@ -3,7 +3,7 @@ name: citations
 description: View top-cited papers ranking and refetch citation counts from APIs. Use when the user asks about highly cited papers, citation rankings, or wants to update citation data.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "citations", "bibliometrics", "impact"]
 ---
 # 引用量查询

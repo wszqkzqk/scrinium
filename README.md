@@ -10,7 +10,7 @@
 [English](README.md) | [中文](README_CN.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Claude Code Skills](https://img.shields.io/badge/Claude_Code_Skills-Scrinium-purple.svg)](.claude/skills/)
 
@@ -54,8 +54,9 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 |  | Feature | Details |
 |--|---------|---------|
 | **PDF Parsing** | Deep structure extraction | Convert PDFs into structured Markdown while preserving formulas, figures, and layout as much as possible |
-| **Not Just Papers** | More than papers | Journal articles, theses, patents, technical reports, standards, and lecture notes — four inbox categories with tailored metadata handling |
+| **Not Just Papers** | More than papers | Journal articles, theses, patents, technical reports, standards, and lecture notes — five inbox categories with tailored metadata handling |
 | **Hybrid Search** | Keyword + semantic fusion | Combine full-text and vector retrieval for stronger search results |
+| **Curated Tags** | Agent-maintained topics | A controlled tag vocabulary curated by the agent (`data/tags.yaml`), indexed into search and filterable via `--tag` — replaces semantic discovery in embedding-free deployments |
 | **Topic Discovery** | See what your library is about | Automatically group papers into research themes and use interactive views to grasp the overall structure quickly |
 | **Literature Exploration** | Multi-dimensional discovery | Explore a research direction through journal, topic, author, institution, keyword, year, citation impact, and more |
 | **Citation Graph** | References & impact | Forward citations, backward citations, and shared-reference analysis |
@@ -131,14 +132,14 @@ If you use Scrinium in your research, please cite:
 
 ```bibtex
 @software{scrinium,
-  author = {Liao, Zi-Mo},
-  title = {Scrinium: AI-Native Research Terminal},
+  author = {Zhou, Qiankang and Liao, Zi-Mo},
+  title = {Scrinium: A Research Infrastructure for AI Agents},
   year = {2026},
   url = {https://github.com/wszqkzqk/scrinium},
-  license = {MIT}
+  license = {GPL-3.0-or-later}
 }
 ```
 
 ## License
 
-[MIT](LICENSE) © 2026 Zi-Mo Liao
+[GPL-3.0-or-later](LICENSE) © 2026 Zhou Qiankang. Scrinium is a hard fork of [ScholarAIO](https://github.com/ZimoLiao/scholaraio); the original work © 2026 Zi-Mo Liao remains under the [MIT License](NOTICE).

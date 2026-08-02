@@ -3,7 +3,7 @@ name: document
 description: Generate and inspect Office documents (DOCX, PPTX, XLSX). Generate by writing Python scripts that call python-docx, python-pptx, and openpyxl APIs directly. Inspect with `scrinium document inspect` to verify layout, content, and catch issues (overflow, missing elements). Use when the user wants to create Word reports, PowerPoint presentations, Excel data sheets, or inspect any Office document.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 ---
 

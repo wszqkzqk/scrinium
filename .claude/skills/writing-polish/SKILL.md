@@ -3,7 +3,7 @@ name: writing-polish
 description: Polish academic writing — remove AI-generated patterns, improve clarity, and match a target style. Supports both English and Chinese. Use when the user wants to refine prose, remove AI artifacts, or adapt writing to a specific journal style.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "writing", "polish", "style"]
 ---
 # 学术写作润色

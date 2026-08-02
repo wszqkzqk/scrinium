@@ -3,7 +3,7 @@ name: ingest
 description: Use when the user wants to process new papers, patents, theses, documents, or proceedings from inbox into the knowledge base via the ingest pipeline. For rebuilding search indexes without ingesting inbox items, see the /index skill.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["academic", "papers", "patent", "pipeline", "pdf", "docx", "office"]
 ---
 # 入库文档

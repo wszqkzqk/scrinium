@@ -3,13 +3,15 @@ message: "If you use Scrinium in your research, please cite it as below."
 title: "Scrinium"
 abstract: "Scrinium — a research infrastructure for AI agents (hard fork of ScholarAIO)"
 type: software
-license: MIT
+license: GPL-3.0-or-later
 repository-code: "https://github.com/wszqkzqk/scrinium"
 version: 2.0.0
 date-released: "2026-08-02"
 # Scrinium is a hard fork of ScholarAIO (https://github.com/ZimoLiao/scholaraio);
 # the original author is retained below in acknowledgment of the upstream work.
 authors:
+  - family-names: Zhou
+    given-names: Qiankang
   - family-names: Liao
     given-names: Zimo
     email: zimoliao@mail.ustc.edu.cn

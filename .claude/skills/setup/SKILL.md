@@ -3,7 +3,7 @@ name: setup
 description: Initialize and diagnose the Scrinium environment. Run interactive setup wizard (bilingual EN/ZH) to install dependencies, create config files, and configure API keys. Run status check to see what's installed and what's missing. Use when the user wants to set up, install, configure, or troubleshoot Scrinium.
 version: 1.0.0
 author: wszqkzqk/scrinium
-license: MIT
+license: GPL-3.0-or-later
 tags: ["setup", "configuration", "installation"]
 ---
 # Setup / 环境配置
