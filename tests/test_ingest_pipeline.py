@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from scrinium.ingest.metadata._api import query_semantic_scholar
 from scrinium.ingest.metadata._models import PaperMetadata
 from scrinium.ingest.pipeline import (
+    DedupIndex,
     InboxCtx,
     StepResult,
     _collect_existing_ids,
@@ -88,11 +89,11 @@ def test_collect_existing_ids_includes_arxiv_ids(tmp_path: Path):
         encoding="utf-8",
     )
 
-    dois, pub_nums, arxiv_ids = _collect_existing_ids(papers_dir)
+    collected = _collect_existing_ids(papers_dir)
 
-    assert dois == {}
-    assert pub_nums == {}
-    assert arxiv_ids["hep-th/9901001"] == paper_dir / "meta.json"
+    assert collected.dois == {}
+    assert collected.pub_nums == {}
+    assert collected.arxiv_ids["hep-th/9901001"] == paper_dir / "meta.json"
 
 
 def test_step_dedup_rejects_duplicate_arxiv_only_preprint(tmp_path: Path, monkeypatch):
@@ -320,7 +321,10 @@ def test_run_pipeline_auto_injects_translate_for_new_ingest(tmp_path: Path, monk
         (paper_dir / "paper.md").write_text("content", encoding="utf-8")
         ingested_jsons.append(meta_json)
 
-    monkeypatch.setattr("scrinium.ingest.pipeline._collect_existing_ids", lambda *_: ({}, {}, {}))
+    monkeypatch.setattr(
+        "scrinium.ingest.pipeline._collect_existing_ids",
+        lambda *_: DedupIndex(dois={}, pub_nums={}, arxiv_ids={}),
+    )
     monkeypatch.setattr("scrinium.ingest.pipeline._process_inbox", fake_process_inbox)
 
     paper_calls: list[str] = []

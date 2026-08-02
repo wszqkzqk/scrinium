@@ -325,7 +325,7 @@ class TestArxivCommands:
 
         def fake_run_pipeline(step_names, cfg, opts):
             seen["steps"] = step_names
-            seen["inbox_dir"] = opts["inbox_dir"]
+            seen["inbox_dir"] = opts.inbox_dir
             seen["opts"] = opts
 
         monkeypatch.setattr("scrinium.sources.arxiv.download_arxiv_pdf", fake_download)
@@ -338,7 +338,7 @@ class TestArxivCommands:
 
         assert seen["steps"] == ["mineru", "extract", "dedup", "ingest", "embed", "index"]
         assert seen["inbox_dir"] != cfg._root / "data" / "inbox"
-        assert seen["opts"]["include_aux_inboxes"] is False
+        assert seen["opts"].include_aux_inboxes is False
         assert any("开始直接入库" in m for m in messages)
 
     def test_arxiv_fetch_reports_download_failure(self, tmp_path, monkeypatch):

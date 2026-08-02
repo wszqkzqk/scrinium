@@ -55,8 +55,6 @@ class PipelineOptions:
 
     Defaults match the legacy ``opts.get(key, default)`` behavior. Per-file
     overrides (e.g. ``office_path``) are applied via ``dataclasses.replace``.
-    ``__getitem__`` / ``get`` are read-only shims for dict-style access during
-    migration; new code should use attribute access.
     """
 
     dry_run: bool = False
@@ -78,15 +76,6 @@ class PipelineOptions:
         if unknown:
             raise TypeError(f"unknown pipeline option(s): {', '.join(sorted(unknown))}")
         return cls(**dict(data))
-
-    def __getitem__(self, key: str) -> Any:
-        try:
-            return getattr(self, key)
-        except AttributeError:
-            raise KeyError(key) from None
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
 
 def _coerce_opts(opts: PipelineOptions | Mapping[str, Any]) -> PipelineOptions:
@@ -1353,9 +1342,10 @@ def run_pipeline(
     # ---- Inbox scope ----
     if inbox_steps:
         collected = _collect_existing_ids(papers_dir)
-        existing_dois, existing_pub_nums, existing_arxiv_ids = collected
-        # Test doubles may still return a plain 3-tuple; tolerate that here.
-        failed_reads: list[Path] = getattr(collected, "failed", [])
+        existing_dois = collected.dois
+        existing_pub_nums = collected.pub_nums
+        existing_arxiv_ids = collected.arxiv_ids
+        failed_reads = collected.failed
         if failed_reads:
             ui(f"警告: {len(failed_reads)} 篇已入库论文的 meta.json 读取失败，去重可能不完整")
 
@@ -1583,7 +1573,10 @@ def import_external(
     """
     papers_dir = cfg.papers_dir
     pending_dir = cfg._root / "data" / "pending"
-    existing_dois, existing_pub_nums, existing_arxiv_ids = _collect_existing_ids(papers_dir)
+    collected = _collect_existing_ids(papers_dir)
+    existing_dois = collected.dois
+    existing_pub_nums = collected.pub_nums
+    existing_arxiv_ids = collected.arxiv_ids
 
     opts = PipelineOptions(dry_run=dry_run, no_api=no_api)
     stats: dict[str, int] = {"ingested": 0, "duplicate": 0, "needs_review": 0, "failed": 0, "skipped": 0}
@@ -2056,20 +2049,12 @@ class DedupIndex:
 
     ``failed`` lists ``meta.json`` paths that could not be parsed; when non-empty,
     dedup coverage is incomplete (those papers are invisible to duplicate checks).
-
-    Iterating/unpacking yields exactly ``(dois, pub_nums, arxiv_ids)`` so legacy
-    three-way unpacking keeps working.
     """
 
     dois: dict[str, Path]
     pub_nums: dict[str, Path]
     arxiv_ids: dict[str, Path]
     failed: list[Path] = field(default_factory=list)
-
-    def __iter__(self):
-        yield self.dois
-        yield self.pub_nums
-        yield self.arxiv_ids
 
 
 def _collect_existing_ids(papers_dir: Path) -> DedupIndex:
@@ -2111,8 +2096,7 @@ def _collect_existing_ids(papers_dir: Path) -> DedupIndex:
 
 def _collect_existing_dois(papers_dir: Path) -> dict[str, Path]:
     """Backward-compatible wrapper returning only DOIs."""
-    dois, _, _ = _collect_existing_ids(papers_dir)
-    return dois
+    return _collect_existing_ids(papers_dir).dois
 
 
 def _normalize_arxiv_id(arxiv_id: str) -> str:

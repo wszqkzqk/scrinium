@@ -44,14 +44,6 @@ class TestPipelineOptions:
         with pytest.raises(TypeError, match="unknown pipeline option"):
             PipelineOptions.from_mapping({"dry_rnu": True})
 
-    def test_dict_style_read_compat(self):
-        opts = PipelineOptions(dry_run=True)
-        assert opts["dry_run"] is True
-        assert opts.get("no_api") is False
-        assert opts.get("missing", "fallback") == "fallback"
-        with pytest.raises(KeyError):
-            opts["missing"]
-
 
 class TestPipelineErrorBoundary:
     def test_run_pipeline_unknown_step_raises_instead_of_exit(self, tmp_path):
@@ -103,12 +95,6 @@ class TestCollectExistingIdsFailures:
         assert collected.dois == {"10.1/x": good / "meta.json"}
         assert collected.failed == [bad / "meta.json"]
         assert any("dedup may miss" in r.message for r in caplog.records)
-
-        # Legacy three-way unpacking still works.
-        dois, pub_nums, arxiv_ids = collected
-        assert dois == {"10.1/x": good / "meta.json"}
-        assert pub_nums == {}
-        assert arxiv_ids == {}
 
     def test_run_pipeline_warns_when_dedup_incomplete(self, tmp_path, monkeypatch):
         cfg = SimpleNamespace(
