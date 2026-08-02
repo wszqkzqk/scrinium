@@ -64,6 +64,7 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 | 使用某个具体科学计算工具（QE / LAMMPS / GROMACS / OpenFOAM / bioinformatics） | 对应的工具 skill，并以 `scientific-runtime` 为配套协议 | 只用 `scientific-runtime`（它不含工具专门知识） |
 | 导出 BibTeX / RIS / Markdown 参考文献，或简单 Markdown → DOCX | `export` | `document`（面向精细排版的 Office 生成） |
 | 生成或检查精细排版的 Word / PowerPoint / Excel | `document` | `export`（只是简单 Markdown 转换器） |
+| 从种子论文沿引用扩张发现核心文献（滚雪球） | `graph`（snowball 命令） | `shared-refs`（手工多点共引查询，不做自动扩张和排序） |
 
 **新增 skill 的流程：**
 

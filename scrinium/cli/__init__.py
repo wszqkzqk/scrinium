@@ -17,6 +17,7 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium refs <paper-id>
     scrinium citing <paper-id>
     scrinium shared-refs <id1> <id2> ... [--min N]
+    scrinium snowball <paper-id>... [--depth 1] [--top N] [--ws NAME] [--json]
     scrinium refetch [<paper-id> | --all] [--force]
     scrinium rename [<paper-id> | --all] [--dry-run]
     scrinium audit [--severity error|warning|info]
@@ -130,6 +131,7 @@ from .misc import (
     cmd_refs,
     cmd_setup,
     cmd_shared_refs,
+    cmd_snowball,
     cmd_style,
     cmd_toolref,
     cmd_topics,
@@ -239,6 +241,7 @@ __all__ = [
     "cmd_setup",
     "cmd_shared_refs",
     "cmd_show",
+    "cmd_snowball",
     "cmd_style",
     "cmd_tag",
     "cmd_tags",

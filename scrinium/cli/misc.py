@@ -14,8 +14,10 @@ from scrinium.log import ui
 from .common import (
     _check_import_error,
     _count_registry_papers,
+    _emit_json,
     _resolve_paper,
     _resolve_ws_paper_ids,
+    _try_resolve_paper,
     _write_all_viz,
 )
 
@@ -114,6 +116,74 @@ def cmd_shared_refs(args: argparse.Namespace, cfg) -> None:
             ui(f"     DOI: {r['target_doi']}")
         else:
             ui(f"[{i}] [{count}x] DOI: {r['target_doi']}")
+        ui()
+
+
+def cmd_snowball(args: argparse.Namespace, cfg) -> None:
+    from scrinium.papers import read_meta
+    from scrinium.snowball import snowball_candidates
+
+    depth = getattr(args, "depth", 1) or 1
+    if depth != 1:
+        raise ValueError(f"snowball 当前仅支持 --depth 1（收到 {depth}）")
+
+    # Resolve seeds (dir_name / UUID / DOI). Any unresolvable ref is fatal:
+    # seeds are the basis of the whole expansion.
+    seed_uuids: list[str] = []
+    seed_labels: list[str] = []
+    unresolved: list[str] = []
+    for ref in args.paper_ids:
+        paper_d = _try_resolve_paper(ref, cfg)
+        if paper_d is None:
+            unresolved.append(ref)
+            continue
+        meta = read_meta(paper_d)
+        uuid = meta.get("id", "")
+        if uuid and uuid not in seed_uuids:
+            seed_uuids.append(uuid)
+            seed_labels.append(paper_d.name)
+    if unresolved:
+        raise ValueError(f"无法解析种子论文: {', '.join(unresolved)}")
+
+    ws_ids = _resolve_ws_paper_ids(args, cfg)
+    ranked = snowball_candidates(seed_uuids, cfg.index_db, ws_ids=ws_ids)
+    if not ranked:
+        ui("没有发现任何候选论文：引用图数据不足。")
+        ui("可对种子运行 scrinium refetch <paper-id> 拉取 references，然后 scrinium index 重建索引。")
+        return
+
+    top = args.top if args.top is not None else 20
+    show = ranked[:top]
+
+    # Attach citation counts from meta.json (papers_registry has no such column).
+    for cand in show:
+        cc: dict = {}
+        try:
+            cc = read_meta(cfg.papers_dir / cand["dir_name"]).get("citation_count") or {}
+        except (ValueError, FileNotFoundError):
+            pass
+        cand["citation_count"] = max((v for v in cc.values() if isinstance(v, int | float)), default=0)
+
+    if getattr(args, "json", False):
+        _emit_json(
+            {
+                "seeds": [{"id": u, "dir_name": n} for u, n in zip(seed_uuids, seed_labels)],
+                "depth": depth,
+                "total": len(ranked),
+                "count": len(show),
+                "results": show,
+            }
+        )
+        return
+
+    scope = f"工作区 {args.ws} 内" if getattr(args, "ws", None) else "库内"
+    ui(f"种子论文：{', '.join(seed_labels)}")
+    ui(f"{scope}滚雪球候选共 {len(ranked)} 篇（score = 2×共享引用 + 1×引用种子 + 1×被种子引用）\n")
+    for i, c in enumerate(show, 1):
+        rel = "+".join(c["relations"])
+        ui(f"[{i}] [score {c['score']}] {c['dir_name'] or c['id']}")
+        ui(f"     {c.get('title') or '?'} | {c.get('year') or '?'} | 被引 {c['citation_count']}")
+        ui(f"     关系 {rel} | 共享引用 {c['shared']} | 引用种子 {c['cites_seeds']} | 被种子引用 {c['cited_by_seeds']}")
         ui()
 
 
@@ -696,6 +766,15 @@ def register(sub) -> None:
     p_sr.add_argument("paper_ids", nargs="+", help="论文 ID（至少 2 个）")
     p_sr.add_argument("--min", type=int, default=None, help="最少共引次数（默认 2）")
     p_sr.add_argument("--ws", type=str, default=None, help="限定工作区范围")
+
+    # --- snowball ---
+    p_sb = sub.add_parser("snowball", help="引用滚雪球：从种子论文沿引用扩张并排序")
+    p_sb.set_defaults(func=cmd_snowball)
+    p_sb.add_argument("paper_ids", nargs="+", help="种子论文 ID（目录名 / UUID / DOI，可多篇）")
+    p_sb.add_argument("--depth", type=int, default=1, help="扩张深度（当前仅支持 1）")
+    p_sb.add_argument("--top", type=int, default=None, help="返回条数（默认 20）")
+    p_sb.add_argument("--ws", type=str, default=None, help="限定工作区范围")
+    p_sb.add_argument("--json", action="store_true", help="以 JSON 输出")
 
     # --- topics ---
     p_topics = sub.add_parser("topics", help="BERTopic 主题建模与探索")
