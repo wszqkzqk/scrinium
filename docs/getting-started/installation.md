@@ -36,6 +36,31 @@ pip install -e ".[full]"
 
 Use the source install path when you want to inspect the codebase, edit the package locally, or contribute changes upstream.
 
+## Upgrading from ScholarAIO (pre-fork)
+
+Scrinium is a hard fork of ScholarAIO; the git history is continuous, so an existing checkout upgrades in place. Data (`data/`, `workspace/`, `config.local.yaml`) is untouched.
+
+```bash
+cd /path/to/scholaraio                       # your existing checkout
+git remote set-url origin git@github.com:wszqkzqk/scrinium.git
+git fetch origin && git switch main && git pull --ff-only
+
+pip uninstall -y scholaraio                  # drop the old editable install
+rm -rf scholaraio.egg-info
+pip install -e ".[full]"                     # install scrinium (new CLI name)
+
+scrinium --version                           # 2.0.0
+scrinium index                               # one-time FTS schema v1 migration (adds tags column)
+```
+
+Compatibility fallbacks (everything old keeps working, with a deprecation warning):
+
+- `SCHOLARAIO_*` environment variables are still honored when the `SCRINIUM_*` name is unset
+- `~/.scholaraio/config.yaml` is used when `~/.scrinium/config.yaml` does not exist
+- `~/.cache/scholaraio` GPU profiles are read as fallback
+
+Optional tidy-up: rename the checkout directory to `scrinium` (recreate the venv afterwards, or keep a `scholaraio -> scrinium` symlink so old venv shebangs keep resolving); update any `~/.agents/skills` symlinks that point at the old path; mirror the new code to other remotes you pull from (e.g. `git push <mirror> main`).
+
 ## Optional Dependencies
 
 | Extra | What it adds |
