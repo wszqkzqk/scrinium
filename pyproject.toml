@@ -10,6 +10,7 @@ readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.10"
 license = "GPL-3.0-or-later"
 authors = [
+    {name = "Zhou Qiankang", email = "wszqkzqk@qq.com"},
     {name = "Zimo Liao", email = "zimoliao@mail.ustc.edu.cn"},
 ]
 keywords = ["academic", "literature", "literature-management", "research", "knowledge-base", "semantic-search", "claude", "agent-skills"]
