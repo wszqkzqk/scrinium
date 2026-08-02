@@ -55,11 +55,11 @@ class TestTimerResult:
         t.elapsed = 1.5
         assert t.elapsed == 1.5
 
-    def test_elapsed_during_timing(self):
+    def test_elapsed_during_timing(self, monkeypatch):
+        monkeypatch.setattr(time, "monotonic", lambda: 100.0)
         t = TimerResult()
-        t._t0 = time.monotonic()
-        time.sleep(0.01)
-        assert t.elapsed > 0
+        t._t0 = 99.5
+        assert t.elapsed == 0.5
 
 
 class TestMetricsStore:
@@ -147,15 +147,19 @@ class TestGlobalStore:
 
 
 class TestTimer:
-    def test_timer_records_event(self, tmp_path):
+    def test_timer_records_event(self, tmp_path, monkeypatch):
         s = init(tmp_path / "m.db", "s")
+        # Deterministic clock: wall-clock timing asserts are flaky on Windows CI
+        clock = iter([100.0, 100.5])
+        monkeypatch.setattr("scrinium.metrics.time.monotonic", lambda: next(clock))
         with timer("test-op", category="step") as t:
-            time.sleep(0.01)
-        assert t.elapsed > 0
+            pass
+        assert t.elapsed == 0.5
         events = s.query(category="step")
         assert len(events) == 1
         assert events[0]["name"] == "test-op"
         assert events[0]["status"] == "ok"
+        assert events[0]["duration_s"] == 0.5
 
     def test_timer_records_error(self, tmp_path):
         s = init(tmp_path / "m.db", "s")
