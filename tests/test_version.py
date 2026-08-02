@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from scholaraio import __version__
+from scrinium import __version__
 
 
 def test_runtime_version_matches_project_version():

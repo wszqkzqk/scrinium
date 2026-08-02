@@ -1,4 +1,8 @@
-# ScholarAIO configuration 配置文件
+# Scrinium configuration 配置文件
+#
+# 全局配置位置 Global config: ~/.scrinium/config.yaml
+#   （旧目录 ~/.scholaraio/config.yaml 仍兼容读取，会提示迁移）
+# 所有 SCRINIUM_* 环境变量的旧名 SCHOLARAIO_* 仍兼容（deprecated，命中时告警）。
 
 paths:
   papers_dir: data/papers # Ingested papers directory 已入库论文目录
@@ -7,7 +11,7 @@ paths:
 # LLM backend LLM 后端配置
 # Put api_key in config.local.yaml (gitignored) or use env vars:
 # 敏感信息（api_key）放 config.local.yaml（不进 git），或用环境变量：
-#   SCHOLARAIO_LLM_API_KEY (通用) 或按 backend 自动查找对应环境变量：
+#   SCRINIUM_LLM_API_KEY (通用) 或按 backend 自动查找对应环境变量：
 #   openai-compat: DEEPSEEK_API_KEY / OPENAI_API_KEY
 #   anthropic:     ANTHROPIC_API_KEY
 #   google:        GOOGLE_API_KEY / GEMINI_API_KEY
@@ -19,7 +23,7 @@ llm:
   timeout: 30 # Normal LLM call timeout (sec) 普通调用超时（秒）
   timeout_toc: 120 # enrich-toc timeout enrich-toc 超时
   timeout_clean: 90 # validate_and_clean timeout 结论清洗超时
-  concurrency: 32 # Max concurrent LLM calls for enrich (toc/l3) enrich 并发数
+  concurrency: 32 # Max concurrent LLM calls for enrich (toc/l3); also caps batch translate enrich 并发数（同时限制批量翻译并发）
 
 # --- Backend presets 后端预设示例 ---
 # DeepSeek (default 默认):
@@ -63,12 +67,22 @@ ingest:
   contact_email: null # Crossref polite pool email → config.local.yaml
   s2_api_key: null # Semantic Scholar API key → config.local.yaml or env S2_API_KEY
   mineru_batch_size: 20 # Cloud batch size per request (1-200, official limit) 云端每批文件数上限
+  mineru_upload_workers: 4 # Concurrent cloud conversion tasks 云端转换并发任务数
+  mineru_upload_retries: 3 # Cloud upload retries per file (incl. first attempt) 单文件上传重试次数（含首轮）
+  mineru_download_retries: 3 # Cloud result download retries (legacy, kept for compat) 云端结果下载重试次数（旧接口兼容保留）
+  mineru_poll_timeout: 900 # Single cloud conversion timeout (sec) 单次云端转换超时（秒）
   chunk_page_limit: 100 # Auto-split PDFs exceeding this page count 超长 PDF 自动切分页数阈值
   pdf_preferred_parser: mineru # Preferred PDF parser: mineru | docling | pymupdf；默认优先 MinerU
   pdf_fallback_order: [auto] # 完全自定义降级链；可写 [pymupdf] 或 [docling,pymupdf]，auto=自动检测本机可用解析器
   pdf_fallback_auto_detect: true # 是否启用自动检测（建议开启）
 
 # Semantic embeddings 语义向量
+# provider=none disables embeddings: vsearch/usearch lose the semantic leg
+# (keyword-only) and topics models cannot be built/rebuilt.
+# provider=none 禁用向量：vsearch/usearch 失去语义腿（退化为纯关键词），topics 无法构建/重建。
+# Env overrides 环境变量覆盖: SCRINIUM_EMBED_PROVIDER / SCRINIUM_EMBED_MODEL /
+#   SCRINIUM_EMBED_CACHE_DIR / SCRINIUM_EMBED_API_BASE / SCRINIUM_EMBED_API_KEY
+#   （旧名 SCHOLARAIO_EMBED_* 仍兼容，deprecated）
 embed:
   provider: local # local | openai-compat | none
   model: Qwen/Qwen3-Embedding-0.6B
@@ -76,9 +90,9 @@ embed:
   device: auto # auto | cpu | cuda
   top_k: 10 # vsearch default results vsearch 默认返回条数
   source: modelscope # modelscope (China) | huggingface (international) 模型下载源
-  hf_endpoint: null # optional HuggingFace mirror endpoint (env SCHOLARAIO_HF_ENDPOINT > HF_ENDPOINT)
+  hf_endpoint: null # optional HuggingFace mirror endpoint (env SCRINIUM_HF_ENDPOINT > HF_ENDPOINT)
   api_base: null # OpenAI-compatible endpoint, e.g. https://api.openai.com/v1
-  api_key: null # -> config.local.yaml or env SCHOLARAIO_EMBED_API_KEY
+  api_key: null # -> config.local.yaml or env SCRINIUM_EMBED_API_KEY
   api_timeout: 30
   batch_size: 64
   max_retries: 3
@@ -89,7 +103,7 @@ search:
 # Logging & metrics 日志与指标
 logging:
   level: INFO
-  file: data/scholaraio.log
+  file: data/scrinium.log
   max_bytes: 10000000 # 10 MB, rotate on overflow 超出轮转
   backup_count: 3
   metrics_db: data/metrics.db

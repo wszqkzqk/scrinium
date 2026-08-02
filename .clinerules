@@ -1,13 +1,13 @@
-# ScholarAIO — Cline Rules
+# Scrinium — Cline Rules
 
 This project is an AI-powered research terminal. Full project instructions are in `AGENTS.md` at the repository root. **Read `AGENTS.md` before proceeding with any task.**
 
 ## Quick Reference
 
-- CLI entry point: `scholaraio --help`
-- Python package: `scholaraio/`
-- Paper data: `data/papers/<Author-Year-Title>/` (meta.json + paper.md)
-- User output: always write to `workspace/`, never to project root or `scholaraio/`
+- CLI entry point: `scrinium --help`
+- Python package: `scrinium/`
+- Paper data: `data/papers/<Author-Year-Title>/` (meta.json + paper.md + notes.md)
+- User output: always write to `workspace/`, never to project root or `scrinium/`
 - Skills (reusable workflows): `.claude/skills/*/SKILL.md` (Cline reads these natively)
 - Tests: `python -m pytest tests/ -v`
 - Code style: Google-style docstrings for library modules, Chinese for CLI output, English for code comments

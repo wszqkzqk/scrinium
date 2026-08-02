@@ -6,7 +6,7 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
-      - "scholaraio/**"
+      - "scrinium/**"
 
 permissions:
   contents: read

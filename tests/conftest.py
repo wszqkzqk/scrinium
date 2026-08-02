@@ -1,4 +1,4 @@
-"""Shared fixtures for ScholarAIO tests.
+"""Shared fixtures for Scrinium tests.
 
 Provides temporary paper directories and sample metadata so that tests
 are fully isolated from user data.

@@ -1,14 +1,14 @@
-"""Tests for scholaraio.ingest.metadata._api arXiv-specific enrichment behavior."""
+"""Tests for scrinium.ingest.metadata._api arXiv-specific enrichment behavior."""
 
 from __future__ import annotations
 
-from scholaraio.ingest.metadata._api import enrich_metadata
-from scholaraio.ingest.metadata._models import PaperMetadata
+from scrinium.ingest.metadata._api import enrich_metadata
+from scrinium.ingest.metadata._models import PaperMetadata
 
 
 def test_enrich_metadata_prefers_arxiv_year_over_s2_year_for_preprint(monkeypatch):
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.get_arxiv_paper",
+        "scrinium.ingest.metadata._api.get_arxiv_paper",
         lambda arxiv_id: {
             "title": "Direct numerical simulation of out-scale-actuated spanwise wall oscillation in turbulent boundary layers",
             "authors": ["Jizhong Zhang", "Fazle Hussain", "Jie Yao"],
@@ -18,8 +18,8 @@ def test_enrich_metadata_prefers_arxiv_year_over_s2_year_for_preprint(monkeypatc
             "doi": "",
         },
     )
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_crossref", lambda **kwargs: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_openalex", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_crossref", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_openalex", lambda **kwargs: {})
 
     def fake_s2(*, doi="", title="", arxiv_id=""):
         assert arxiv_id == "2603.25200"
@@ -35,7 +35,7 @@ def test_enrich_metadata_prefers_arxiv_year_over_s2_year_for_preprint(monkeypatc
             "references": [],
         }
 
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_semantic_scholar", fake_s2)
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_semantic_scholar", fake_s2)
 
     meta = PaperMetadata(
         title="Direct numerical simulation of out-scale-actuated spanwise wall oscillation in turbulent boundary layers",
@@ -51,7 +51,7 @@ def test_enrich_metadata_prefers_arxiv_year_over_s2_year_for_preprint(monkeypatc
 
 def test_enrich_metadata_normalizes_arxiv_comma_separated_authors(monkeypatch):
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.get_arxiv_paper",
+        "scrinium.ingest.metadata._api.get_arxiv_paper",
         lambda arxiv_id: {
             "title": "Direct numerical simulation of out-scale-actuated spanwise wall oscillation in turbulent boundary layers",
             "authors": ["Zhang, Jizhong", "Hussain, Fazle", "Yao, Jie"],
@@ -61,10 +61,10 @@ def test_enrich_metadata_normalizes_arxiv_comma_separated_authors(monkeypatch):
             "doi": "",
         },
     )
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_crossref", lambda **kwargs: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_openalex", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_crossref", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_openalex", lambda **kwargs: {})
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.query_semantic_scholar",
+        "scrinium.ingest.metadata._api.query_semantic_scholar",
         lambda **kwargs: {"externalIds": {"ArXiv": "2603.25200"}, "references": []},
     )
 
@@ -79,7 +79,7 @@ def test_enrich_metadata_normalizes_arxiv_comma_separated_authors(monkeypatch):
 
 def test_enrich_metadata_ignores_arxiv_datacite_doi_for_preprint(monkeypatch):
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.get_arxiv_paper",
+        "scrinium.ingest.metadata._api.get_arxiv_paper",
         lambda arxiv_id: {
             "title": "Direct numerical simulation of out-scale-actuated spanwise wall oscillation in turbulent boundary layers",
             "authors": ["Jizhong Zhang", "Fazle Hussain", "Jie Yao"],
@@ -89,13 +89,13 @@ def test_enrich_metadata_ignores_arxiv_datacite_doi_for_preprint(monkeypatch):
             "doi": "10.48550/arXiv.2603.25200",
         },
     )
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_crossref", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_crossref", lambda **kwargs: {})
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.query_openalex",
+        "scrinium.ingest.metadata._api.query_openalex",
         lambda **kwargs: {"doi": "https://doi.org/10.48550/arXiv.2603.25200", "id": "https://openalex.org/W1"},
     )
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.query_semantic_scholar",
+        "scrinium.ingest.metadata._api.query_semantic_scholar",
         lambda **kwargs: {
             "externalIds": {"ArXiv": "2603.25200", "DOI": "10.48550/arXiv.2603.25200"},
             "references": [],
@@ -113,11 +113,11 @@ def test_enrich_metadata_ignores_arxiv_datacite_doi_for_preprint(monkeypatch):
 
 
 def test_enrich_metadata_uses_s2_title_and_authors_when_arxiv_lookup_returns_only_s2(monkeypatch):
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.get_arxiv_paper", lambda arxiv_id: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_crossref", lambda **kwargs: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_openalex", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.get_arxiv_paper", lambda arxiv_id: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_crossref", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_openalex", lambda **kwargs: {})
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.query_semantic_scholar",
+        "scrinium.ingest.metadata._api.query_semantic_scholar",
         lambda **kwargs: {
             "title": "Recovered from Semantic Scholar",
             "authors": [{"name": "Alice Example"}, {"name": "Bob Example"}],
@@ -158,10 +158,10 @@ def test_enrich_metadata_normalizes_versioned_arxiv_id_before_arxiv_and_s2_looku
         seen["s2"] = arxiv_id
         return {"externalIds": {"ArXiv": arxiv_id}, "references": [], "paperId": "paper-123"}
 
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.get_arxiv_paper", fake_get_arxiv_paper)
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_crossref", lambda **kwargs: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_openalex", lambda **kwargs: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_semantic_scholar", fake_s2)
+    monkeypatch.setattr("scrinium.ingest.metadata._api.get_arxiv_paper", fake_get_arxiv_paper)
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_crossref", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_openalex", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_semantic_scholar", fake_s2)
 
     meta = PaperMetadata(title="Original OCR Title", arxiv_id="hep-th/9901001v3")
 
@@ -174,7 +174,7 @@ def test_enrich_metadata_normalizes_versioned_arxiv_id_before_arxiv_and_s2_looku
 
 def test_enrich_metadata_records_arxiv_as_api_source_when_only_arxiv_lookup_succeeds(monkeypatch):
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.get_arxiv_paper",
+        "scrinium.ingest.metadata._api.get_arxiv_paper",
         lambda arxiv_id: {
             "title": "Official arXiv only result",
             "authors": ["Alice Example"],
@@ -184,9 +184,9 @@ def test_enrich_metadata_records_arxiv_as_api_source_when_only_arxiv_lookup_succ
             "doi": "",
         },
     )
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_crossref", lambda **kwargs: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_openalex", lambda **kwargs: {})
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.query_semantic_scholar", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_crossref", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_openalex", lambda **kwargs: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api.query_semantic_scholar", lambda **kwargs: {})
 
     meta = PaperMetadata(title="Original OCR Title", arxiv_id="hep-th/9901001v3")
 
@@ -198,7 +198,7 @@ def test_enrich_metadata_records_arxiv_as_api_source_when_only_arxiv_lookup_succ
 
 def test_enrich_metadata_rejects_title_search_hit_when_author_and_year_both_conflict(monkeypatch):
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.query_crossref",
+        "scrinium.ingest.metadata._api.query_crossref",
         lambda **kwargs: (
             {
                 "DOI": "10.1002/9781118527221.ch2",
@@ -215,7 +215,7 @@ def test_enrich_metadata_rejects_title_search_hit_when_author_and_year_both_conf
         ),
     )
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.query_openalex",
+        "scrinium.ingest.metadata._api.query_openalex",
         lambda **kwargs: (
             {
                 "doi": "https://doi.org/10.1002/9781118527221.ch2",
@@ -228,7 +228,7 @@ def test_enrich_metadata_rejects_title_search_hit_when_author_and_year_both_conf
         ),
     )
     monkeypatch.setattr(
-        "scholaraio.ingest.metadata._api.query_semantic_scholar",
+        "scrinium.ingest.metadata._api.query_semantic_scholar",
         lambda **kwargs: {},
     )
 

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 
-from scholaraio.config import Config
-from scholaraio.setup import (
+import yaml
+
+from scrinium.config import Config
+from scrinium.setup import (
+    _CONFIG_TEMPLATE,
     ParserChoice,
     _check_docling,
     _check_huggingface,
     _check_mineru,
+    _editable_project_root,
     _prompt_text,
     _wizard_deps,
     _wizard_keys,
@@ -60,7 +65,7 @@ def test_check_dep_group_suppresses_import_side_effect_output(monkeypatch, capsy
 
 
 def test_check_docling_uses_cli_presence(monkeypatch):
-    monkeypatch.setattr("scholaraio.setup.shutil.which", lambda name: "/usr/bin/docling" if name == "docling" else None)
+    monkeypatch.setattr("scrinium.setup.shutil.which", lambda name: "/usr/bin/docling" if name == "docling" else None)
 
     ok, detail = _check_docling("zh")
 
@@ -69,7 +74,7 @@ def test_check_docling_uses_cli_presence(monkeypatch):
 
 
 def test_check_docling_reports_actionable_install_guidance(monkeypatch):
-    monkeypatch.setattr("scholaraio.setup.shutil.which", lambda name: None)
+    monkeypatch.setattr("scrinium.setup.shutil.which", lambda name: None)
 
     ok, detail = _check_docling("zh")
 
@@ -79,7 +84,7 @@ def test_check_docling_reports_actionable_install_guidance(monkeypatch):
 
 
 def test_check_huggingface_uses_reachability_probe(monkeypatch):
-    monkeypatch.setattr("scholaraio.setup._probe_url", lambda url, timeout=2: url == "https://huggingface.co")
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: url == "https://huggingface.co")
 
     ok, detail = _check_huggingface("zh")
 
@@ -88,7 +93,7 @@ def test_check_huggingface_uses_reachability_probe(monkeypatch):
 
 
 def test_check_huggingface_reports_actionable_failure(monkeypatch):
-    monkeypatch.setattr("scholaraio.setup._probe_url", lambda url, timeout=2: False)
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: False)
 
     ok, detail = _check_huggingface("zh")
 
@@ -114,10 +119,10 @@ def test_recommend_pdf_parser_prefers_docling_when_only_huggingface_reachable():
 
 def test_run_check_includes_parser_recommendation(monkeypatch):
     cfg = Config()
-    monkeypatch.setattr("scholaraio.setup._check_mineru", lambda *_: (True, "mineru ok"))
-    monkeypatch.setattr("scholaraio.setup._check_docling", lambda *_: (True, "docling ok"))
-    monkeypatch.setattr("scholaraio.setup._check_huggingface", lambda *_: (True, "hf ok"))
-    monkeypatch.setattr("scholaraio.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
+    monkeypatch.setattr("scrinium.setup._check_mineru", lambda *_: (True, "mineru ok"))
+    monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
+    monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
+    monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
 
     results = run_check(cfg, "zh")
 
@@ -129,10 +134,10 @@ def test_run_check_includes_parser_recommendation(monkeypatch):
 
 def test_run_check_includes_pdf_office_and_draw_dependency_groups(monkeypatch):
     cfg = Config()
-    monkeypatch.setattr("scholaraio.setup._check_mineru", lambda *_: (True, "mineru ok"))
-    monkeypatch.setattr("scholaraio.setup._check_docling", lambda *_: (True, "docling ok"))
-    monkeypatch.setattr("scholaraio.setup._check_huggingface", lambda *_: (True, "hf ok"))
-    monkeypatch.setattr("scholaraio.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
+    monkeypatch.setattr("scrinium.setup._check_mineru", lambda *_: (True, "mineru ok"))
+    monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
+    monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
+    monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
 
     results = run_check(cfg, "zh")
 
@@ -144,10 +149,10 @@ def test_run_check_includes_pdf_office_and_draw_dependency_groups(monkeypatch):
 
 def test_run_check_includes_optional_api_configuration_statuses(monkeypatch):
     cfg = Config()
-    monkeypatch.setattr("scholaraio.setup._check_mineru", lambda *_: (True, "mineru ok"))
-    monkeypatch.setattr("scholaraio.setup._check_docling", lambda *_: (True, "docling ok"))
-    monkeypatch.setattr("scholaraio.setup._check_huggingface", lambda *_: (True, "hf ok"))
-    monkeypatch.setattr("scholaraio.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
+    monkeypatch.setattr("scrinium.setup._check_mineru", lambda *_: (True, "mineru ok"))
+    monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
+    monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
+    monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
     monkeypatch.setattr(cfg, "resolved_s2_api_key", lambda: "")
     monkeypatch.setattr(cfg, "resolved_zotero_api_key", lambda: "")
 
@@ -165,7 +170,7 @@ def test_run_check_includes_optional_api_configuration_statuses(monkeypatch):
 def test_run_check_prefers_mineru_recommendation_when_cli_exists_without_token(monkeypatch):
     cfg = Config()
     monkeypatch.setattr(
-        "scholaraio.setup._detect_mineru",
+        "scrinium.setup._detect_mineru",
         lambda *_args, **_kwargs: type(
             "MinerUStatus",
             (),
@@ -179,8 +184,8 @@ def test_run_check_prefers_mineru_recommendation_when_cli_exists_without_token(m
             },
         )(),
     )
-    monkeypatch.setattr("scholaraio.setup._check_docling", lambda *_: (True, "docling ok"))
-    monkeypatch.setattr("scholaraio.setup._check_huggingface", lambda *_: (False, "hf down"))
+    monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
+    monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (False, "hf down"))
 
     results = run_check(cfg, "zh")
 
@@ -243,7 +248,7 @@ def test_check_dep_group_uses_spec_probe_for_embed_deps(monkeypatch):
 def test_check_mineru_reports_actionable_failure(monkeypatch):
     cfg = Config()
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
-    monkeypatch.setattr("scholaraio.setup.shutil.which", lambda _name: None)
+    monkeypatch.setattr("scrinium.setup.shutil.which", lambda _name: None)
 
     class DummyRequests:
         @staticmethod
@@ -252,7 +257,7 @@ def test_check_mineru_reports_actionable_failure(monkeypatch):
 
     monkeypatch.setitem(__import__("sys").modules, "requests", DummyRequests)
 
-    from scholaraio.setup import _check_mineru
+    from scrinium.setup import _check_mineru
 
     ok, detail = _check_mineru(cfg, "zh")
 
@@ -265,7 +270,7 @@ def test_check_mineru_reports_actionable_failure(monkeypatch):
 def test_check_mineru_prefers_local_server_even_when_token_cli_missing(monkeypatch):
     cfg = Config()
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "token")
-    monkeypatch.setattr("scholaraio.setup.shutil.which", lambda _name: None)
+    monkeypatch.setattr("scrinium.setup.shutil.which", lambda _name: None)
 
     class DummyRequests:
         @staticmethod
@@ -287,9 +292,7 @@ def test_wizard_parser_mineru_choice_skips_auto_probe(monkeypatch, capsys):
     cfg = Config()
     answers = iter(["1", "y"])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
-    monkeypatch.setattr(
-        "scholaraio.setup._probe_url", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError())
-    )
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError()))
 
     choice = _wizard_parser(cfg, "zh")
 
@@ -304,10 +307,10 @@ def test_wizard_parser_auto_choice_shows_advisory_not_override(monkeypatch, caps
     answers = iter(["3", "n"])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
     monkeypatch.setattr(
-        "scholaraio.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
+        "scrinium.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
     )
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
-    monkeypatch.setattr("scholaraio.setup._probe_url", lambda url, timeout=2: "mineru.net" in url)
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: "mineru.net" in url)
 
     choice = _wizard_parser(cfg, "zh")
 
@@ -328,9 +331,9 @@ def test_wizard_parser_auto_prefers_configured_mineru_before_probe(monkeypatch, 
     answers = iter(["3", "n"])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
     monkeypatch.setattr(
-        "scholaraio.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
+        "scrinium.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
     )
-    monkeypatch.setattr("scholaraio.setup._probe_url", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda *_args, **_kwargs: False)
 
     choice = _wizard_parser(cfg, "zh")
 
@@ -345,9 +348,9 @@ def test_wizard_parser_auto_detects_local_mineru_server(monkeypatch, capsys):
     cfg = Config()
     answers = iter(["3", "y"])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
-    monkeypatch.setattr("scholaraio.setup.shutil.which", lambda _name: None)
+    monkeypatch.setattr("scrinium.setup.shutil.which", lambda _name: None)
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
-    monkeypatch.setattr("scholaraio.setup._probe_url", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda *_args, **_kwargs: False)
 
     class DummyRequests:
         @staticmethod
@@ -379,7 +382,7 @@ def test_prompt_text_returns_empty_string_on_eof(monkeypatch):
 def test_wizard_deps_does_not_auto_install_when_input_stream_hits_eof(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: (_ for _ in ()).throw(EOFError()))
     monkeypatch.setattr(
-        "scholaraio.setup.check_dep_group",
+        "scrinium.setup.check_dep_group",
         lambda group: type("Status", (), {"installed": group != "topics", "missing": ["bertopic"]})(),
     )
 
@@ -389,7 +392,7 @@ def test_wizard_deps_does_not_auto_install_when_input_stream_hits_eof(monkeypatc
         called.append(True)
         raise AssertionError("pip install should not run on EOF")
 
-    monkeypatch.setattr("scholaraio.setup.subprocess.run", fake_run)
+    monkeypatch.setattr("scrinium.setup.subprocess.run", fake_run)
 
     _wizard_deps("zh")
 
@@ -403,10 +406,10 @@ def test_wizard_parser_auto_prefers_mineru_when_cli_exists_even_without_token_pr
     answers = iter(["3", "n"])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
     monkeypatch.setattr(
-        "scholaraio.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
+        "scrinium.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
     )
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
-    monkeypatch.setattr("scholaraio.setup._probe_url", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda *_args, **_kwargs: False)
 
     choice = _wizard_parser(cfg, "zh")
 
@@ -423,9 +426,9 @@ def test_wizard_parser_auto_choice_defaults_to_cloud_key_on_eof(monkeypatch):
     answers = iter(["3", ""])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
     monkeypatch.setattr(
-        "scholaraio.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
+        "scrinium.setup.shutil.which", lambda name: "/usr/bin/mineru-open-api" if name == "mineru-open-api" else None
     )
-    monkeypatch.setattr("scholaraio.setup._probe_url", lambda url, timeout=2: "mineru.net" in url)
+    monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: "mineru.net" in url)
 
     choice = _wizard_parser(cfg, "zh")
 
@@ -502,3 +505,113 @@ def test_wizard_keys_cleans_redundant_default_parser_override(tmp_path, monkeypa
     local_cfg = (tmp_path / "config.local.yaml").read_text(encoding="utf-8")
     assert "pdf_preferred_parser" not in local_cfg
     assert "existing-mineru-key" in local_cfg
+
+
+def test_config_template_stays_in_sync_with_config_yaml():
+    """The setup wizard template must not drift behind the shipped config.yaml."""
+    template = yaml.safe_load(_CONFIG_TEMPLATE)
+    repo_root = Path(__file__).resolve().parent.parent
+    shipped = yaml.safe_load((repo_root / "config.yaml").read_text(encoding="utf-8"))
+
+    assert set(shipped) <= set(template), f"template missing sections: {set(shipped) - set(template)}"
+    for section in ("llm", "ingest"):
+        missing = set(shipped[section]) - set(template[section])
+        assert not missing, f"template {section} section missing keys: {missing}"
+
+
+class _FakeDist:
+    """Minimal importlib.metadata Distribution stand-in for editable probing."""
+
+    def __init__(self, name, direct_url=None):
+        self.metadata = {"Name": name}
+        self._direct_url = direct_url
+
+    def read_text(self, filename):
+        if filename == "direct_url.json":
+            return self._direct_url
+        return None
+
+
+def test_editable_project_root_detects_editable_install(monkeypatch):
+    dists = [
+        _FakeDist("scrinium"),  # stale egg-info without direct_url.json
+        _FakeDist("requests"),
+        _FakeDist("scrinium", '{"url": "file:///src/scrinium", "dir_info": {"editable": true}}'),
+    ]
+    monkeypatch.setattr("scrinium.setup.importlib.metadata.distributions", lambda: dists)
+
+    root = _editable_project_root()
+
+    assert root is not None
+    assert (root / "pyproject.toml").exists()
+
+
+def test_editable_project_root_returns_none_for_regular_install(monkeypatch):
+    dists = [
+        _FakeDist("scrinium", '{"url": "https://pypi.org", "dir_info": {}}'),
+    ]
+    monkeypatch.setattr("scrinium.setup.importlib.metadata.distributions", lambda: dists)
+
+    assert _editable_project_root() is None
+
+
+def test_wizard_deps_uses_editable_install_for_local_checkout(tmp_path, monkeypatch, capsys):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'scrinium'\n", encoding="utf-8")
+    monkeypatch.setattr("scrinium.setup._editable_project_root", lambda: tmp_path)
+    monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: "y")
+    monkeypatch.setattr(
+        "scrinium.setup.check_dep_group",
+        lambda group: type("Status", (), {"installed": group != "pdf", "missing": ["pymupdf"]})(),
+    )
+
+    calls = []
+
+    class _Result:
+        returncode = 0
+        stderr = ""
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _Result()
+
+    monkeypatch.setattr("scrinium.setup.subprocess.run", fake_run)
+
+    _wizard_deps("zh")
+
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert "-e" in args
+    assert ".[pdf]" in args
+    assert kwargs["cwd"] == tmp_path
+    out = capsys.readouterr().out
+    assert 'pip install -e ".[pdf]"' in out
+
+
+def test_wizard_deps_uses_pypi_name_for_regular_install(monkeypatch, capsys):
+    monkeypatch.setattr("scrinium.setup._editable_project_root", lambda: None)
+    monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: "y")
+    monkeypatch.setattr(
+        "scrinium.setup.check_dep_group",
+        lambda group: type("Status", (), {"installed": group != "pdf", "missing": ["pymupdf"]})(),
+    )
+
+    calls = []
+
+    class _Result:
+        returncode = 0
+        stderr = ""
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _Result()
+
+    monkeypatch.setattr("scrinium.setup.subprocess.run", fake_run)
+
+    _wizard_deps("zh")
+
+    assert len(calls) == 1
+    args, _ = calls[0]
+    assert "scrinium[pdf]" in args
+    assert "-e" not in args
+    out = capsys.readouterr().out
+    assert "pip install scrinium[pdf]" in out

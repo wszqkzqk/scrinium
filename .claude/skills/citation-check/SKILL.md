@@ -2,7 +2,7 @@
 name: citation-check
 description: Verify citations in AI-generated or human-written text against the local knowledge base. Catches hallucinated references, wrong metadata, and missing papers. Use when the user wants to check if citations are real and accurate.
 version: 1.1.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "citations", "verification", "hallucination"]
 ---
@@ -10,19 +10,19 @@ tags: ["academic", "citations", "verification", "hallucination"]
 
 检查文本中的引用是否真实、准确，防止 AI 幻觉引用和元数据错误。
 
-**重要背景**：AI 生成的学术文本中约 40% 的引用可能是幻觉（编造的论文、张冠李戴、元数据拼凑）。即使是人类写的文本也常有年份/期刊名错误。本 skill 的目标是在投稿前消灭所有引用问题。
+**重要背景**：AI 生成的学术文本中，引用有相当比例是幻觉或错配（编造的论文、张冠李戴、元数据拼凑）。即使是人类写的文本也常有年份/期刊名错误。本 skill 的目标是在投稿前消灭所有引用问题。
 
 ## CLI 命令（首选方法）
 
 ```bash
 # 检查文件中的引用
-scholaraio citation-check <file>
+scrinium citation-check <file>
 
 # 在工作区范围内验证
-scholaraio citation-check <file> --ws <workspace-name>
+scrinium citation-check <file> --ws <workspace-name>
 
 # 从 stdin 读取
-cat draft.md | scholaraio citation-check
+cat draft.md | scrinium citation-check
 ```
 
 CLI 自动提取 author-year 格式的引用（`Author (Year)`、`(Author, Year)`、`Author & Author (Year)`、`Author et al. (Year)` 等），在本地知识库中搜索匹配，输出每条引用的验证状态：
@@ -47,8 +47,8 @@ CLI 完成初步筛查后，对问题引用执行更细致的检查：
 ### Layer 1 — 本地库匹配
 
 ```bash
-scholaraio search-author "<Author>" --top 5
-scholaraio usearch "<关键词 from title>" --top 5
+scrinium search-author "<Author>" --top 5
+scrinium usearch "<关键词 from title>" --top 5
 ```
 在本地库中找到匹配论文后，核对：作者名、年份、标题、期刊是否一致。
 
@@ -61,7 +61,7 @@ scholaraio usearch "<关键词 from title>" --top 5
 
 对于关键引用（支撑核心论点的），加载 L2-L3 检查：
 ```bash
-scholaraio show <paper-id> --layer 3
+scrinium show <paper-id> --layer 3
 ```
 验证：文本中对该论文的描述是否与论文实际内容一致？是否存在过度解读或断章取义？
 
@@ -75,7 +75,17 @@ scholaraio show <paper-id> --layer 3
 ## 示例
 
 用户说："帮我检查这段文字里的引用是否正确"
-→ 先运行 `scholaraio citation-check <file>`，再对问题引用逐条深入验证
+→ 先运行 `scrinium citation-check <file>`，再对问题引用逐条深入验证
 
 用户说："检查 workspace/my-paper/introduction.md 里的引用"
-→ 运行 `scholaraio citation-check workspace/my-paper/introduction.md --ws my-paper`
+→ 运行 `scrinium citation-check workspace/my-paper/introduction.md --ws my-paper`
+
+## 完成前检查
+
+- **笔记写了吗**：对做过 Layer 3 内容一致性核验的论文，关键发现已通过 CLI 写入笔记：
+  ```bash
+  scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | citation-check
+  - 关键发现"
+  ```
+- **引用查了吗**：所有 AMBIGUOUS / NOT_IN_LIBRARY 的引用都已逐条处理，没有未经核验就放行的
+- **输出在 workspace 吗**：验证结论和修订建议已写入 `workspace/<name>/` 下的文件，而不只停留在对话里

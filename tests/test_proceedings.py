@@ -3,18 +3,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scholaraio import cli
-from scholaraio.config import _build_config
-from scholaraio.index import build_proceedings_index, search_proceedings
-from scholaraio.ingest import pipeline
-from scholaraio.ingest.pipeline import run_pipeline
-from scholaraio.ingest.proceedings import (
+from scrinium import cli
+from scrinium.cli import misc as cli_misc
+from scrinium.cli import search as cli_search
+from scrinium.config import _build_config
+from scrinium.index import build_proceedings_index, search_proceedings
+from scrinium.ingest import pipeline
+from scrinium.ingest.pipeline import run_pipeline
+from scrinium.ingest.proceedings import (
     apply_proceedings_clean_plan,
     apply_proceedings_split_plan,
     build_proceedings_clean_candidates,
     ingest_proceedings_markdown,
 )
-from scholaraio.proceedings import iter_proceedings_papers
+from scrinium.proceedings import iter_proceedings_papers
 
 
 def _write_proceedings_fixture(root: Path) -> Path:
@@ -510,7 +512,7 @@ def test_pipeline_routes_forced_proceedings_pdf_right_after_mineru(tmp_path: Pat
     def fail_if_called(_ctx: pipeline.InboxCtx) -> pipeline.StepResult:
         raise AssertionError("regular paper flow should not continue after forced proceedings routing")
 
-    from scholaraio.ingest import mineru as mineru_mod
+    from scrinium.ingest import mineru as mineru_mod
 
     monkeypatch.setattr(mineru_mod, "check_server", lambda _endpoint: True)
     monkeypatch.setattr(pipeline.STEPS["mineru"], "fn", fake_mineru)
@@ -620,7 +622,7 @@ def test_fsearch_proceedings_scope_returns_proceedings_results(tmp_path: Path, m
     )
 
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_search, "ui", lambda message="": messages.append(message))
 
     cli.cmd_fsearch(type("Args", (), {"query": ["granular"], "scope": "proceedings", "top": 10})(), cfg)
 
@@ -635,7 +637,7 @@ def test_fsearch_main_scope_excludes_proceedings_results(tmp_path: Path, monkeyp
     cfg.ensure_dirs()
 
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_search, "ui", lambda message="": messages.append(message))
 
     cli.cmd_fsearch(type("Args", (), {"query": ["granular"], "scope": "main", "top": 10})(), cfg)
 
@@ -675,7 +677,7 @@ def test_cli_proceedings_apply_split_applies_plan_and_reports_success(tmp_path: 
     parser = cli._build_parser()
     args = parser.parse_args(["proceedings", "apply-split", str(proceeding_dir), str(split_plan_path)])
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_misc, "ui", lambda message="": messages.append(message))
 
     args.func(args, cfg)
 
@@ -887,7 +889,7 @@ def test_cli_proceedings_clean_commands_build_and_apply(tmp_path: Path, monkeypa
 
     parser = cli._build_parser()
     messages: list[str] = []
-    monkeypatch.setattr(cli, "ui", lambda message="": messages.append(message))
+    monkeypatch.setattr(cli_misc, "ui", lambda message="": messages.append(message))
 
     args = parser.parse_args(["proceedings", "build-clean-candidates", str(proceeding_dir)])
     args.func(args, cfg)

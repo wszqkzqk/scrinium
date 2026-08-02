@@ -1,48 +1,50 @@
 <div align="center">
 
 <!-- TODO: Replace with actual logo when available -->
-<!-- <img src="docs/assets/logo.png" width="200" alt="ScholarAIO Logo"> -->
+<!-- <img src="docs/assets/logo.png" width="200" alt="Scrinium Logo"> -->
 
-# ScholarAIO
+# Scrinium
 
-**Scholar All-In-One — A research infrastructure for AI agents.**
+**A research infrastructure for AI agents.**
 
 [English](README.md) | [中文](README_CN.md)
 
-[![GitHub stars](https://img.shields.io/github/stars/ZimoLiao/scholaraio?style=social)](https://github.com/ZimoLiao/scholaraio/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Claude Code Skills](https://img.shields.io/badge/Claude_Code_Skills-ScholarAIO-purple.svg)](.claude/skills/)
+[![Claude Code Skills](https://img.shields.io/badge/Claude_Code_Skills-Scrinium-purple.svg)](.claude/skills/)
 
 </div>
 
+> **Fork**: Scrinium is a hard fork of [ScholarAIO](https://github.com/ZimoLiao/scholaraio) (MIT). Original work © Zi-Mo Liao — see [LICENSE](LICENSE).
+
 ---
 
-Your coding agent already reads code, writes code, and runs experiments. ScholarAIO adds a structured research workspace on top, so the same agent can search literature, cross-check results against papers, use scientific software more accurately, and carry the whole research workflow from one terminal.
+Your coding agent already reads code, writes code, and runs experiments. Scrinium adds a structured research workspace on top, so the same agent can search literature, cross-check results against papers, use scientific software more accurately, and carry the whole research workflow from one terminal.
 
 - Your paper library becomes a reusable knowledge base for the same agent.
 - When scientific software questions come up, the agent can consult official documentation at runtime instead of guessing from prompts.
 - The system is built to keep expanding as new tools and workflows become worth supporting.
 
 <div align="center">
-  <img src="docs/assets/scholaraio.gif" width="900" alt="ScholarAIO natural-language research workflow">
+  <img src="docs/assets/scrinium.gif" width="900" alt="Scrinium natural-language research workflow">
 </div>
 
-ScholarAIO offers more than search. It gives an AI coding agent a research workspace that supports natural-language interaction, papers and notes, more reliable use of scientific software, writing and running code, checking results against the literature, and structured academic writing.
+Scrinium offers more than search. It gives an AI coding agent a research workspace that supports natural-language interaction, papers and notes, more reliable use of scientific software, writing and running code, checking results against the literature, and structured academic writing.
 
 <div align="center">
-  <img src="docs/assets/scholaraio-architecture-v1.3.0.png" width="900" alt="ScholarAIO architecture: human, agent, scientific context, tool layer, and compute/outputs">
+  <img src="docs/assets/scrinium-architecture-v1.3.0.png" width="900" alt="Scrinium architecture: human, agent, scientific context, tool layer, and compute/outputs">
 </div>
 
 ## Quick Start
 
-The default and recommended way to use ScholarAIO is simple: install it, configure it once, and open this repository directly with your coding agent.
+The default and recommended way to use Scrinium is simple: install it, configure it once, and open this repository directly with your coding agent.
 
 ```bash
-git clone https://github.com/ZimoLiao/scholaraio.git
-cd scholaraio
+git clone https://github.com/wszqkzqk/scrinium.git
+cd scrinium
 pip install -e ".[full]"
-scholaraio setup
+scrinium setup
 ```
 
 Then open the repository in Codex, Claude Code, or another supported agent. In this setup, the agent gets the fullest experience: bundled instructions, local skills, the CLI, and the complete codebase context are all available directly. For Claude Code plugins, Codex/OpenClaw skill registration, and other setup paths, see [`docs/getting-started/agent-setup.md`](docs/getting-started/agent-setup.md).
@@ -70,7 +72,7 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 
 ## Works With Your Agent
 
-ScholarAIO is designed to be **agent-agnostic**, but different agents expose different integration paths. Some work best when you open this repository directly; others are easier to use through plugins.
+Scrinium is designed to be **agent-agnostic**, but different agents expose different integration paths. Some work best when you open this repository directly; others are easier to use through plugins.
 
 | Agent / IDE | Open this repo directly | Reuse from another project |
 |-------------|-------------------------|-----------------------------|
@@ -80,6 +82,7 @@ ScholarAIO is designed to be **agent-agnostic**, but different agents expose dif
 | [Cursor](https://cursor.sh) | `.cursorrules` | CLI + skills |
 | [Windsurf](https://codeium.com/windsurf) | `.windsurfrules` | CLI + skills |
 | [GitHub Copilot](https://github.com/features/copilot) | `.github/copilot-instructions.md` | CLI + skills |
+| [Qwen Code](https://github.com/QwenLM/qwen-code) | `QWEN.md` | CLI + skills |
 
 Skills follow the open [AgentSkills.io](https://agentskills.io) standard, and `.agents/skills/` is a symlink to `.claude/skills/` so different agents can discover and reuse the same skills.
 
@@ -87,25 +90,25 @@ Skills follow the open [AgentSkills.io](https://agentskills.io) standard, and `.
 
 ## Configuration
 
-> Start by opening `scholaraio` with your agent and let it walk you through the setup. The notes below are only a basic overview.
+> Start by opening `scrinium` with your agent and let it walk you through the setup. The notes below are only a basic overview.
 
-ScholarAIO works with a minimal setup and can be expanded as needed.
+Scrinium works with a minimal setup and can be expanded as needed.
 
-- `scholaraio setup` walks you through the basics.
+- `scrinium setup` walks you through the basics.
 - An LLM API key is optional but recommended for more robust metadata extraction and content completion.
 - A MinerU token is optional but recommended, and free. You can also deploy MinerU or Docling locally for PDF parsing.
-- `scholaraio setup check` shows what is installed, what is optional, and what is missing.
+- `scrinium setup check` shows what is installed, what is optional, and what is missing.
 
 Full setup and configuration details → [`docs/getting-started/agent-setup.md`](docs/getting-started/agent-setup.md), [`config.yaml`](config.yaml)
 
 ## Agent First, CLI Available
 
-ScholarAIO works best through an AI coding agent, but it also provides a CLI for scripting, debugging, and quick queries. For a current command reference aligned with the code, see [`docs/guide/cli-reference.md`](docs/guide/cli-reference.md).
+Scrinium works best through an AI coding agent, but it also provides a CLI for scripting, debugging, and quick queries. For a current command reference aligned with the code, see [`docs/guide/cli-reference.md`](docs/guide/cli-reference.md).
 
 ## Project Structure
 
 ```
-scholaraio/             # Python package — CLI and all core modules
+scrinium/             # Python package — CLI and all core modules
   ingest/               #   PDF parsing + metadata extraction pipeline
   sources/              #   External source adapters (arXiv / Endnote / Zotero)
 
@@ -114,21 +117,24 @@ scholaraio/             # Python package — CLI and all core modules
 data/papers/            # Your paper library (gitignored)
 data/proceedings/       # Proceedings library (gitignored)
 data/inbox/             # Drop PDFs here for ingestion
+data/inbox-thesis/      # Drop theses here (auto-tagged, skips DOI dedup)
+data/inbox-patent/      # Drop patents here (deduplicated by publication number)
+data/inbox-doc/         # Drop non-paper documents here (reports, standards, lecture notes)
 data/inbox-proceedings/ # Drop proceedings volumes here for dedicated ingest
 ```
 
-Full module reference → [`CLAUDE.md`](CLAUDE.md) or [`AGENTS.md`](AGENTS.md)
+Full module reference → [`docs/contributing.md`](docs/contributing.md)
 
 ## Citation
 
-If you use ScholarAIO in your research, please cite:
+If you use Scrinium in your research, please cite:
 
 ```bibtex
-@software{scholaraio,
+@software{scrinium,
   author = {Liao, Zi-Mo},
-  title = {ScholarAIO: AI-Native Research Terminal},
+  title = {Scrinium: AI-Native Research Terminal},
   year = {2026},
-  url = {https://github.com/ZimoLiao/scholaraio},
+  url = {https://github.com/wszqkzqk/scrinium},
   license = {MIT}
 }
 ```

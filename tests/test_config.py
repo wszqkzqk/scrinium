@@ -1,10 +1,10 @@
-"""Tests for scholaraio.config — YAML loading, merging, path resolution, defaults."""
+"""Tests for scrinium.config — YAML loading, merging, path resolution, defaults."""
 
 from __future__ import annotations
 
 import logging
 
-from scholaraio.config import _build_config, _deep_merge, load_config
+from scrinium.config import _build_config, _deep_merge, _find_config_file, load_config
 
 
 class TestDeepMerge:
@@ -217,11 +217,11 @@ class TestBuildConfig:
                 "api_base": "https://yaml-embed.example/v1",
             }
         }
-        monkeypatch.setenv("SCHOLARAIO_EMBED_PROVIDER", "openai-compat")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_SOURCE", "huggingface")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_CACHE_DIR", "/env-cache")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_MODEL", "env-model")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_API_BASE", "https://env-embed.example/v1")
+        monkeypatch.setenv("SCRINIUM_EMBED_PROVIDER", "openai-compat")
+        monkeypatch.setenv("SCRINIUM_EMBED_SOURCE", "huggingface")
+        monkeypatch.setenv("SCRINIUM_EMBED_CACHE_DIR", "/env-cache")
+        monkeypatch.setenv("SCRINIUM_EMBED_MODEL", "env-model")
+        monkeypatch.setenv("SCRINIUM_EMBED_API_BASE", "https://env-embed.example/v1")
         cfg = _build_config(data, tmp_path)
         assert cfg.embed.provider == "openai-compat"
         assert cfg.embed.source == "huggingface"
@@ -229,12 +229,12 @@ class TestBuildConfig:
         assert cfg.embed.model == "env-model"
         assert cfg.embed.api_base == "https://env-embed.example/v1"
 
-    def test_scholaraio_hf_endpoint_wins_over_hf_endpoint(self, tmp_path, monkeypatch):
+    def test_scrinium_hf_endpoint_wins_over_hf_endpoint(self, tmp_path, monkeypatch):
         data = {"embed": {"hf_endpoint": "https://yaml-mirror.example"}}
-        monkeypatch.setenv("SCHOLARAIO_HF_ENDPOINT", "https://scholaraio-mirror.example")
+        monkeypatch.setenv("SCRINIUM_HF_ENDPOINT", "https://scrinium-mirror.example")
         monkeypatch.setenv("HF_ENDPOINT", "https://generic-mirror.example")
         cfg = _build_config(data, tmp_path)
-        assert cfg.embed.hf_endpoint == "https://scholaraio-mirror.example"
+        assert cfg.embed.hf_endpoint == "https://scrinium-mirror.example"
 
     def test_empty_embed_env_vars_do_not_override_yaml(self, tmp_path, monkeypatch):
         data = {
@@ -247,12 +247,12 @@ class TestBuildConfig:
                 "api_base": "https://yaml-embed.example/v1",
             }
         }
-        monkeypatch.setenv("SCHOLARAIO_EMBED_PROVIDER", "")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_SOURCE", "")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_CACHE_DIR", "")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_MODEL", "")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_API_BASE", "")
-        monkeypatch.setenv("SCHOLARAIO_HF_ENDPOINT", "")
+        monkeypatch.setenv("SCRINIUM_EMBED_PROVIDER", "")
+        monkeypatch.setenv("SCRINIUM_EMBED_SOURCE", "")
+        monkeypatch.setenv("SCRINIUM_EMBED_CACHE_DIR", "")
+        monkeypatch.setenv("SCRINIUM_EMBED_MODEL", "")
+        monkeypatch.setenv("SCRINIUM_EMBED_API_BASE", "")
+        monkeypatch.setenv("SCRINIUM_HF_ENDPOINT", "")
         monkeypatch.setenv("HF_ENDPOINT", "")
         cfg = _build_config(data, tmp_path)
         assert cfg.embed.provider == "local"
@@ -265,6 +265,28 @@ class TestBuildConfig:
     def test_embed_provider_defaults_to_local(self, tmp_path):
         cfg = _build_config({}, tmp_path)
         assert cfg.embed.provider == "local"
+
+    def test_embed_provider_valid_choices_pass_through(self, tmp_path):
+        for provider in ("local", "openai-compat", "none"):
+            cfg = _build_config({"embed": {"provider": provider}}, tmp_path)
+            assert cfg.embed.provider == provider
+
+    def test_embed_provider_invalid_falls_back_to_local(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING):
+            cfg = _build_config({"embed": {"provider": "bedrock"}}, tmp_path)
+        assert cfg.embed.provider == "local"
+        assert "embed.provider" in caplog.text
+
+    def test_embed_provider_is_case_insensitive(self, tmp_path):
+        cfg = _build_config({"embed": {"provider": "None"}}, tmp_path)
+        assert cfg.embed.provider == "none"
+
+    def test_embed_provider_invalid_env_var_falls_back_to_local(self, tmp_path, monkeypatch, caplog):
+        monkeypatch.setenv("SCRINIUM_EMBED_PROVIDER", "bogus")
+        with caplog.at_level(logging.WARNING):
+            cfg = _build_config({"embed": {"provider": "none"}}, tmp_path)
+        assert cfg.embed.provider == "local"
+        assert "embed.provider" in caplog.text
 
     def test_embed_batch_size_min_1(self, tmp_path):
         cfg = _build_config({"embed": {"batch_size": 0}}, tmp_path)
@@ -318,35 +340,35 @@ class TestResolvedApiKey:
     def test_config_key_wins(self, tmp_path, monkeypatch):
         data = {"llm": {"api_key": "from-config"}}
         cfg = _build_config(data, tmp_path)
-        monkeypatch.setenv("SCHOLARAIO_LLM_API_KEY", "from-env")
+        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "from-env")
         assert cfg.resolved_api_key() == "from-config"
 
     def test_generic_env_var(self, tmp_path, monkeypatch):
         cfg = _build_config({}, tmp_path)
-        monkeypatch.setenv("SCHOLARAIO_LLM_API_KEY", "generic-key")
+        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "generic-key")
         assert cfg.resolved_api_key() == "generic-key"
 
     def test_backend_specific_env_openai(self, tmp_path, monkeypatch):
         cfg = _build_config({"llm": {"backend": "openai-compat"}}, tmp_path)
-        monkeypatch.delenv("SCHOLARAIO_LLM_API_KEY", raising=False)
+        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
         monkeypatch.setenv("DEEPSEEK_API_KEY", "dsk-123")
         assert cfg.resolved_api_key() == "dsk-123"
 
     def test_backend_specific_env_anthropic(self, tmp_path, monkeypatch):
         cfg = _build_config({"llm": {"backend": "anthropic"}}, tmp_path)
-        monkeypatch.delenv("SCHOLARAIO_LLM_API_KEY", raising=False)
+        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
         monkeypatch.setenv("ANTHROPIC_API_KEY", "ant-key")
         assert cfg.resolved_api_key() == "ant-key"
 
     def test_backend_specific_env_google(self, tmp_path, monkeypatch):
         cfg = _build_config({"llm": {"backend": "google"}}, tmp_path)
-        monkeypatch.delenv("SCHOLARAIO_LLM_API_KEY", raising=False)
+        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
         monkeypatch.setenv("GOOGLE_API_KEY", "goog-key")
         assert cfg.resolved_api_key() == "goog-key"
 
     def test_no_key_returns_empty(self, tmp_path, monkeypatch):
         cfg = _build_config({}, tmp_path)
-        for v in ("SCHOLARAIO_LLM_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY"):
+        for v in ("SCRINIUM_LLM_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY"):
             monkeypatch.delenv(v, raising=False)
         assert cfg.resolved_api_key() == ""
 
@@ -390,13 +412,13 @@ class TestResolvedApiKey:
 
     def test_embed_key_prefers_embed_env(self, tmp_path, monkeypatch):
         cfg = _build_config({}, tmp_path)
-        monkeypatch.setenv("SCHOLARAIO_EMBED_API_KEY", "embed-env")
+        monkeypatch.setenv("SCRINIUM_EMBED_API_KEY", "embed-env")
         assert cfg.resolved_embed_api_key() == "embed-env"
 
     def test_embed_key_falls_back_to_llm(self, tmp_path, monkeypatch):
         cfg = _build_config({}, tmp_path)
-        monkeypatch.delenv("SCHOLARAIO_EMBED_API_KEY", raising=False)
-        monkeypatch.setenv("SCHOLARAIO_LLM_API_KEY", "llm-env")
+        monkeypatch.delenv("SCRINIUM_EMBED_API_KEY", raising=False)
+        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "llm-env")
         assert cfg.resolved_embed_api_key() == "llm-env"
 
 
@@ -433,6 +455,109 @@ class TestLoadConfig:
     def test_env_var_config_path(self, tmp_path, monkeypatch):
         cfg_file = tmp_path / "custom.yaml"
         cfg_file.write_text("search:\n  top_k: 42\n", encoding="utf-8")
-        monkeypatch.setenv("SCHOLARAIO_CONFIG", str(cfg_file))
+        monkeypatch.setenv("SCRINIUM_CONFIG", str(cfg_file))
         cfg = load_config()
         assert cfg.search.top_k == 42
+
+
+class TestLegacyEnvFallback:
+    """Deprecated SCHOLARAIO_* env vars still work after the fork rename."""
+
+    def test_legacy_llm_api_key_fallback(self, tmp_path, monkeypatch, caplog):
+        cfg = _build_config({}, tmp_path)
+        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
+        monkeypatch.setenv("SCHOLARAIO_LLM_API_KEY", "legacy-key")
+        with caplog.at_level(logging.WARNING):
+            assert cfg.resolved_api_key() == "legacy-key"
+        assert "SCHOLARAIO_LLM_API_KEY is deprecated" in caplog.text
+
+    def test_new_llm_api_key_wins_over_legacy(self, tmp_path, monkeypatch):
+        cfg = _build_config({}, tmp_path)
+        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "new-key")
+        monkeypatch.setenv("SCHOLARAIO_LLM_API_KEY", "legacy-key")
+        assert cfg.resolved_api_key() == "new-key"
+
+    def test_legacy_embed_api_key_fallback(self, tmp_path, monkeypatch):
+        cfg = _build_config({}, tmp_path)
+        monkeypatch.delenv("SCRINIUM_EMBED_API_KEY", raising=False)
+        monkeypatch.setenv("SCHOLARAIO_EMBED_API_KEY", "legacy-embed")
+        assert cfg.resolved_embed_api_key() == "legacy-embed"
+
+    def test_legacy_embed_env_vars_override_yaml(self, tmp_path, monkeypatch):
+        data = {
+            "embed": {
+                "provider": "local",
+                "source": "modelscope",
+                "cache_dir": "/yaml-cache",
+                "model": "yaml-model",
+                "api_base": "https://yaml-embed.example/v1",
+            }
+        }
+        for v in (
+            "SCRINIUM_EMBED_PROVIDER",
+            "SCRINIUM_EMBED_SOURCE",
+            "SCRINIUM_EMBED_CACHE_DIR",
+            "SCRINIUM_EMBED_MODEL",
+            "SCRINIUM_EMBED_API_BASE",
+        ):
+            monkeypatch.delenv(v, raising=False)
+        monkeypatch.setenv("SCHOLARAIO_EMBED_PROVIDER", "openai-compat")
+        monkeypatch.setenv("SCHOLARAIO_EMBED_SOURCE", "huggingface")
+        monkeypatch.setenv("SCHOLARAIO_EMBED_CACHE_DIR", "/legacy-cache")
+        monkeypatch.setenv("SCHOLARAIO_EMBED_MODEL", "legacy-model")
+        monkeypatch.setenv("SCHOLARAIO_EMBED_API_BASE", "https://legacy-embed.example/v1")
+        cfg = _build_config(data, tmp_path)
+        assert cfg.embed.provider == "openai-compat"
+        assert cfg.embed.source == "huggingface"
+        assert cfg.embed.cache_dir == "/legacy-cache"
+        assert cfg.embed.model == "legacy-model"
+        assert cfg.embed.api_base == "https://legacy-embed.example/v1"
+
+    def test_legacy_hf_endpoint_fallback(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("SCRINIUM_HF_ENDPOINT", raising=False)
+        monkeypatch.delenv("HF_ENDPOINT", raising=False)
+        monkeypatch.setenv("SCHOLARAIO_HF_ENDPOINT", "https://legacy-mirror.example")
+        cfg = _build_config({}, tmp_path)
+        assert cfg.embed.hf_endpoint == "https://legacy-mirror.example"
+
+    def test_legacy_config_env_var_fallback(self, tmp_path, monkeypatch):
+        cfg_file = tmp_path / "custom.yaml"
+        cfg_file.write_text("search:\n  top_k: 43\n", encoding="utf-8")
+        monkeypatch.delenv("SCRINIUM_CONFIG", raising=False)
+        monkeypatch.setenv("SCHOLARAIO_CONFIG", str(cfg_file))
+        cfg = load_config()
+        assert cfg.search.top_k == 43
+
+    def test_legacy_global_config_dir_fallback(self, tmp_path, monkeypatch, caplog):
+        from pathlib import Path
+
+        home = tmp_path / "home"
+        legacy_cfg = home / ".scholaraio" / "config.yaml"
+        legacy_cfg.parent.mkdir(parents=True)
+        legacy_cfg.write_text("search:\n  top_k: 44\n", encoding="utf-8")
+        deep_cwd = tmp_path / "a" / "b" / "c" / "d" / "e" / "f" / "g"
+        deep_cwd.mkdir(parents=True)
+        monkeypatch.chdir(deep_cwd)
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
+        monkeypatch.delenv("SCRINIUM_CONFIG", raising=False)
+        monkeypatch.delenv("SCHOLARAIO_CONFIG", raising=False)
+        with caplog.at_level(logging.WARNING):
+            found = _find_config_file()
+        assert found == legacy_cfg
+        assert "legacy global config" in caplog.text
+
+    def test_new_global_config_dir_wins_over_legacy(self, tmp_path, monkeypatch):
+        from pathlib import Path
+
+        home = tmp_path / "home"
+        new_cfg = home / ".scrinium" / "config.yaml"
+        new_cfg.parent.mkdir(parents=True)
+        new_cfg.write_text("", encoding="utf-8")
+        legacy_cfg = home / ".scholaraio" / "config.yaml"
+        legacy_cfg.parent.mkdir(parents=True)
+        legacy_cfg.write_text("", encoding="utf-8")
+        deep_cwd = tmp_path / "a" / "b" / "c" / "d" / "e" / "f" / "g"
+        deep_cwd.mkdir(parents=True)
+        monkeypatch.chdir(deep_cwd)
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
+        assert _find_config_file() == new_cfg

@@ -1,6 +1,10 @@
 ---
 name: openfoam
 description: Use when working on CFD cases with OpenFOAM, especially solver selection, dictionary setup, mesh workflow decisions, turbulence-model choices, and verification of fluid-flow or heat-transfer simulations.
+version: 1.0.0
+author: wszqkzqk/scrinium
+license: MIT
+tags: ["scientific-computing", "openfoam", "cfd", "turbulence"]
 ---
 
 # OpenFOAM 计算流体力学
@@ -10,7 +14,7 @@ description: Use when working on CFD cases with OpenFOAM, especially solver sele
 本 skill **故意保持轻量**：
 - 它负责告诉 agent 什么时候该用 OpenFOAM、标准工作流是什么、哪些 CFD 规范不能忽略
 - 它**不**充当完整字典/求解器手册
-- 具体求解器页面、字典字段、模型说明统一去查 `scholaraio toolref`
+- 具体求解器页面、字典字段、模型说明统一去查 `scrinium toolref`
 
 本 skill 应与 `scientific-runtime` 一起理解：
 - `openfoam` skill 负责 CFD 路由、工作流和科学规范
@@ -75,20 +79,20 @@ sudo apt install paraview
 常用查法：
 
 ```bash
-scholaraio toolref show openfoam simpleFoam
-scholaraio toolref show openfoam pimpleFoam
-scholaraio toolref show openfoam controlDict
-scholaraio toolref show openfoam fvSchemes
-scholaraio toolref show openfoam fvSolution
-scholaraio toolref show openfoam kOmegaSST
-scholaraio toolref show openfoam blockMesh
-scholaraio toolref show openfoam snappyHexMesh
-scholaraio toolref show openfoam forceCoeffs
-scholaraio toolref search openfoam numerical schemes
-scholaraio toolref search openfoam linear solver settings
-scholaraio toolref search openfoam turbulence model
-scholaraio toolref search openfoam drag coefficient
-scholaraio toolref search openfoam q criterion
+scrinium toolref show openfoam simpleFoam
+scrinium toolref show openfoam pimpleFoam
+scrinium toolref show openfoam controlDict
+scrinium toolref show openfoam fvSchemes
+scrinium toolref show openfoam fvSolution
+scrinium toolref show openfoam kOmegaSST
+scrinium toolref show openfoam blockMesh
+scrinium toolref show openfoam snappyHexMesh
+scrinium toolref show openfoam forceCoeffs
+scrinium toolref search openfoam numerical schemes
+scrinium toolref search openfoam linear solver settings
+scrinium toolref search openfoam turbulence model
+scrinium toolref search openfoam drag coefficient
+scrinium toolref search openfoam q criterion
 ```
 
 推荐习惯：
@@ -114,7 +118,7 @@ scholaraio toolref search openfoam q criterion
 
 ### 知识库协作模式
 
-1. 用 `scholaraio usearch "<流动问题>"` 检索相关论文
+1. 用 `scrinium usearch "<流动问题>"` 检索相关论文
 2. 从论文提取：几何参数、流动条件（Re, Ma）、湍流模型选择依据、验证数据
 3. Case 设置中标注参数来源
 4. 计算完成后与实验/DNS 数据定量对比（速度剖面、阻力系数、压力分布）

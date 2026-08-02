@@ -2,13 +2,15 @@
 name: topics
 description: Explore topic distribution in the paper library using BERTopic clustering. Build/rebuild topic models, view topic overview, list papers in a topic, merge similar topics, and generate HTML visualizations. Use when the user asks about research themes, topic distribution, or wants to discover cross-domain connections.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "research", "topic-modeling", "bertopic"]
 ---
 # 主题探索
 
 探索论文库的主题分布，发现跨领域关联。基于 BERTopic 聚类。
+
+> 需要嵌入后端（`embed.provider` 为 local 或 openai-compat）才能构建/重建模型。无嵌入部署（`provider: none`）下已有模型仍可浏览，但无法重建——此时主题组织应改用策展标签体系（`/curate` skill + `scrinium tags`）。
 
 ## 执行逻辑
 
@@ -24,33 +26,33 @@ tags: ["academic", "research", "topic-modeling", "bertopic"]
 
 **构建/重建主题模型：**
 ```bash
-scholaraio topics --build
-scholaraio topics --rebuild [--min-topic-size N] [--nr-topics N]
+scrinium topics --build
+scrinium topics --rebuild [--min-topic-size N] [--nr-topics N]
 ```
 
 **手动合并指定主题（格式: 逗号分隔同组ID，+分隔不同组）：**
 ```bash
-scholaraio topics --merge "1,6,14+3,5"
+scrinium topics --merge "1,6,14+3,5"
 ```
 
 **算法合并到 N 个主题：**
 ```bash
-scholaraio topics --reduce <N>
+scrinium topics --reduce <N>
 ```
 
 **查看主题概览：**
 ```bash
-scholaraio topics
+scrinium topics
 ```
 
 **查看指定主题的论文：**
 ```bash
-scholaraio topics --topic <ID> [--top N]
+scrinium topics --topic <ID> [--top N]
 ```
 
 **生成 HTML 可视化（6 张图表）：**
 ```bash
-scholaraio topics --viz
+scrinium topics --viz
 ```
 
 3. **智能合并流程**（当用户要求合并/压缩主题时）：

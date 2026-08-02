@@ -2,7 +2,7 @@
 name: index
 description: Rebuild FTS5 full-text search index or FAISS semantic vector index. Use when the user wants to update or rebuild search indexes after metadata changes.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "search", "indexing", "fts5"]
 ---
@@ -14,27 +14,27 @@ tags: ["academic", "search", "indexing", "fts5"]
 
 **更新 FTS5 全文索引（增量）：**
 ```bash
-scholaraio index
+scrinium index
 ```
 
 **重建 FTS5 全文索引：**
 ```bash
-scholaraio index --rebuild
+scrinium index --rebuild
 ```
 
 **更新语义向量索引（增量）：**
 ```bash
-scholaraio embed
+scrinium embed
 ```
 
 **重建语义向量索引：**
 ```bash
-scholaraio embed --rebuild
+scrinium embed --rebuild
 ```
 
 **两者都更新：**
 ```bash
-scholaraio pipeline reindex
+scrinium pipeline reindex
 ```
 
 ## 示例

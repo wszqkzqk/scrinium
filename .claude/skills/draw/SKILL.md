@@ -2,7 +2,7 @@
 name: draw
 description: Generate diagrams and vector graphics. Supports Mermaid (flowcharts, sequence diagrams, ER diagrams, Gantt charts, mind maps) via mermaid-py, and custom vector graphics (shapes, text, gradients, layers) via cli-anything-inkscape. Outputs PNG/SVG/PDF to workspace/. Use when the user wants to visualize workflows, architecture, data relationships, research timelines, concept maps, or create polished figures for papers.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "diagram", "vector-graphics", "visualization"]
 ---
@@ -35,7 +35,7 @@ tags: ["academic", "diagram", "vector-graphics", "visualization"]
 
 ### 使用方式
 
-**方式 C：直接嵌入 Markdown（零依赖，首选）**
+**方式 A：直接嵌入 Markdown（零依赖，首选）**
 
 无需任何渲染工具，直接在 Markdown 中写：
 ````markdown
@@ -47,7 +47,7 @@ flowchart TD
 ````
 Claude Code 的预览会自动渲染。输出到 `.md` 文件时也可直接查看（GitHub/Obsidian 等均支持）。
 
-**方式 D：mmdc 本地渲染为 PNG/SVG（需本地安装）**
+**方式 B：mmdc 本地渲染为 PNG/SVG（需本地安装）**
 
 ```bash
 # 安装（两步，缺一不可）：
@@ -85,7 +85,7 @@ if result.returncode != 0:
     print(result.stderr)
 ```
 
-**方式 A/B：mermaid-py（需联网，仅有网络时可用）**
+**方式 C：mermaid-py（需联网，仅有网络时可用）**
 
 ```bash
 pip install mermaid-py
@@ -96,7 +96,7 @@ from mermaid import Mermaid
 from mermaid.graph import Graph
 
 # 注意：mermaid-py 所有渲染方式（to_svg/to_png）均需通过 mermaid.ink 在线 API
-# WSL2/代理环境下可能失败；无网络时请改用方式 C 或方式 D
+# WSL2/代理环境下可能失败；无网络时请改用方式 A 或方式 B
 graph = Graph('flowchart', "flowchart LR\n    A --> B\n    B --> C")
 Mermaid(graph).to_png('workspace/diagram.png')
 ```
@@ -240,9 +240,9 @@ print(f"已生成: {SVG} ({SVG.stat().st_size} bytes)")
 1. **判断图表类型**：结构化/逻辑图 → Mermaid；精美配图/示意图 → cli-anything-inkscape
 
 2. **选择 Mermaid 渲染方式**：
-   - 默认：方式 C（嵌入 Markdown，零依赖，Claude Code 预览自动渲染）
-   - 需要独立图片文件：方式 D（mmdc，需预先安装，两步安装见上）
-   - 有网络且已安装 mermaid-py：方式 A/B（调用 mermaid.ink 在线 API）
+   - 默认：方式 A（嵌入 Markdown，零依赖，Claude Code 预览自动渲染）
+   - 需要独立图片文件：方式 B（mmdc，需预先安装，两步安装见上）
+   - 有网络且已安装 mermaid-py：方式 C（调用 mermaid.ink 在线 API）
 
 3. **生成代码**：根据用户描述生成 Mermaid 代码或完整 Python 脚本
 
@@ -269,4 +269,4 @@ print(f"已生成: {SVG} ({SVG.stat().st_size} bytes)")
 → 生成 Mermaid gantt 图，包含关键论文/方法里程碑
 
 用户说："把这个 Mermaid 代码渲染成图片"
-→ 优先用 mmdc（方式 D）本地渲染为 PNG/SVG；mmdc 未安装则输出 Markdown 嵌入（方式 C）
+→ 优先用 mmdc（方式 B）本地渲染为 PNG/SVG；mmdc 未安装则输出 Markdown 嵌入（方式 A）

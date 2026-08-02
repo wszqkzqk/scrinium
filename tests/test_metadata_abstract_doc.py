@@ -1,11 +1,11 @@
-"""Tests for scholaraio.ingest.metadata abstract/doc helpers."""
+"""Tests for scrinium.ingest.metadata abstract/doc helpers."""
 
 from __future__ import annotations
 
 import json
 
-from scholaraio.ingest.metadata._abstract import backfill_abstracts, extract_abstract_from_md
-from scholaraio.ingest.metadata._doc_extract import extract_document_metadata
+from scrinium.ingest.metadata._abstract import backfill_abstracts, extract_abstract_from_md
+from scrinium.ingest.metadata._doc_extract import extract_document_metadata
 
 
 class _NoKeyConfig:

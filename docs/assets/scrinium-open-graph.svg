@@ -1,0 +1,103 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='640' viewBox='0 0 1280 640'>
+  <rect width='1280' height='640' fill='#FFFFFF'/>
+
+  <defs>
+    <filter id='shadow' x='-20%' y='-20%' width='140%' height='140%'>
+      <feDropShadow dx='0' dy='8' stdDeviation='14' flood-color='#D9CDBE' flood-opacity='0.38'/>
+    </filter>
+  </defs>
+
+  <!-- ===== 连接线（最底层） ===== -->
+  <line x1='193' y1='280' x2='290' y2='280'
+        stroke='#8A7158' stroke-width='4' stroke-linecap='round'/>
+  <line x1='404' y1='410' x2='404' y2='466'
+        stroke='#8A7158' stroke-width='4' stroke-linecap='round'/>
+  <line x1='716' y1='410' x2='716' y2='466'
+        stroke='#8A7158' stroke-width='4' stroke-linecap='round'/>
+  <line x1='1028' y1='410' x2='1028' y2='466'
+        stroke='#8A7158' stroke-width='4' stroke-linecap='round'/>
+
+  <!-- ===== 标题 ===== -->
+  <text x='640' y='84' font-size='38' font-weight='600' fill='#6D5B4B'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Headline', 'Tiempos Text', Georgia, 'Times New Roman', serif">
+    A research infrastructure for AI agents
+  </text>
+
+  <!-- container -->
+  <rect x='260' y='150' width='900' height='260' rx='38'
+        fill='#FCFAF6' stroke='#8A7158' stroke-width='2.1'/>
+
+  <!-- user -->
+  <rect x='28' y='221' width='165' height='118' rx='24'
+        fill='#F5E8C9' stroke='#8A7158' stroke-width='2.4' filter='url(#shadow)'/>
+
+  <!-- agent -->
+  <rect x='325' y='216' width='170' height='128' rx='24'
+        fill='#E6EDF5' stroke='#8A7158' stroke-width='2.4' filter='url(#shadow)'/>
+
+  <!-- Scrinium -->
+  <rect x='560' y='180' width='560' height='200' rx='32'
+        fill='#5B4433' stroke='#5B4433' stroke-width='2.4' filter='url(#shadow)'/>
+
+  <!-- bottom modules -->
+  <rect x='260' y='466' width='288' height='100' rx='24'
+        fill='#F7F1E7' stroke='#8A7158' stroke-width='2.4' filter='url(#shadow)'/>
+  <rect x='572' y='466' width='288' height='100' rx='24'
+        fill='#F7F1E7' stroke='#8A7158' stroke-width='2.4' filter='url(#shadow)'/>
+  <rect x='884' y='466' width='288' height='100' rx='24'
+        fill='#F7F1E7' stroke='#8A7158' stroke-width='2.4' filter='url(#shadow)'/>
+
+  <!-- 文本 -->
+  <text x='110.5' y='280' font-size='40' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Headline', 'Tiempos Text', Georgia, 'Times New Roman', serif">
+    User
+  </text>
+
+  <text x='410' y='280' font-size='40' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Headline', 'Tiempos Text', Georgia, 'Times New Roman', serif">
+    Agent
+  </text>
+
+  <text x='840' y='280' font-size='64' font-weight='700' fill='#FFFDF8'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Headline', 'Tiempos Text', Georgia, 'Times New Roman', serif">
+    Scrinium
+  </text>
+
+  <text x='404' y='499' font-size='31' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Text', Georgia, 'Times New Roman', serif">
+    Writing
+  </text>
+  <text x='404' y='535' font-size='31' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Text', Georgia, 'Times New Roman', serif">
+    &amp; Coding
+  </text>
+
+  <text x='716' y='499' font-size='31' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Text', Georgia, 'Times New Roman', serif">
+    Literature
+  </text>
+  <text x='716' y='535' font-size='31' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Text', Georgia, 'Times New Roman', serif">
+    &amp; Knowledge
+  </text>
+
+  <text x='1028' y='499' font-size='31' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Text', Georgia, 'Times New Roman', serif">
+    Scientific
+  </text>
+  <text x='1028' y='535' font-size='31' font-weight='700' fill='#3C2F24'
+        text-anchor='middle' dominant-baseline='middle'
+        font-family="'Tiempos Text', Georgia, 'Times New Roman', serif">
+    Tools &amp; Docs
+  </text>
+
+</svg>

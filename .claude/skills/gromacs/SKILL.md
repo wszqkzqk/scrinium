@@ -1,6 +1,10 @@
 ---
 name: gromacs
 description: Use when working on biomolecular molecular dynamics with GROMACS, especially system setup, equilibration, production runs, trajectory analysis, or MM/PBSA-style post-processing.
+version: 1.0.0
+author: wszqkzqk/scrinium
+license: MIT
+tags: ["scientific-computing", "gromacs", "molecular-dynamics", "biomolecular"]
 ---
 
 # GROMACS 分子动力学
@@ -10,7 +14,12 @@ description: Use when working on biomolecular molecular dynamics with GROMACS, e
 本 skill **故意保持轻量**：
 - 它负责告诉 agent 什么时候该用 GROMACS、标准工作流是什么、哪些科学规范不能踩
 - 它**不**充当完整命令手册
-- 具体命令行选项、`.mdp` 参数、子命令语法统一去查 `scholaraio toolref`
+- 具体命令行选项、`.mdp` 参数、子命令语法统一去查 `scrinium toolref`
+
+本 skill 应与 `scientific-runtime` 一起理解：
+- `gromacs` skill 负责生物分子 MD 路由、工作流和科学规范
+- `scientific-runtime` 负责运行时的 `toolref-first` 行为和覆盖缺口退化策略
+- `toolref` 负责子命令、选项和 `.mdp` 参数页
 
 ## Agent 默认协议（toolref-first）
 
@@ -59,11 +68,11 @@ conda install -c conda-forge pymol-open-source
 常用查法：
 
 ```bash
-scholaraio toolref search gromacs "temperature coupling"
-scholaraio toolref show gromacs mdp integrator
-scholaraio toolref show gromacs mdp pcoupl
-scholaraio toolref show gromacs mdp tau-t
-scholaraio toolref show gromacs mdp ref-t
+scrinium toolref search gromacs "temperature coupling"
+scrinium toolref show gromacs mdp integrator
+scrinium toolref show gromacs mdp pcoupl
+scrinium toolref show gromacs mdp tau-t
+scrinium toolref show gromacs mdp ref-t
 ```
 
 推荐习惯：
@@ -82,7 +91,7 @@ scholaraio toolref show gromacs mdp ref-t
 
 这是本 skill 与普通 GROMACS 教程的核心区别。**在任何模拟开始前：**
 
-1. 用 `scholaraio usearch "<体系关键词>"` 检索知识库中的相关论文
+1. 用 `scrinium usearch "<体系关键词>"` 检索知识库中的相关论文
 2. 从论文中提取：力场选择依据、模拟参数（温度、压力、时长）、验证基准数据
 3. 在 `.mdp` 文件注释中标注参数来源（如 "# 300 K, per Homeyer et al. 2014 JCTC"）
 4. 模拟完成后，将结果与论文数据定量对比

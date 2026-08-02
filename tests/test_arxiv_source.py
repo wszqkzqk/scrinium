@@ -1,4 +1,4 @@
-"""Unit tests for scholaraio/sources/arxiv.py — search/fetch helpers.
+"""Unit tests for scrinium/sources/arxiv.py — search/fetch helpers.
 
 All tests stub requests.get so no network access is required.
 """
@@ -116,13 +116,13 @@ def _mock_response(xml_text: str, status_code: int = 200) -> MagicMock:
 
 class TestSearchArxivParsing:
     def test_session_respects_env_proxies(self):
-        from scholaraio.sources import arxiv
+        from scrinium.sources import arxiv
 
         assert arxiv._SESSION.trust_env is True
 
     def test_module_import_does_not_require_bs4(self, monkeypatch):
         real_import = builtins.__import__
-        sys.modules.pop("scholaraio.sources.arxiv", None)
+        sys.modules.pop("scrinium.sources.arxiv", None)
 
         def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
             if name == "bs4":
@@ -131,13 +131,13 @@ class TestSearchArxivParsing:
 
         monkeypatch.setattr(builtins, "__import__", fake_import)
 
-        module = importlib.import_module("scholaraio.sources.arxiv")
+        module = importlib.import_module("scrinium.sources.arxiv")
 
         assert hasattr(module, "search_arxiv")
 
     def test_full_entry_fields(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("attention", top_k=1)
 
@@ -151,8 +151,8 @@ class TestSearchArxivParsing:
         assert r["doi"] == "10.1234/attn2"
 
     def test_missing_optional_fields(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_MISSING_OPTIONAL)):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_MISSING_OPTIONAL)):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("minimal")
 
@@ -166,8 +166,8 @@ class TestSearchArxivParsing:
         assert r["arxiv_id"] == "2402.99999v1"
 
     def test_empty_title_and_abstract(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_EMPTY_TEXT)):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_EMPTY_TEXT)):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("empty")
 
@@ -178,8 +178,8 @@ class TestSearchArxivParsing:
         assert r["year"] == "2024"
 
     def test_multiple_entries(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_MULTI)):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_MULTI)):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("papers", top_k=5)
 
@@ -190,8 +190,8 @@ class TestSearchArxivParsing:
         assert results[1]["doi"] == ""
 
     def test_network_error_returns_empty(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", side_effect=ConnectionError("timeout")):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", side_effect=ConnectionError("timeout")):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("anything")
 
@@ -202,24 +202,24 @@ class TestSearchArxivParsing:
 
         resp = _mock_response("", status_code=403)
         resp.raise_for_status.side_effect = requests.HTTPError("403")
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=resp):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=resp):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("anything")
 
         assert results == []
 
     def test_malformed_xml_returns_empty(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response("<not valid xml<<")):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response("<not valid xml<<")):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("anything")
 
         assert results == []
 
     def test_arxiv_id_extracted_from_url(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("attention")
 
@@ -227,16 +227,16 @@ class TestSearchArxivParsing:
 
     def test_multiline_title_normalized(self):
         xml = _ATOM_FULL.replace("Attention Is All You Need Again", "Attention\nIs All\nYou Need")
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(xml)):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(xml)):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("attention")
 
         assert "\n" not in results[0]["title"]
 
     def test_search_supports_category_and_recent_sort(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)) as mocked_get:
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)) as mocked_get:
+            from scrinium.sources.arxiv import search_arxiv
 
             search_arxiv("turbulence", top_k=5, category="physics.flu-dyn", sort="recent")
 
@@ -245,8 +245,8 @@ class TestSearchArxivParsing:
         assert kwargs["params"]["sortBy"] == "submittedDate"
 
     def test_search_supports_category_only(self):
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)) as mocked_get:
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(_ATOM_FULL)) as mocked_get:
+            from scrinium.sources.arxiv import search_arxiv
 
             search_arxiv("", top_k=3, category="physics.flu-dyn")
 
@@ -260,8 +260,8 @@ class TestSearchArxivParsing:
         ]
         responses[0].raise_for_status.side_effect = Exception("429")
 
-        with patch("scholaraio.sources.arxiv._SESSION.get", side_effect=responses):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", side_effect=responses):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("direct numerical", top_k=5, category="physics.flu-dyn", sort="recent")
 
@@ -285,8 +285,8 @@ class TestSearchArxivParsing:
 
         monkeypatch.setattr(builtins, "__import__", fake_import)
 
-        with patch("scholaraio.sources.arxiv._SESSION.get", side_effect=responses):
-            from scholaraio.sources.arxiv import search_arxiv
+        with patch("scrinium.sources.arxiv._SESSION.get", side_effect=responses):
+            from scrinium.sources.arxiv import search_arxiv
 
             results = search_arxiv("direct numerical", top_k=5, category="physics.flu-dyn", sort="recent")
 
@@ -295,27 +295,27 @@ class TestSearchArxivParsing:
 
 class TestNormalizeArxivRef:
     def test_accepts_bare_id(self):
-        from scholaraio.sources.arxiv import normalize_arxiv_ref
+        from scrinium.sources.arxiv import normalize_arxiv_ref
 
         assert normalize_arxiv_ref("2603.25200") == "2603.25200"
 
     def test_strips_version_suffix(self):
-        from scholaraio.sources.arxiv import normalize_arxiv_ref
+        from scrinium.sources.arxiv import normalize_arxiv_ref
 
         assert normalize_arxiv_ref("2603.25200v2") == "2603.25200"
 
     def test_parses_abs_url(self):
-        from scholaraio.sources.arxiv import normalize_arxiv_ref
+        from scrinium.sources.arxiv import normalize_arxiv_ref
 
         assert normalize_arxiv_ref("https://arxiv.org/abs/2603.25200v1") == "2603.25200"
 
     def test_parses_pdf_url(self):
-        from scholaraio.sources.arxiv import normalize_arxiv_ref
+        from scrinium.sources.arxiv import normalize_arxiv_ref
 
         assert normalize_arxiv_ref("https://arxiv.org/pdf/2603.25200.pdf") == "2603.25200"
 
     def test_accepts_old_ids_with_subject_class(self):
-        from scholaraio.sources.arxiv import normalize_arxiv_ref
+        from scrinium.sources.arxiv import normalize_arxiv_ref
 
         assert normalize_arxiv_ref("math.GT/0309136v1") == "math.GT/0309136"
         assert normalize_arxiv_ref("https://arxiv.org/abs/physics.class-ph/0301001v2") == "physics.class-ph/0301001"
@@ -335,10 +335,10 @@ class TestGetArxivPaperFallback:
         """
 
         with (
-            patch("scholaraio.sources.arxiv._query_arxiv_api", return_value=[]),
-            patch("scholaraio.sources.arxiv._SESSION.get", return_value=_mock_response(html)),
+            patch("scrinium.sources.arxiv._query_arxiv_api", return_value=[]),
+            patch("scrinium.sources.arxiv._SESSION.get", return_value=_mock_response(html)),
         ):
-            from scholaraio.sources.arxiv import get_arxiv_paper
+            from scrinium.sources.arxiv import get_arxiv_paper
 
             result = get_arxiv_paper("2603.25200")
 
@@ -356,8 +356,8 @@ class TestDownloadArxivPdf:
         resp.iter_content.return_value = [pdf_bytes]
         resp.raise_for_status = MagicMock()
 
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=resp) as mocked_get:
-            from scholaraio.sources.arxiv import download_arxiv_pdf
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=resp) as mocked_get:
+            from scrinium.sources.arxiv import download_arxiv_pdf
 
             out = download_arxiv_pdf("https://arxiv.org/abs/2603.25200v1", tmp_path)
 
@@ -373,8 +373,8 @@ class TestDownloadArxivPdf:
         resp.iter_content.return_value = [pdf_bytes]
         resp.raise_for_status = MagicMock()
 
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=resp):
-            from scholaraio.sources.arxiv import download_arxiv_pdf
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=resp):
+            from scrinium.sources.arxiv import download_arxiv_pdf
 
             out = download_arxiv_pdf("hep-th/9901001v1", tmp_path)
 
@@ -391,8 +391,8 @@ class TestDownloadArxivPdf:
 
         resp.iter_content.side_effect = broken_stream
 
-        with patch("scholaraio.sources.arxiv._SESSION.get", return_value=resp):
-            from scholaraio.sources.arxiv import download_arxiv_pdf
+        with patch("scrinium.sources.arxiv._SESSION.get", return_value=resp):
+            from scrinium.sources.arxiv import download_arxiv_pdf
 
             try:
                 download_arxiv_pdf("2603.25200", tmp_path)

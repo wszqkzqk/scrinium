@@ -1,9 +1,9 @@
-"""Tests for scholaraio.ingest.extractor — factory and metadata extractors."""
+"""Tests for scrinium.ingest.extractor — factory and metadata extractors."""
 
 from __future__ import annotations
 
-from scholaraio.config import _build_config
-from scholaraio.ingest.extractor import (
+from scrinium.config import _build_config
+from scrinium.ingest.extractor import (
     LLMExtractor,
     RegexExtractor,
     RobustExtractor,

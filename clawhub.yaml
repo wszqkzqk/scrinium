@@ -1,6 +1,6 @@
 publisher: ZimoLiao
-repo: ZimoLiao/scholaraio
-description: "Academic research skills for AI agents — literature search, paper analysis, citation management, academic writing, and more. Built for ScholarAIO."
+repo: wszqkzqk/scrinium
+description: "Academic research skills for AI agents — literature search, paper analysis, citation management, academic writing, and more. Built for Scrinium."
 keywords:
   - academic
   - research
@@ -14,102 +14,142 @@ keywords:
   - semantic-search
 
 skills:
-  - name: scholaraio/search
+  - name: scrinium/search
     path: .claude/skills/search
     description: "Search academic papers with hybrid keyword+semantic fusion (FTS5 + FAISS RRF)"
 
-  - name: scholaraio/show
+  - name: scrinium/show
     path: .claude/skills/show
     description: "View paper content at any depth: metadata, abstract, conclusion, or full text (L1-L4)"
 
-  - name: scholaraio/ingest
+  - name: scrinium/ingest
     path: .claude/skills/ingest
     description: "Ingest papers from inbox into the knowledge base via MinerU PDF pipeline"
 
-  - name: scholaraio/enrich
+  - name: scrinium/enrich
     path: .claude/skills/enrich
     description: "Enrich paper metadata with LLM: extract TOC, conclusions (L3), backfill abstracts"
 
-  - name: scholaraio/index
+  - name: scrinium/index
     path: .claude/skills/index
     description: "Rebuild FTS5 full-text search index or FAISS semantic vector index"
 
-  - name: scholaraio/topics
+  - name: scrinium/topics
     path: .claude/skills/topics
     description: "Explore topic distribution using BERTopic clustering; merge topics and generate HTML visualizations"
 
-  - name: scholaraio/explore
+  - name: scrinium/explore
     path: .claude/skills/explore
     description: "Explore literature by fetching papers from OpenAlex with multi-dimensional filters"
 
-  - name: scholaraio/graph
+  - name: scrinium/graph
     path: .claude/skills/graph
     description: "Query citation graphs — references, citing papers, shared references"
 
-  - name: scholaraio/citations
+  - name: scrinium/citations
     path: .claude/skills/citations
     description: "View top-cited papers ranking and refetch citation counts from APIs"
 
-  - name: scholaraio/export
+  - name: scrinium/export
     path: .claude/skills/export
     description: "Export papers to BibTeX, RIS, Markdown reference lists, or DOCX documents"
 
-  - name: scholaraio/import
+  - name: scrinium/import
     path: .claude/skills/import
     description: "Import papers from Endnote XML/RIS or Zotero (Web API or local SQLite)"
 
-  - name: scholaraio/workspace
+  - name: scrinium/workspace
     path: .claude/skills/workspace
     description: "Manage workspace paper subsets — create, add/remove papers, search, export BibTeX"
 
-  - name: scholaraio/rename
+  - name: scrinium/rename
     path: .claude/skills/rename
     description: "Rename paper directories to standardized Author-Year-Title format"
 
-  - name: scholaraio/audit
+  - name: scrinium/audit
     path: .claude/skills/audit
     description: "Audit paper data quality: missing fields, filename issues, DOI duplicates, LLM deep diagnosis"
 
-  - name: scholaraio/literature-review
+  - name: scrinium/literature-review
     path: .claude/skills/literature-review
     description: "Write a literature review based on workspace papers: topic organization, narrative, gap identification"
 
-  - name: scholaraio/paper-writing
+  - name: scrinium/paper-writing
     path: .claude/skills/paper-writing
     description: "Assist writing research paper sections (Intro, Related Work, Method, Results, Discussion, Conclusion)"
 
-  - name: scholaraio/citation-check
+  - name: scrinium/citation-check
     path: .claude/skills/citation-check
     description: "Verify citations in AI-generated text against local knowledge base and external APIs"
 
-  - name: scholaraio/writing-polish
+  - name: scrinium/writing-polish
     path: .claude/skills/writing-polish
     description: "Polish academic writing — remove AI patterns, improve clarity, match target journal style"
 
-  - name: scholaraio/review-response
+  - name: scrinium/review-response
     path: .claude/skills/review-response
     description: "Draft point-by-point responses to peer review comments with evidence from workspace papers"
 
-  - name: scholaraio/research-gap
+  - name: scrinium/research-gap
     path: .claude/skills/research-gap
     description: "Identify research gaps and open questions from literature in a workspace"
 
-  - name: scholaraio/metrics
+  - name: scrinium/metrics
     path: .claude/skills/metrics
     description: "View LLM token usage, API call timing, and runtime metrics"
 
-  - name: scholaraio/insights
+  - name: scrinium/insights
     path: .claude/skills/insights
     description: "Analyze research behavior: search hot keywords, most-read papers, reading trends, and semantic neighbor recommendations"
 
-  - name: scholaraio/draw
+  - name: scrinium/draw
     path: .claude/skills/draw
     description: "Generate diagrams (Mermaid flowcharts, sequence, ER, Gantt, mind maps) and vector graphics (cli-anything-inkscape)"
 
-  - name: scholaraio/document
+  - name: scrinium/document
     path: .claude/skills/document
     description: "Generate Office documents (DOCX, PPTX, XLSX) via python-docx, python-pptx, and openpyxl APIs"
 
-  - name: scholaraio/setup
+  - name: scrinium/setup
     path: .claude/skills/setup
-    description: "Initialize and diagnose the ScholarAIO environment; bilingual EN/ZH setup wizard"
+    description: "Initialize and diagnose the Scrinium environment; bilingual EN/ZH setup wizard"
+
+  - name: scrinium/arxiv
+    path: .claude/skills/arxiv
+    description: "Browse arXiv preprints, search arXiv directly, fetch a PDF by arXiv ID or URL, or send a preprint into the ingest pipeline"
+
+  - name: scrinium/curate
+    path: .claude/skills/curate
+    description: "Curate papers with tags in batch — build a healthy tag vocabulary, tag untagged papers via subagents, review vocabulary quality"
+
+  - name: scrinium/translate
+    path: .claude/skills/translate
+    description: "Translate paper markdown to a target language (default Chinese), preserving LaTeX formulas, code blocks, and images"
+
+  - name: scrinium/bioinformatics
+    path: .claude/skills/bioinformatics
+    description: "Bioinformatics toolchains: alignment, variant calling, phylogenetics, protein-structure analysis (BLAST, minimap2, samtools, bcftools, MAFFT, IQ-TREE, ESMFold)"
+
+  - name: scrinium/gromacs
+    path: .claude/skills/gromacs
+    description: "Biomolecular molecular dynamics with GROMACS: system setup, equilibration, production runs, trajectory analysis, MM/PBSA post-processing"
+
+  - name: scrinium/lammps
+    path: .claude/skills/lammps
+    description: "Classical materials simulations with LAMMPS: interatomic-potential selection, shock/deformation setups, thermodynamic runs, structure analysis"
+
+  - name: scrinium/openfoam
+    path: .claude/skills/openfoam
+    description: "CFD cases with OpenFOAM: solver selection, dictionary setup, mesh workflow, turbulence-model choices, simulation verification"
+
+  - name: scrinium/quantum-espresso
+    path: .claude/skills/quantum-espresso
+    description: "First-principles calculations with Quantum ESPRESSO: SCF, band structures, DOS, phonons, electron-phonon coupling, Fermi surfaces"
+
+  - name: scrinium/scientific-runtime
+    path: .claude/skills/scientific-runtime
+    description: "Working protocol for scientific computing tasks: toolref-first behavior, graceful fallback under partial coverage, no doc maintenance burden on users"
+
+  - name: scrinium/scientific-tool-onboarding
+    path: .claude/skills/scientific-tool-onboarding
+    description: "Add or upgrade Scrinium support for a new scientific computing tool: official docs ingestion, toolref integration, skill design, CLI verification"

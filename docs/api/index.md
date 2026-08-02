@@ -1,6 +1,6 @@
 # API Reference
 
-::: scholaraio.index
+::: scrinium.index
     options:
       members:
         - build_index
@@ -15,7 +15,7 @@
         - get_citing_papers
         - get_shared_references
 
-::: scholaraio.loader
+::: scrinium.loader
     options:
       members:
         - load_l1
@@ -27,19 +27,19 @@
         - enrich_toc
         - enrich_l3
 
-::: scholaraio.export
+::: scrinium.export
     options:
       members:
         - meta_to_bibtex
         - export_bibtex
 
-::: scholaraio.audit
+::: scrinium.audit
     options:
       members:
         - Issue
         - audit_papers
 
-::: scholaraio.workspace
+::: scrinium.workspace
     options:
       members:
         - create
@@ -48,7 +48,7 @@
         - list_workspaces
         - read_paper_ids
 
-::: scholaraio.papers
+::: scrinium.papers
     options:
       members:
         - paper_dir
@@ -56,20 +56,20 @@
         - md_path
         - iter_paper_dirs
 
-::: scholaraio.proceedings
+::: scrinium.proceedings
     options:
       members:
         - proceedings_db_path
         - iter_proceedings_dirs
         - iter_proceedings_papers
 
-::: scholaraio.vectors
+::: scrinium.vectors
     options:
       members:
         - build_vectors
         - vsearch
 
-::: scholaraio.topics
+::: scrinium.topics
     options:
       members:
         - build_topics
@@ -80,14 +80,14 @@
         - reduce_topics_to
         - merge_topics_by_ids
 
-::: scholaraio.translate
+::: scrinium.translate
     options:
       members:
         - translate_paper
         - batch_translate
         - detect_language
 
-::: scholaraio.explore
+::: scrinium.explore
     options:
       members:
         - fetch_explore
@@ -100,7 +100,7 @@
         - explore_db_path
         - validate_explore_name
 
-::: scholaraio.insights
+::: scrinium.insights
     options:
       members:
         - extract_hot_keywords
@@ -110,12 +110,12 @@
         - recommend_unread_neighbors
         - list_workspace_counts
 
-::: scholaraio.ingest.extractor
+::: scrinium.ingest.extractor
     options:
       members:
         - get_extractor
 
-::: scholaraio.ingest.metadata
+::: scrinium.ingest.metadata
     options:
       members:
         - PaperMetadata
@@ -129,7 +129,7 @@
         - rename_paper
         - write_metadata_json
 
-::: scholaraio.ingest.pipeline
+::: scrinium.ingest.pipeline
     options:
       members:
         - StepResult

@@ -7,7 +7,7 @@ Does NOT test: UUID generation randomness, internal sorting.
 
 from __future__ import annotations
 
-from scholaraio.papers import iter_paper_dirs, md_path, meta_path, paper_dir
+from scrinium.papers import iter_paper_dirs, md_path, meta_path, paper_dir
 
 
 class TestPathHelpers:

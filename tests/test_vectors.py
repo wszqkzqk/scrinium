@@ -4,12 +4,12 @@ import os
 import sqlite3
 from types import SimpleNamespace
 
-from scholaraio import vectors
-from scholaraio.config import _build_config
+from scrinium import vectors
+from scrinium.config import _build_config
 
 
 def test_load_model_sets_hf_endpoint_before_sentence_transformers_import(tmp_path, monkeypatch):
-    monkeypatch.delenv("SCHOLARAIO_HF_ENDPOINT", raising=False)
+    monkeypatch.delenv("SCRINIUM_HF_ENDPOINT", raising=False)
     monkeypatch.delenv("HF_ENDPOINT", raising=False)
 
     cfg = _build_config(
@@ -209,3 +209,66 @@ def test_build_vectors_provider_none_clears_vectors(tmp_papers, tmp_db, tmp_path
 
     assert count == 0
     assert sig == "none"
+
+
+def test_resolve_model_path_announces_download_when_model_not_cached(tmp_path, monkeypatch):
+    import modelscope
+
+    messages: list[str] = []
+    monkeypatch.setattr(vectors, "ui", lambda msg="", *args: messages.append(msg))
+    monkeypatch.setattr(vectors, "_find_local_model_path", lambda *args: None)
+
+    calls: list[bool] = []
+
+    def fake_snapshot_download(model_name, cache_dir=None, local_files_only=False):
+        calls.append(local_files_only)
+        if local_files_only:
+            raise RuntimeError("not cached")
+        return str(tmp_path / "downloaded-model")
+
+    monkeypatch.setattr(modelscope, "snapshot_download", fake_snapshot_download)
+
+    path = vectors._resolve_model_path("Qwen/Qwen3-Embedding-0.6B", str(tmp_path), "modelscope")
+
+    assert path == str(tmp_path / "downloaded-model")
+    # Cache probe (local_files_only=True) ran before the real download.
+    assert calls == [True, False]
+    assert any("首次运行需下载嵌入模型" in m for m in messages)
+
+
+def test_resolve_model_path_no_download_notice_when_model_cached(tmp_path, monkeypatch):
+    import modelscope
+
+    messages: list[str] = []
+    monkeypatch.setattr(vectors, "ui", lambda msg="", *args: messages.append(msg))
+    monkeypatch.setattr(vectors, "_find_local_model_path", lambda *args: str(tmp_path / "model"))
+
+    def fail_snapshot_download(*args, **kwargs):
+        raise AssertionError("should not touch the network when the model is cached")
+
+    monkeypatch.setattr(modelscope, "snapshot_download", fail_snapshot_download)
+
+    path = vectors._resolve_model_path("Qwen/Qwen3-Embedding-0.6B", str(tmp_path), "modelscope")
+
+    assert path == str(tmp_path / "model")
+    assert not messages
+
+
+def test_gpu_profile_read_path_prefers_new_with_legacy_fallback(tmp_path, monkeypatch):
+    new_file = tmp_path / "new" / "gpu_profile.json"
+    legacy_file = tmp_path / "legacy" / "gpu_profile.json"
+    monkeypatch.setattr(vectors, "_GPU_PROFILE_FILE", new_file)
+    monkeypatch.setattr(vectors, "_LEGACY_GPU_PROFILE_FILE", legacy_file)
+
+    # Neither exists: default to the new location
+    assert vectors._gpu_profile_read_path() == new_file
+
+    # Only legacy exists: read from the legacy pre-fork location
+    legacy_file.parent.mkdir(parents=True)
+    legacy_file.write_text("{}", encoding="utf-8")
+    assert vectors._gpu_profile_read_path() == legacy_file
+
+    # Both exist: the new location wins
+    new_file.parent.mkdir(parents=True)
+    new_file.write_text("{}", encoding="utf-8")
+    assert vectors._gpu_profile_read_path() == new_file

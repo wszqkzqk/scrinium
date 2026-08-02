@@ -1,6 +1,6 @@
 # Academic Writing
 
-ScholarAIO includes several agent skills to assist with academic writing. These work best through an agent host that can load ScholarAIO skills; the examples below use Claude Code-style slash-skill names.
+Scrinium includes several agent skills to assist with academic writing. These work best through an agent host that can load Scrinium skills; the examples below use Claude Code-style slash-skill names.
 
 ## Available Writing Skills
 

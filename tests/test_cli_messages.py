@@ -8,11 +8,15 @@ from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
 
-from scholaraio import cli
-from scholaraio.index import build_index
-from scholaraio.ingest.mineru import ConvertResult
-from scholaraio.setup import _S
-from scholaraio.translate import TranslateResult
+from scrinium import cli
+from scrinium.cli import ingest as cli_ingest
+from scrinium.cli import misc as cli_misc
+from scrinium.cli import search as cli_search
+from scrinium.cli import transfer as cli_transfer
+from scrinium.index import build_index
+from scrinium.ingest.mineru import ConvertResult
+from scrinium.setup import _S
+from scrinium.translate import TranslateResult
 
 
 class TestSetupImportHints:
@@ -27,10 +31,10 @@ class TestSetupImportHints:
 
         assert "--api-key <API_KEY>" in en_hint
         assert "--collection <COLLECTION_KEY>" in en_hint
-        assert "scholaraio import-zotero --local /path/to/zotero.sqlite\n" in en_hint
+        assert "scrinium import-zotero --local /path/to/zotero.sqlite\n" in en_hint
         assert "--api-key <API_KEY>" in zh_hint
         assert "--collection <COLLECTION_KEY>" in zh_hint
-        assert "scholaraio import-zotero --local /path/to/zotero.sqlite\n" in zh_hint
+        assert "scrinium import-zotero --local /path/to/zotero.sqlite\n" in zh_hint
 
 
 class TestSetupPromptTransparency:
@@ -99,8 +103,8 @@ class TestShowLayer4Headings:
         (paper_dir / "paper_zh.md").write_text("中文全文。", encoding="utf-8")
 
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_print_header", lambda _: None)
+        monkeypatch.setattr(cli_search, "ui", messages.append)
+        monkeypatch.setattr(cli_search, "_print_header", lambda _: None)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
         args = Namespace(paper_id="Smith-2023-Turbulence", layer=4, lang="zh")
@@ -111,8 +115,8 @@ class TestShowLayer4Headings:
 
     def test_missing_translation_heading_uses_consistent_spacing(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_print_header", lambda _: None)
+        monkeypatch.setattr(cli_search, "ui", messages.append)
+        monkeypatch.setattr(cli_search, "_print_header", lambda _: None)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
         args = Namespace(paper_id="Smith-2023-Turbulence", layer=4, lang="fr")
@@ -128,8 +132,8 @@ class TestRefetchIdentifierResolution:
 
         seen: list[Path] = []
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr("scholaraio.ingest.metadata.refetch_metadata", lambda jp: seen.append(jp) or True)
+        monkeypatch.setattr(cli_ingest, "ui", messages.append)
+        monkeypatch.setattr("scrinium.ingest.metadata.refetch_metadata", lambda jp: seen.append(jp) or True)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_db)
         args = Namespace(paper_id="aaaa-1111", all=False, force=False, jobs=5)
@@ -143,8 +147,8 @@ class TestRefetchIdentifierResolution:
     def test_refetch_resolves_mixed_case_doi_without_registry(self, tmp_papers, tmp_path, monkeypatch):
         seen: list[Path] = []
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr("scholaraio.ingest.metadata.refetch_metadata", lambda jp: seen.append(jp) or True)
+        monkeypatch.setattr(cli_ingest, "ui", messages.append)
+        monkeypatch.setattr("scrinium.ingest.metadata.refetch_metadata", lambda jp: seen.append(jp) or True)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_path / "missing-index.db")
         args = Namespace(paper_id="10.1234/JFM.2023.001", all=False, force=False, jobs=5)
@@ -162,8 +166,8 @@ class TestShowNotesIntegration:
         (paper_dir / "notes.md").write_text("## 2026-03-26 | test | analysis\n- Key finding\n", encoding="utf-8")
 
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_print_header", lambda _: None)
+        monkeypatch.setattr(cli_search, "ui", messages.append)
+        monkeypatch.setattr(cli_search, "_print_header", lambda _: None)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
         args = Namespace(paper_id="Smith-2023-Turbulence", layer=1)
@@ -176,8 +180,8 @@ class TestShowNotesIntegration:
 
     def test_no_notes_section_when_file_missing(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_print_header", lambda _: None)
+        monkeypatch.setattr(cli_search, "ui", messages.append)
+        monkeypatch.setattr(cli_search, "_print_header", lambda _: None)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
         args = Namespace(paper_id="Smith-2023-Turbulence", layer=1)
@@ -188,8 +192,8 @@ class TestShowNotesIntegration:
 
     def test_append_notes_visible_in_same_show(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_print_header", lambda _: None)
+        monkeypatch.setattr(cli_search, "ui", messages.append)
+        monkeypatch.setattr(cli_search, "_print_header", lambda _: None)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
         args = Namespace(
@@ -206,8 +210,8 @@ class TestShowNotesIntegration:
 
     def test_append_notes_empty_ignored(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_print_header", lambda _: None)
+        monkeypatch.setattr(cli_search, "ui", messages.append)
+        monkeypatch.setattr(cli_search, "_print_header", lambda _: None)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
         args = Namespace(paper_id="Smith-2023-Turbulence", layer=1, append_notes="   ")
@@ -218,6 +222,19 @@ class TestShowNotesIntegration:
         assert not (tmp_papers / "Smith-2023-Turbulence" / "notes.md").exists()
 
 
+class TestShowHeaderDirName:
+    def test_header_includes_dir_name_line(self, tmp_papers, monkeypatch):
+        messages: list[str] = []
+        monkeypatch.setattr(cli_search, "ui", lambda msg="": messages.append(msg))
+
+        cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")
+        args = Namespace(paper_id="10.1234/jfm.2023.001", layer=1)
+
+        cli.cmd_show(args, cfg)
+
+        assert any("目录名" in m and "Smith-2023-Turbulence" in m for m in messages)
+
+
 class TestSearchResultFormatting:
     def test_print_search_result_omits_empty_extra(self, monkeypatch):
         messages: list[str] = []
@@ -225,7 +242,7 @@ class TestSearchResultFormatting:
         def fake_ui(message: str = "") -> None:
             messages.append(message)
 
-        monkeypatch.setattr(cli, "ui", fake_ui)
+        monkeypatch.setattr(cli_search, "ui", fake_ui)
 
         cli._print_search_result(
             1,
@@ -247,9 +264,9 @@ class TestSearchResultFormatting:
 class TestToolrefCliMessages:
     def test_toolref_show_output_is_localized(self, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_misc, "ui", messages.append)
         monkeypatch.setattr(
-            "scholaraio.toolref.toolref_show",
+            "scrinium.toolref.toolref_show",
             lambda tool, *path, cfg=None: [
                 {
                     "page_name": "pw.x/SYSTEM/ecutwfc",
@@ -275,7 +292,7 @@ class TestToolrefCliMessages:
 class TestArxivCommands:
     def test_arxiv_fetch_downloads_to_inbox_without_ingest(self, tmp_path, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_transfer, "ui", messages.append)
 
         downloaded = tmp_path / "data" / "inbox" / "2603.25200.pdf"
 
@@ -284,7 +301,7 @@ class TestArxivCommands:
             downloaded.write_bytes(b"%PDF")
             return downloaded
 
-        monkeypatch.setattr("scholaraio.sources.arxiv.download_arxiv_pdf", fake_download)
+        monkeypatch.setattr("scrinium.sources.arxiv.download_arxiv_pdf", fake_download)
 
         cfg = SimpleNamespace(_root=tmp_path, papers_dir=tmp_path / "data" / "papers")
         args = Namespace(arxiv_ref="2603.25200", ingest=False, force=False, dry_run=False)
@@ -296,7 +313,7 @@ class TestArxivCommands:
 
     def test_arxiv_fetch_ingest_uses_temp_inbox_pipeline(self, tmp_path, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_transfer, "ui", messages.append)
 
         def fake_download(arxiv_ref, dest_dir, *, overwrite=False):
             dest_dir.mkdir(parents=True, exist_ok=True)
@@ -311,8 +328,8 @@ class TestArxivCommands:
             seen["inbox_dir"] = opts["inbox_dir"]
             seen["opts"] = opts
 
-        monkeypatch.setattr("scholaraio.sources.arxiv.download_arxiv_pdf", fake_download)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.run_pipeline", fake_run_pipeline)
+        monkeypatch.setattr("scrinium.sources.arxiv.download_arxiv_pdf", fake_download)
+        monkeypatch.setattr("scrinium.ingest.pipeline.run_pipeline", fake_run_pipeline)
 
         cfg = SimpleNamespace(_root=tmp_path, papers_dir=tmp_path / "data" / "papers")
         args = Namespace(arxiv_ref="2603.25200", ingest=True, force=False, dry_run=False)
@@ -326,9 +343,9 @@ class TestArxivCommands:
 
     def test_arxiv_fetch_reports_download_failure(self, tmp_path, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_transfer, "ui", messages.append)
         monkeypatch.setattr(
-            "scholaraio.sources.arxiv.download_arxiv_pdf",
+            "scrinium.sources.arxiv.download_arxiv_pdf",
             lambda *args, **kwargs: (_ for _ in ()).throw(TimeoutError("timeout")),
         )
 
@@ -343,9 +360,9 @@ class TestArxivCommands:
 class TestFederatedArxivPresence:
     def test_fsearch_marks_arxiv_only_ingested_paper_as_present(self, tmp_path, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", lambda msg="": messages.append(msg))
+        monkeypatch.setattr(cli_search, "ui", lambda msg="": messages.append(msg))
         monkeypatch.setattr(
-            cli,
+            cli_search,
             "_search_arxiv",
             lambda query, top_k: [
                 {
@@ -357,7 +374,7 @@ class TestFederatedArxivPresence:
                 }
             ],
         )
-        monkeypatch.setattr(cli, "_query_dois_for_set", lambda cfg, doi_set: set())
+        monkeypatch.setattr(cli_search, "_query_dois_for_set", lambda cfg, doi_set: set())
 
         paper_dir = tmp_path / "papers" / "Imamura-1999-String-Junctions"
         paper_dir.mkdir(parents=True)
@@ -384,10 +401,10 @@ class TestFederatedArxivPresence:
 class TestTranslateCliProgress:
     def test_cmd_translate_reports_portable_export_path(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_resolve_paper", lambda paper_id, cfg: tmp_papers / paper_id)
+        monkeypatch.setattr(cli_transfer, "ui", messages.append)
+        monkeypatch.setattr(cli_transfer, "_resolve_paper", lambda paper_id, cfg: tmp_papers / paper_id)
         monkeypatch.setattr(
-            "scholaraio.translate.translate_paper",
+            "scrinium.translate.translate_paper",
             lambda *args, **kwargs: TranslateResult(
                 path=(tmp_papers / "Smith-2023-Turbulence" / "paper_zh.md"),
                 portable_path=(
@@ -410,10 +427,10 @@ class TestTranslateCliProgress:
 
     def test_cmd_translate_reports_resumable_partial_progress(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr(cli, "_resolve_paper", lambda paper_id, cfg: tmp_papers / paper_id)
+        monkeypatch.setattr(cli_transfer, "ui", messages.append)
+        monkeypatch.setattr(cli_transfer, "_resolve_paper", lambda paper_id, cfg: tmp_papers / paper_id)
         monkeypatch.setattr(
-            "scholaraio.translate.translate_paper",
+            "scrinium.translate.translate_paper",
             lambda *args, **kwargs: TranslateResult(
                 path=(tmp_papers / "Smith-2023-Turbulence" / "paper_zh.md"),
                 partial=True,
@@ -442,7 +459,7 @@ class TestTranslateCliProgress:
 class TestEnrichTocCliProgress:
     def test_cmd_enrich_toc_reports_single_paper_success(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
         def fake_enrich_toc(json_path, md_path, cfg, *, force=False, inspect=False):
             data = json.loads(json_path.read_text(encoding="utf-8"))
@@ -450,7 +467,7 @@ class TestEnrichTocCliProgress:
             json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             return True
 
-        monkeypatch.setattr("scholaraio.loader.enrich_toc", fake_enrich_toc)
+        monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers)
         args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True, inspect=False)
@@ -462,7 +479,7 @@ class TestEnrichTocCliProgress:
 
     def test_cmd_enrich_toc_all_uses_llm_concurrency_budget(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
         max_workers_seen: list[int] = []
         submitted: list[str] = []
@@ -483,8 +500,8 @@ class TestEnrichTocCliProgress:
                 fut.set_result(fn(*args, **kwargs))
                 return fut
 
-        monkeypatch.setattr(cli.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
-        monkeypatch.setattr(cli.concurrent.futures, "as_completed", lambda futures: list(futures))
+        monkeypatch.setattr(cli_ingest.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
+        monkeypatch.setattr(cli_ingest.concurrent.futures, "as_completed", lambda futures: list(futures))
 
         def fake_enrich_toc(json_path, md_path, cfg, *, force=False, inspect=False):
             data = json.loads(json_path.read_text(encoding="utf-8"))
@@ -492,7 +509,7 @@ class TestEnrichTocCliProgress:
             json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             return True
 
-        monkeypatch.setattr("scholaraio.loader.enrich_toc", fake_enrich_toc)
+        monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, llm=SimpleNamespace(concurrency=7))
         args = Namespace(all=True, paper_id=None, force=True, inspect=False)
@@ -514,10 +531,10 @@ class TestEnrichTocCliProgress:
 class TestEnrichL3CliBatchRetries:
     def test_cmd_enrich_l3_all_retries_failed_papers_with_backoff(self, tmp_papers, monkeypatch):
         messages: list[str] = []
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
         sleep_delays: list[float] = []
-        monkeypatch.setattr(cli.time, "sleep", sleep_delays.append)
+        monkeypatch.setattr(cli_ingest.time, "sleep", sleep_delays.append)
 
         attempts: dict[str, int] = {}
 
@@ -539,8 +556,8 @@ class TestEnrichL3CliBatchRetries:
                     fut.set_exception(exc)
                 return fut
 
-        monkeypatch.setattr(cli.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
-        monkeypatch.setattr(cli.concurrent.futures, "as_completed", lambda futures: list(futures))
+        monkeypatch.setattr(cli_ingest.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
+        monkeypatch.setattr(cli_ingest.concurrent.futures, "as_completed", lambda futures: list(futures))
 
         def fake_enrich_l3(json_path, md_path, cfg, *, force=False, max_retries=2, inspect=False):
             name = json_path.parent.name
@@ -549,7 +566,7 @@ class TestEnrichL3CliBatchRetries:
                 raise TimeoutError("transient")
             return True
 
-        monkeypatch.setattr("scholaraio.loader.enrich_l3", fake_enrich_l3)
+        monkeypatch.setattr("scrinium.loader.enrich_l3", fake_enrich_l3)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers, llm=SimpleNamespace(concurrency=4))
         args = Namespace(all=True, paper_id=None, force=True, inspect=False, max_retries=2)
@@ -578,7 +595,7 @@ class TestImportEndnoteOptionalDeps:
 
         monkeypatch.setattr(cli._log, "error", lambda msg, *args: errors.append(msg % args if args else msg))
         monkeypatch.setattr(
-            "scholaraio.sources.endnote._load_endnote_core",
+            "scrinium.sources.endnote._load_endnote_core",
             lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'endnote_utils'", name="endnote_utils")),
         )
 
@@ -593,11 +610,11 @@ class TestImportEndnoteOptionalDeps:
             raise AssertionError("expected SystemExit")
 
         assert any("缺少依赖: endnote_utils" in msg for msg in errors)
-        assert any("pip install scholaraio[import]" in msg for msg in errors)
+        assert any("pip install scrinium[import]" in msg for msg in errors)
 
 
 class TestOptionalDependencyHints:
-    def test_office_dependency_hint_uses_scholaraio_extra(self, monkeypatch):
+    def test_office_dependency_hint_uses_scrinium_extra(self, monkeypatch):
         errors: list[str] = []
         monkeypatch.setattr(cli._log, "error", lambda msg, *args: errors.append(msg % args if args else msg))
 
@@ -609,9 +626,9 @@ class TestOptionalDependencyHints:
             raise AssertionError("expected SystemExit")
 
         assert any("缺少依赖: docx" in msg for msg in errors)
-        assert any("pip install scholaraio[office]" in msg for msg in errors)
+        assert any("pip install scrinium[office]" in msg for msg in errors)
 
-    def test_pdf_dependency_hint_uses_scholaraio_extra(self, monkeypatch):
+    def test_pdf_dependency_hint_uses_scrinium_extra(self, monkeypatch):
         errors: list[str] = []
         monkeypatch.setattr(cli._log, "error", lambda msg, *args: errors.append(msg % args if args else msg))
 
@@ -623,7 +640,7 @@ class TestOptionalDependencyHints:
             raise AssertionError("expected SystemExit")
 
         assert any("缺少依赖: fitz" in msg for msg in errors)
-        assert any("pip install scholaraio[pdf]" in msg for msg in errors)
+        assert any("pip install scrinium[pdf]" in msg for msg in errors)
 
 
 class TestAttachPdfFallback:
@@ -652,11 +669,11 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: ""
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_args, **_kwargs: None)
 
-        import scholaraio.ingest.mineru as mineru
-        import scholaraio.ingest.pdf_fallback as pdf_fallback
+        import scrinium.ingest.mineru as mineru
+        import scrinium.ingest.pdf_fallback as pdf_fallback
 
         monkeypatch.setattr(mineru, "check_server", lambda *_: False)
 
@@ -668,9 +685,9 @@ class TestAttachPdfFallback:
             return True, "docling", None
 
         monkeypatch.setattr(pdf_fallback, "convert_pdf_with_fallback", _fallback)
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
         cli.cmd_attach_pdf(args, cfg)
@@ -705,10 +722,10 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: ""
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_args, **_kwargs: None)
 
-        import scholaraio.ingest.pdf_fallback as pdf_fallback
+        import scrinium.ingest.pdf_fallback as pdf_fallback
 
         calls: list[tuple[Path, Path]] = []
 
@@ -718,9 +735,9 @@ class TestAttachPdfFallback:
             return True, "docling", None
 
         monkeypatch.setattr(pdf_fallback, "convert_pdf_with_fallback", _fallback)
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
         cli.cmd_attach_pdf(args, cfg)
@@ -754,10 +771,10 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: "token"
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_args, **_kwargs: None)
 
-        import scholaraio.ingest.mineru as mineru
+        import scrinium.ingest.mineru as mineru
 
         monkeypatch.setattr(mineru, "check_server", lambda *_: False)
         monkeypatch.setattr(mineru, "_plan_cloud_chunking", lambda *_args, **_kwargs: (False, 600, ""))
@@ -775,9 +792,9 @@ class TestAttachPdfFallback:
                 success=True,
             ),
         )
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
         (paper_dir / "input.md").write_text("ok\n", encoding="utf-8")
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
@@ -811,10 +828,10 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: "token"
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_args, **_kwargs: None)
 
-        import scholaraio.ingest.mineru as mineru
+        import scrinium.ingest.mineru as mineru
 
         monkeypatch.setattr(mineru, "check_server", lambda *_: False)
         monkeypatch.setattr(mineru, "_plan_cloud_chunking", lambda *_args, **_kwargs: (False, 600, ""))
@@ -825,9 +842,9 @@ class TestAttachPdfFallback:
             return ConvertResult(pdf_path=src_pdf, md_path=paper_dir / "input.md", success=True)
 
         monkeypatch.setattr(mineru, "convert_pdf_cloud", fake_convert_pdf_cloud)
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
         (paper_dir / "input.md").write_text("ok\n", encoding="utf-8")
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
@@ -861,10 +878,10 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: "token"
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_args, **_kwargs: None)
 
-        import scholaraio.ingest.mineru as mineru
+        import scrinium.ingest.mineru as mineru
 
         nested_dir = paper_dir / "flowchart"
         nested_dir.mkdir()
@@ -884,9 +901,9 @@ class TestAttachPdfFallback:
                 success=True,
             ),
         )
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
         cli.cmd_attach_pdf(args, cfg)
@@ -921,10 +938,10 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: "token"
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_args, **_kwargs: None)
 
-        import scholaraio.ingest.mineru as mineru
+        import scrinium.ingest.mineru as mineru
 
         flat_md = paper_dir / "flowchart.md"
         flat_md.write_text("![img](images/fig.png)\n", encoding="utf-8")
@@ -942,9 +959,9 @@ class TestAttachPdfFallback:
                 success=True,
             ),
         )
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
         cli.cmd_attach_pdf(args, cfg)
@@ -978,10 +995,10 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: "token"
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_args, **_kwargs: None)
 
-        import scholaraio.ingest.mineru as mineru
+        import scrinium.ingest.mineru as mineru
 
         monkeypatch.setattr(mineru, "check_server", lambda *_: False)
         monkeypatch.setattr(mineru, "_plan_cloud_chunking", lambda *_args, **_kwargs: (True, 320, "too large"))
@@ -998,9 +1015,9 @@ class TestAttachPdfFallback:
             return ConvertResult(pdf_path=pdf_path, md_path=paper_dir / "input.md", success=True)
 
         monkeypatch.setattr(mineru, "_convert_long_pdf_cloud", fake_convert_long)
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
         cli.cmd_attach_pdf(args, cfg)
@@ -1036,11 +1053,11 @@ class TestAttachPdfFallback:
         )
         cfg.resolved_mineru_api_key = lambda: "token"
 
-        monkeypatch.setattr(cli, "_resolve_paper", lambda *_: paper_dir)
-        monkeypatch.setattr(cli, "ui", messages.append)
+        monkeypatch.setattr(cli_ingest, "_resolve_paper", lambda *_: paper_dir)
+        monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
-        import scholaraio.ingest.mineru as mineru
-        import scholaraio.ingest.pdf_fallback as pdf_fallback
+        import scrinium.ingest.mineru as mineru
+        import scrinium.ingest.pdf_fallback as pdf_fallback
 
         monkeypatch.setattr(mineru, "check_server", lambda *_: False)
         monkeypatch.setattr(mineru, "_plan_cloud_chunking", lambda *_args, **_kwargs: (True, 320, "too large"))
@@ -1059,15 +1076,15 @@ class TestAttachPdfFallback:
                 None,
             )[1:],
         )
-        monkeypatch.setattr("scholaraio.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_embed", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.pipeline.step_index", lambda *_: None)
+        monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
         cli.cmd_attach_pdf(args, cfg)
 
         assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "fallback attach ok\n"
-        assert any("scholaraio[pdf]" in msg for msg in messages)
+        assert any("scrinium[pdf]" in msg for msg in messages)
 
 
 class TestSetupMetricsFallback:
@@ -1085,16 +1102,16 @@ class TestSetupMetricsFallback:
             ),
         )
         monkeypatch.setattr(cli, "ui", messages.append)
-        monkeypatch.setattr("scholaraio.log.setup", lambda cfg: "session-1")
+        monkeypatch.setattr("scrinium.log.setup", lambda cfg: "session-1")
 
         def _boom(*_args, **_kwargs):
             raise RuntimeError("database is locked")
 
-        monkeypatch.setattr("scholaraio.metrics.init", _boom)
-        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_session", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_s2_session", lambda *_: None)
-        monkeypatch.setattr(cli, "cmd_setup", lambda args, cfg: print("SETUP_OK"))
-        monkeypatch.setattr("sys.argv", ["scholaraio", "setup", "check", "--lang", "zh"])
+        monkeypatch.setattr("scrinium.metrics.init", _boom)
+        monkeypatch.setattr("scrinium.ingest.metadata._models.configure_session", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.metadata._models.configure_s2_session", lambda *_: None)
+        monkeypatch.setattr(cli_misc, "cmd_setup", lambda args, cfg: print("SETUP_OK"))
+        monkeypatch.setattr("sys.argv", ["scrinium", "setup", "check", "--lang", "zh"])
 
         cli.main()
 

@@ -1,8 +1,8 @@
-"""Tests for scholaraio.ingest.metadata._models session configuration."""
+"""Tests for scrinium.ingest.metadata._models session configuration."""
 
 from __future__ import annotations
 
-from scholaraio.ingest.metadata._models import SESSION, configure_s2_session
+from scrinium.ingest.metadata._models import SESSION, configure_s2_session
 
 
 class TestConfigureS2Session:

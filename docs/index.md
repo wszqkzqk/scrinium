@@ -1,8 +1,8 @@
-# ScholarAIO
+# Scrinium
 
-**Scholar All-In-One** — A research infrastructure for AI agents.
+**Scrinium** — a research infrastructure for AI agents (hard fork of [ScholarAIO](https://github.com/ZimoLiao/scholaraio)).
 
-ScholarAIO is a research infrastructure for AI agents. You interact with your literature knowledge base through natural language — searching, reading, analyzing, and writing — all from the command line.
+Scrinium is a research infrastructure for AI agents. You interact with your literature knowledge base through natural language — searching, reading, analyzing, and writing — all from the command line.
 
 ## Features
 
@@ -24,12 +24,12 @@ ScholarAIO is a research infrastructure for AI agents. You interact with your li
 ## Quick Start
 
 ```bash
-pip install "scholaraio[full]"
-scholaraio setup
+pip install "scrinium[full]"
+scrinium setup
 ```
 
 See [Installation](getting-started/installation.md) for detailed instructions.
-If you are working from a local clone or contributing to ScholarAIO itself, use the editable install path shown there instead.
+If you are working from a local clone or contributing to Scrinium itself, use the editable install path shown there instead.
 See [Agent Setup](getting-started/agent-setup.md) for repo-open vs plugin setup paths.
 See [Translation Guide](guide/translate.md) for translation, resume, and portable export behavior.
 See [Insights Guide](guide/insights.md) for reading/search behavior analytics.

@@ -1,8 +1,8 @@
-"""Tests for scholaraio.ingest.metadata._extract — regex metadata extraction."""
+"""Tests for scrinium.ingest.metadata._extract — regex metadata extraction."""
 
 from __future__ import annotations
 
-from scholaraio.ingest.metadata._extract import (
+from scrinium.ingest.metadata._extract import (
     _clean_author_name,
     _clean_author_text,
     _extract_doi,

@@ -20,7 +20,7 @@ You will receive a response within 72 hours. We will work with you to understand
 
 ## Security Considerations
 
-ScholarAIO handles:
+Scrinium handles:
 
 - **API keys** (LLM, MinerU) — stored in `config.local.yaml` (git-ignored) or environment variables. Never committed to version control.
 - **Local file system access** — reads/writes to `data/`, `workspace/`, and configured directories.

@@ -1,4 +1,4 @@
-# Contributing to ScholarAIO
+# Contributing to Scrinium
 
 Thanks for your interest in contributing! This document explains how to get involved.
 
@@ -6,8 +6,8 @@ Thanks for your interest in contributing! This document explains how to get invo
 
 ```bash
 # Clone and install
-git clone https://github.com/zimoliao/scholaraio.git
-cd scholaraio
+git clone https://github.com/wszqkzqk/scrinium.git
+cd scrinium
 pip install -e ".[dev]"
 
 # Install pre-commit hooks
@@ -33,8 +33,8 @@ See existing skills (e.g., `literature-review`, `writing-polish`) for examples.
 
 For new functionality that requires code:
 
-1. Implement in `scholaraio/` (library module)
-2. Expose via `cli.py` (CLI subcommand)
+1. Implement in `scrinium/` (library module)
+2. Expose it as a subcommand in the matching domain module under `scrinium/cli/`
 3. Add contract-level tests in `tests/`
 4. Optionally create a skill in `.claude/skills/`
 
@@ -44,9 +44,9 @@ For new functionality that requires code:
 2. Make your changes
 3. Ensure all checks pass:
    ```bash
-   ruff check scholaraio/       # lint
-   ruff format --check scholaraio/  # format
-   mypy scholaraio/              # type check
+   ruff check scrinium/       # lint
+   ruff format --check scrinium/  # format
+   mypy scrinium/              # type check
    pytest                        # tests
    ```
 4. Submit a PR with a clear description
@@ -74,7 +74,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - **Linter/formatter**: ruff (configured in `pyproject.toml`)
 - **Type hints**: encouraged, checked by mypy with `ignore_missing_imports`
 - **Docstrings**: Google-style for public API functions in library modules
-- **CLI handlers** (`cmd_*` in `cli.py`): no docstrings needed
+- **CLI handlers** (`cmd_*` in `scrinium/cli/`): no docstrings needed
 - **UI text** (CLI output, help, errors): Chinese
 - **Code comments**: English, only when logic isn't self-evident
 
@@ -82,7 +82,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 | Directory | Purpose |
 |-----------|---------|
-| `scholaraio/` | Python package (library + CLI) |
+| `scrinium/` | Python package (library + CLI) |
 | `.claude/skills/` | Agent skill definitions (SKILL.md) |
 | `tests/` | Contract-level test suite |
 | `data/` | User paper library (not tracked) |
@@ -91,10 +91,10 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Reporting Issues
 
-- **Bugs**: use the [bug report template](https://github.com/zimoliao/scholaraio/issues/new?template=bug_report.yml)
-- **Features**: use the [feature request template](https://github.com/zimoliao/scholaraio/issues/new?template=feature_request.yml)
+- **Bugs**: use the [bug report template](https://github.com/wszqkzqk/scrinium/issues/new?template=bug_report.yml)
+- **Features**: use the [feature request template](https://github.com/wszqkzqk/scrinium/issues/new?template=feature_request.yml)
 - **Security**: see [SECURITY.md](SECURITY.md) — do **not** open a public issue
 
 ## Questions?
 
-Open a [discussion](https://github.com/zimoliao/scholaraio/discussions) or file an issue.
+Open a [discussion](https://github.com/wszqkzqk/scrinium/discussions) or file an issue.

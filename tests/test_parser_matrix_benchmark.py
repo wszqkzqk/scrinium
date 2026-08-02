@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from scholaraio.config import Config
-from scholaraio.ingest import parser_matrix_benchmark as bench
+from scrinium.config import Config
+from scrinium.ingest import parser_matrix_benchmark as bench
 
 
 def test_slugify_value_handles_common_types():
@@ -86,13 +86,13 @@ def test_build_docling_command_includes_artifacts_path(tmp_path: Path):
         raw_dir,
         {
             "to": "md",
-            "artifacts_path": "/home/lzmo/.cache/scholaraio/docling",
+            "artifacts_path": "/home/lzmo/.cache/scrinium/docling",
             "image_export_mode": "referenced",
         },
     )
 
     assert "--artifacts-path" in cmd
-    assert "/home/lzmo/.cache/scholaraio/docling" in cmd
+    assert "/home/lzmo/.cache/scrinium/docling" in cmd
     assert "--image-export-mode" in cmd
 
 

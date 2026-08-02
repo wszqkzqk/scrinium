@@ -1,13 +1,13 @@
 # Insights Guide
 
-`scholaraio insights` summarizes recent search and reading behavior from `data/metrics.db`.
+`scrinium insights` summarizes recent search and reading behavior from `data/metrics.db`.
 
 ## Usage
 
 ```bash
-scholaraio insights
-scholaraio insights --days 7
-scholaraio insights --days 30
+scrinium insights
+scrinium insights --days 7
+scrinium insights --days 30
 ```
 
 ## Output Sections

@@ -1,8 +1,8 @@
 ---
 name: insights
-version: 1.0.0
 description: Analyze research behavior data — search hot keywords, most-read papers, reading trends, and semantic neighbors you haven't read yet. Use when the user wants to understand their reading habits, discover overlooked papers, or review recent research activity.
-author: ZimoLiao/scholaraio
+version: 1.0.0
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "research", "analytics", "habits", "discovery"]
 ---
@@ -14,7 +14,7 @@ tags: ["academic", "research", "analytics", "habits", "discovery"]
 ## 执行逻辑
 
 ```bash
-scholaraio insights [--days N]  # 默认分析过去30天
+scrinium insights [--days N]  # 默认分析过去30天
 ```
 
 ## 输出内容
@@ -22,7 +22,7 @@ scholaraio insights [--days N]  # 默认分析过去30天
 1. **搜索热词 Top 10** — 最常出现在搜索查询中的词
 2. **最常阅读论文 Top 10** — 按 `show` 命令调用次数统计
 3. **阅读量趋势** — 按周统计的阅读事件数量（ASCII 柱状图）
-4. **推荐邻近论文** — 基于最近7天阅读记录的语义邻居，但尚未阅读过的
+4. **推荐邻近论文** — 基于最近7天阅读记录的语义邻居，但尚未阅读过的（需嵌入后端；`embed.provider: none` 时会明确提示该功能不可用）
 5. **活跃工作区** — 当前工作区及其论文数量
 
 ## 前置条件

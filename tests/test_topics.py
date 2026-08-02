@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from argparse import Namespace
+from types import SimpleNamespace
+
 import pandas as pd
 
-from scholaraio.topics import get_outliers, get_topic_overview, get_topic_papers
+from scrinium import cli
+from scrinium.cli import misc as cli_misc
+from scrinium.index import build_index
+from scrinium.topics import get_outliers, get_topic_overview, get_topic_papers
 
 
 class _FakeTopicModel:
@@ -79,3 +85,47 @@ def test_get_topic_papers_and_outliers_return_expected_rows():
 
     assert [paper["paper_id"] for paper in topic_zero] == ["p3", "p1"]
     assert [paper["paper_id"] for paper in outliers] == ["p4"]
+
+
+def _overview_messages(tmp_papers, tmp_db, tmp_path, monkeypatch, model_paper_ids):
+    """Run cmd_topics overview with a fake model, return captured ui messages."""
+    build_index(tmp_papers, tmp_db)
+
+    model = _FakeTopicModel()
+    model._paper_ids = model_paper_ids
+
+    monkeypatch.setattr("scrinium.topics.load_model", lambda path: model)
+
+    messages: list[str] = []
+    monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))
+
+    cfg = SimpleNamespace(topics_model_dir=tmp_path / "topic_model", index_db=tmp_db)
+    args = Namespace(
+        build=False,
+        rebuild=False,
+        reduce=None,
+        merge=None,
+        topic=None,
+        top=None,
+        min_topic_size=None,
+        nr_topics=None,
+        viz=False,
+    )
+    cli.cmd_topics(args, cfg)
+    return messages
+
+
+class TestTopicsStalenessHint:
+    """cmd_topics overview: hint compares model build size with registry count."""
+
+    def test_stale_model_shows_rebuild_hint(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
+        messages = _overview_messages(tmp_papers, tmp_db, tmp_path, monkeypatch, ["p1"])
+
+        assert any("模型基于 1 篇论文构建，当前主库 2 篇" in m for m in messages)
+        assert any("模型已陈旧" in m and "topics --rebuild" in m for m in messages)
+
+    def test_fresh_model_shows_count_without_stale_hint(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
+        messages = _overview_messages(tmp_papers, tmp_db, tmp_path, monkeypatch, ["p1", "p2"])
+
+        assert any("模型基于 2 篇论文构建，当前主库 2 篇" in m for m in messages)
+        assert not any("模型已陈旧" in m for m in messages)

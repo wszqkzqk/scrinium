@@ -1,6 +1,10 @@
 ---
 name: lammps
 description: Use when working on classical materials simulations with LAMMPS, especially interatomic-potential selection, shock or deformation setups, thermodynamic runs, and structure analysis for solids or nanomaterials.
+version: 1.0.0
+author: wszqkzqk/scrinium
+license: MIT
+tags: ["scientific-computing", "lammps", "molecular-dynamics", "materials"]
 ---
 
 # LAMMPS 材料科学模拟
@@ -10,7 +14,12 @@ description: Use when working on classical materials simulations with LAMMPS, es
 本 skill **故意保持轻量**：
 - 它负责告诉 agent 什么时候该用 LAMMPS、该遵守什么科学规范、完整工作流长什么样
 - 它**不**承担完整接口手册的职责
-- 具体命令、参数、语法、package 限制，统一去查 `scholaraio toolref`
+- 具体命令、参数、语法、package 限制，统一去查 `scrinium toolref`
+
+本 skill 应与 `scientific-runtime` 一起理解：
+- `lammps` skill 负责经典 MD 路由、工作流和科学规范
+- `scientific-runtime` 负责运行时的 `toolref-first` 行为和覆盖缺口退化策略
+- `toolref` 负责命令、参数页和 package 限制说明
 
 ## Agent 默认协议（toolref-first）
 
@@ -63,11 +72,11 @@ GPU 加速：`package gpu 4` 在输入脚本开头启用，`suffix gpu` 自动�
 常用查法：
 
 ```bash
-scholaraio toolref search lammps "nose hoover thermostat"
-scholaraio toolref show lammps fix_nh
-scholaraio toolref show lammps pair_eam
-scholaraio toolref show lammps compute_cna_atom
-scholaraio toolref show lammps fix_deform
+scrinium toolref search lammps "nose hoover thermostat"
+scrinium toolref show lammps fix_nh
+scrinium toolref show lammps pair_eam
+scrinium toolref show lammps compute_cna_atom
+scrinium toolref show lammps fix_deform
 ```
 
 推荐习惯：
@@ -85,7 +94,7 @@ scholaraio toolref show lammps fix_deform
 
 ### 知识库协作模式
 
-1. 用 `scholaraio usearch "<材料/现象>"` 检索相关论文
+1. 用 `scrinium usearch "<材料/现象>"` 检索相关论文
 2. 从论文提取：势函数选择、晶格常数、实验基准值（相变压力、弹性常数等）
 3. 在输入脚本注释中标注参数来源
 4. 计算完成后与文献数据定量对比
