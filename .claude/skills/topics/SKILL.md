@@ -10,6 +10,8 @@ tags: ["academic", "research", "topic-modeling", "bertopic"]
 
 探索论文库的主题分布，发现跨领域关联。基于 BERTopic 聚类。
 
+> 需要嵌入后端（`embed.provider` 为 local 或 openai-compat）才能构建/重建模型。无嵌入部署（`provider: none`）下已有模型仍可浏览，但无法重建——此时主题组织应改用策展标签体系（`/curate` skill + `scholaraio tags`）。
+
 ## 执行逻辑
 
 1. 判断用户意图：

@@ -198,6 +198,17 @@ data/explore/<name>/
     └── viz/                 # 6 HTML visualizations
 ```
 
+## `data/tags.yaml` — Curated Tag Vocabulary
+
+```yaml
+tags:
+  force-field:
+    aliases: [forcefield, FF, 力场]
+    description: 分子力场相关
+```
+
+Agent-curated tag taxonomy (see `scholaraio/tags.py`). Canonical tags with aliases and descriptions; per-paper tags live in `meta.json["tags"]`, are indexed into FTS (schema v1), and can filter searches via `--tag`. In embedding-free deployments (`embed.provider: none`), curated tags plus the citation graph replace semantic discovery ("tags as topics").
+
 ## `sources/` Abstraction Layer
 
 `papers.py` is the path-helper layer for the local library under `data/papers/`, and modules use it directly to iterate paper directories and read `meta.json`.

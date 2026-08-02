@@ -30,7 +30,7 @@ scholaraio show "<paper-id>" --layer <N>
 
 | 层 | 内容 | 说明 |
 |----|------|------|
-| L1 | 元数据 | title, authors, year, journal, doi |
+| L1 | 元数据 | title, authors, year, journal, doi, tags（标签） |
 | L2 | 摘要 | abstract |
 | L3 | 结论 | conclusion（需先运行 enrich-l3） |
 | L4 | 全文 | 完整 markdown |

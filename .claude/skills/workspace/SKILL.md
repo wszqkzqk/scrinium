@@ -69,7 +69,7 @@ scholaraio ws rename <旧名称> <新名称>
 ### 在工作区内搜索
 
 ```bash
-scholaraio ws search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--mode unified|keyword|semantic]
+scholaraio ws search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--mode unified|keyword|semantic] [--tag 标签]
 ```
 
 搜索模式：

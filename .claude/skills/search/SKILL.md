@@ -74,6 +74,16 @@ scholaraio fsearch "<查询词>" --scope main,proceedings,explore:*,arxiv
 
 `--scope` 支持逗号分隔组合：`main`（主库融合搜索）、`proceedings`（论文集子论文）、`explore:<名称>` 或 `explore:*`（explore 库）、`arxiv`（在线 arXiv API）。默认 scope 为 `main`。arXiv 结果会标注 `[已入库]` 表示该论文已在本地库中。
 
+**标签检索（策展标签）：**
+```bash
+scholaraio tags                                                    # 浏览词表（canonical + 别名 + 论文数）
+scholaraio usearch "<查询词>" --tag milestoning                    # 单标签过滤
+scholaraio search "<查询词>" --tag milestoning --tag drug-binding  # 多标签 AND
+scholaraio ws search <名称> "<查询词>" --tag cryo-em               # 工作区内同样可用
+```
+
+标签来自人工/agent 策展的受控词表（`data/tags.yaml`），别名自动归一。标签本身已进入检索索引（搜 "force field" 能命中打了该标签的论文）。给论文打标签用 `/curate` skill。
+
 4. 将搜索结果整理后呈现给用户。融合检索结果中每项标注了匹配来源：
    - `both`：关键词和语义都命中（最相关）
    - `fts`：仅关键词命中
@@ -84,8 +94,13 @@ scholaraio fsearch "<查询词>" --scope main,proceedings,explore:*,arxiv
 ```
 title, authors, first_author, first_author_lastname, year, doi, journal,
 abstract, paper_type, citation_count (dict: crossref/semantic_scholar/openalex),
-ids, toc, l3_conclusion
+ids, toc, l3_conclusion, tags
 ```
+
+## 检索策略
+
+- **多查询扩展**：单个查询词容易漏召回。对同一问题换 2-4 个角度各搜一轮（同义词、上下位概念、缩写/全称、方法名/体系名），合并去重——agent 的语言能力就是查询扩展层。
+- **无嵌入部署**（`embed.provider=none`）：`vsearch` 不可用，`usearch`/`ws search` 自动降级为纯关键词（结果标注"关键词"）。此时发现文献的主路径是：**多查询关键词 + `--tag` 过滤 + 引用图滚雪球**（`refs`/`citing`/`shared-refs`，见 `/graph` skill）。
 
 ## 示例
 
@@ -121,3 +136,12 @@ ids, toc, l3_conclusion
 
 用户说："连 proceedings 一起搜 granular damping"
 → 执行 `fsearch "granular damping" --scope main,proceedings`
+
+用户说："库里都有哪些主题标签"
+→ 执行 `scholaraio tags`
+
+用户说："找库里 milestoning 用在药物动力学上的论文"
+→ 执行 `usearch "kinetics" --tag milestoning --tag drug-binding`
+
+用户说："力场相关的论文有哪些"（标签已进索引，直接搜即可）
+→ 执行 `usearch "force field"`

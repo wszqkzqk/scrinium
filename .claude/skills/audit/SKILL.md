@@ -53,6 +53,7 @@ scholaraio pipeline reindex
 | `missing_abstract` | warning | 缺少摘要 |
 | `title_mismatch` | warning | JSON 标题与 MD H1 不一致 |
 | `nonstandard_filename` | info | 文件名不符合规范格式 |
+| `untagged` | info | 未打策展标签（可用 `/curate` 流程或 `scholaraio tag` 补充） |
 
 ## 示例
 
