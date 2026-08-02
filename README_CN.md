@@ -11,7 +11,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+["![Python 3.10+"](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Claude Code Skills](https://img.shields.io/badge/Claude_Code_Skills-Scrinium-purple.svg)](.claude/skills/)
 
 </div>
@@ -26,15 +26,28 @@
 - 遇到科学软件问题时，agent 可以在运行时查阅官方文档，而不是只靠 prompt 猜参数。
 - 系统一开始就按“可以继续扩展更多工具和工作流”的方向来设计。
 
-<div align="center">
-  <img src="docs/assets/scrinium.gif" width="900" alt="Scrinium 自然语言科研工作流">
-</div>
+<!-- TODO: 重新录制 scrinium CLI 演示 gif（旧版演示的是 fork 前的命令） -->
 
 Scrinium 给 AI coding agent 的不只是检索能力，而是一整套真正可用的科研工作台：自然语言交互、论文与研究笔记支撑、更准确地使用科学软件、代码编写与执行、基于文献的结果校验，以及结构化的论文写作。
 
-<div align="center">
-  <img src="docs/assets/scrinium-architecture-v1.3.0.png" width="900" alt="Scrinium 架构图：human、agent、scientific context、tool layer 与 compute/outputs">
-</div>
+```mermaid
+flowchart TB
+    U["用户 / AI agent"] --> S["技能 .claude/skills — 35 个工作流"]
+    U --> C[scrinium CLI]
+    S --> C
+    C --> ING[摄入管线]
+    C --> RET[检索]
+    C --> CUR[策展]
+    ING --> PARSERS["MinerU / Docling / PyMuPDF"]
+    ING --> APIS["Crossref / S2 / OpenAlex"]
+    RET --> FTS[FTS5 关键词，BM25 字段权重]
+    RET --> TAGS["策展标签 + 引用图 / snowball"]
+    RET -.-> VEC(["可选嵌入"])
+    DB(["data/papers — meta.json + paper.md + notes.md"])
+    ING --> DB
+    RET --> DB
+    CUR --> DB
+```
 
 ## 快速开始
 
@@ -47,7 +60,7 @@ pip install -e ".[full]"
 scrinium setup
 ```
 
-这样一来，agent 能得到最完整的使用体验：仓库内置指令、本地 skills、CLI 和完整代码上下文都会直接可用。Claude Code 插件、Codex/OpenClaw skills 注册，以及其他使用路径的详细说明，详见 [`docs/getting-started/agent-setup.md`](docs/getting-started/agent-setup.md)。
+这样一来，agent 能得到最完整的使用体验：仓库内置指令、本地 skills、CLI 和完整代码上下文都会直接可用。Claude Code 插件、Codex/OpenClaw skills 注册，以及其他使用路径的详细说明，详见 ["`docs/getting-started/agent-setup.md`"](docs/getting-started/agent-setup.md)。
 
 ## 核心功能
 
@@ -101,11 +114,11 @@ Scrinium 可以先用最小配置跑起来，再按需要逐步补强。
 - MinerU token 不是必须，但建议配置（免费）；你也可以本地部署 MinerU 或 Docling 来完成 PDF 解析。
 - `scrinium setup check` 可以查看当前已装好什么、缺什么、哪些只是可选项。
 
-完整说明见 [`docs/getting-started/agent-setup.md`](docs/getting-started/agent-setup.md) 和 [`config.yaml`](config.yaml)。
+完整说明见 ["`docs/getting-started/agent-setup.md`"](docs/getting-started/agent-setup.md) 和 [`config.yaml`](config.yaml)。
 
 ## 以 Agent 为主，也支持 CLI
 
-Scrinium 最适合通过 AI coding agent 使用，但也提供 CLI，方便做脚本、排查和快速查询。与当前代码实现对齐的命令参考见 [`docs/guide/cli-reference.md`](docs/guide/cli-reference.md)。
+Scrinium 最适合通过 AI coding agent 使用，但也提供 CLI，方便做脚本、排查和快速查询。与当前代码实现对齐的命令参考见 ["`docs/guide/cli-reference.md`"](docs/guide/cli-reference.md)。
 
 ## 项目结构
 
@@ -125,7 +138,7 @@ data/inbox-doc/         # 放入非论文文档（技术报告、标准、讲义
 data/inbox-proceedings/ # 显式放入论文集 PDF/MD，走专用 proceedings 流程
 ```
 
-完整模块参考 → [`docs/contributing.md`](docs/contributing.md)
+完整模块参考 → ["`docs/contributing.md`"](docs/contributing.md)
 
 ## 引用
 

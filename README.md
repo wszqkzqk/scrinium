@@ -11,7 +11,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+["![Python 3.10+"](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Claude Code Skills](https://img.shields.io/badge/Claude_Code_Skills-Scrinium-purple.svg)](.claude/skills/)
 
 </div>
@@ -26,15 +26,28 @@ Your coding agent already reads code, writes code, and runs experiments. Scriniu
 - When scientific software questions come up, the agent can consult official documentation at runtime instead of guessing from prompts.
 - The system is built to keep expanding as new tools and workflows become worth supporting.
 
-<div align="center">
-  <img src="docs/assets/scrinium.gif" width="900" alt="Scrinium natural-language research workflow">
-</div>
+<!-- TODO: record a new demo gif showing the scrinium CLI (the old one showed the pre-fork command) -->
 
 Scrinium offers more than search. It gives an AI coding agent a research workspace that supports natural-language interaction, papers and notes, more reliable use of scientific software, writing and running code, checking results against the literature, and structured academic writing.
 
-<div align="center">
-  <img src="docs/assets/scrinium-architecture-v1.3.0.png" width="900" alt="Scrinium architecture: human, agent, scientific context, tool layer, and compute/outputs">
-</div>
+```mermaid
+flowchart TB
+    U["User / AI agent"] --> S["Skills .claude/skills — 35 workflows"]
+    U --> C[scrinium CLI]
+    S --> C
+    C --> ING[Ingest pipeline]
+    C --> RET[Retrieval]
+    C --> CUR[Curation]
+    ING --> PARSERS["MinerU / Docling / PyMuPDF"]
+    ING --> APIS["Crossref / S2 / OpenAlex"]
+    RET --> FTS[FTS5 keyword, BM25 field weights]
+    RET --> TAGS["Curated tags + citation graph / snowball"]
+    RET -.-> VEC(["Optional embeddings"])
+    DB(["data/papers — meta.json + paper.md + notes.md"])
+    ING --> DB
+    RET --> DB
+    CUR --> DB
+```
 
 ## Quick Start
 
@@ -47,7 +60,7 @@ pip install -e ".[full]"
 scrinium setup
 ```
 
-Then open the repository in Codex, Claude Code, or another supported agent. In this setup, the agent gets the fullest experience: bundled instructions, local skills, the CLI, and the complete codebase context are all available directly. For Claude Code plugins, Codex/OpenClaw skill registration, and other setup paths, see [`docs/getting-started/agent-setup.md`](docs/getting-started/agent-setup.md).
+Then open the repository in Codex, Claude Code, or another supported agent. In this setup, the agent gets the fullest experience: bundled instructions, local skills, the CLI, and the complete codebase context are all available directly. For Claude Code plugins, Codex/OpenClaw skill registration, and other setup paths, see ["`docs/getting-started/agent-setup.md`"](docs/getting-started/agent-setup.md).
 
 ## What It Does
 
@@ -100,11 +113,11 @@ Scrinium works with a minimal setup and can be expanded as needed.
 - A MinerU token is optional but recommended, and free. You can also deploy MinerU or Docling locally for PDF parsing.
 - `scrinium setup check` shows what is installed, what is optional, and what is missing.
 
-Full setup and configuration details → [`docs/getting-started/agent-setup.md`](docs/getting-started/agent-setup.md), [`config.yaml`](config.yaml)
+Full setup and configuration details → ["`docs/getting-started/agent-setup.md`"](docs/getting-started/agent-setup.md), [`config.yaml`](config.yaml)
 
 ## Agent First, CLI Available
 
-Scrinium works best through an AI coding agent, but it also provides a CLI for scripting, debugging, and quick queries. For a current command reference aligned with the code, see [`docs/guide/cli-reference.md`](docs/guide/cli-reference.md).
+Scrinium works best through an AI coding agent, but it also provides a CLI for scripting, debugging, and quick queries. For a current command reference aligned with the code, see ["`docs/guide/cli-reference.md`"](docs/guide/cli-reference.md).
 
 ## Project Structure
 
@@ -124,7 +137,7 @@ data/inbox-doc/         # Drop non-paper documents here (reports, standards, lec
 data/inbox-proceedings/ # Drop proceedings volumes here for dedicated ingest
 ```
 
-Full module reference → [`docs/contributing.md`](docs/contributing.md)
+Full module reference → ["`docs/contributing.md`"](docs/contributing.md)
 
 ## Citation
 
