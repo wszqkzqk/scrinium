@@ -28,6 +28,26 @@ _FILE_DATEFMT = "%Y-%m-%d %H:%M:%S"
 _CONSOLE_FMT = "%(message)s"
 
 
+def _reconfigure_stdio() -> None:
+    """Force UTF-8 on stdout/stderr.
+
+    On Windows, redirected stdout/stderr (pipe or file) use the system ANSI
+    code page (cp936/cp1252), which crashes or mangles CJK JSON output and
+    unicode symbols. Reconfiguring to UTF-8 is a no-op on macOS/Linux and
+    does not affect the real Windows console (WriteConsoleW path). Streams
+    that cannot be reconfigured (StringIO test doubles, closed pipes) are
+    left untouched.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            continue
+
+
 def setup(cfg: Config) -> str:
     """初始化 root logger，返回本次会话的 session_id。
 
@@ -38,6 +58,7 @@ def setup(cfg: Config) -> str:
         UUID4 格式的 session_id，用于关联本次所有 metrics 事件。
     """
     global _session_id, _initialized
+    _reconfigure_stdio()
     if _initialized:
         return _session_id
 

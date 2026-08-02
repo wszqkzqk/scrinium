@@ -4,7 +4,8 @@ import re
 import sqlite3
 from typing import TYPE_CHECKING
 
-from .paths import _current_link, _db_path, validate_tool_name
+from .paths import _db_path, validate_tool_name
+from .storage import _get_current
 
 if TYPE_CHECKING:
     from scrinium.config import Config
@@ -251,8 +252,7 @@ def toolref_show(tool: str, *args: str, cfg: Config | None = None) -> list[dict]
     if not db.exists():
         raise FileNotFoundError(f"{tool} 文档未索引。请先运行 `scrinium toolref fetch {tool}`")
 
-    link = _current_link(tool, cfg)
-    version = link.resolve().name if link.is_symlink() else None
+    version = _get_current(tool, cfg)
 
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row
@@ -376,10 +376,7 @@ def toolref_search(
     if not db.exists():
         raise FileNotFoundError(f"{tool} 文档未索引。请先运行 `scrinium toolref fetch {tool}`")
 
-    link = _current_link(tool, cfg)
-    version = None
-    if link.is_symlink():
-        version = link.resolve().name
+    version = _get_current(tool, cfg)
 
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row

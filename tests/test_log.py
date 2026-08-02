@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import logging
+import sys
 
 import pytest
 
@@ -46,6 +48,35 @@ class TestSetup:
         cfg = _build_config({}, tmp_path)
         sid = setup(cfg)
         assert get_session_id() == sid
+
+    def test_stdio_reconfigured_to_utf8(self, tmp_path):
+        """After setup, reconfigurable stdio streams must use UTF-8."""
+        cfg = _build_config({}, tmp_path)
+        setup(cfg)
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure") and stream.encoding:
+                assert stream.encoding.lower().replace("-", "") == "utf8"
+
+    def test_setup_tolerates_non_reconfigurable_stdio(self, tmp_path, monkeypatch):
+        """StringIO-style streams without reconfigure must not break setup."""
+        monkeypatch.setattr(sys, "stdout", io.StringIO())
+        monkeypatch.setattr(sys, "stderr", io.StringIO())
+        cfg = _build_config({}, tmp_path)
+        sid = setup(cfg)
+        assert len(sid) == 12
+
+    def test_setup_tolerates_failing_reconfigure(self, tmp_path, monkeypatch):
+        """A stream whose reconfigure raises must be skipped silently."""
+
+        class BrokenStream(io.StringIO):
+            def reconfigure(self, **kwargs):
+                raise ValueError("cannot reconfigure")
+
+        monkeypatch.setattr(sys, "stdout", BrokenStream())
+        monkeypatch.setattr(sys, "stderr", BrokenStream())
+        cfg = _build_config({}, tmp_path)
+        sid = setup(cfg)
+        assert len(sid) == 12
 
 
 class TestGetLogger:

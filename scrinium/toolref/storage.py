@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -81,7 +82,35 @@ def _set_current(tool: str, version: str, cfg: Config | None = None) -> None:
     link = _current_link(tool, cfg)
     if link.is_symlink() or link.exists():
         link.unlink()
-    link.symlink_to(version)
+    try:
+        # target_is_directory is required on Windows; ignored elsewhere.
+        link.symlink_to(version, target_is_directory=True)
+    except OSError:
+        # Native Windows needs admin rights or Developer Mode for symlinks
+        # (WinError 1314); fall back to a plain text marker file.
+        link.write_text(version, encoding="utf-8")
+        logging.getLogger(__name__).warning(
+            "无法创建符号链接（Windows 需要管理员权限或开发者模式），已改用文本文件记录当前版本"
+        )
+
+
+def _get_current(tool: str, cfg: Config | None = None) -> str | None:
+    """Return the current version of *tool*, or None when unset/unreadable.
+
+    Reads both the symlink form and the plain-text fallback written on
+    Windows when symlink creation is not permitted. Callers treat None as
+    "no pinned version" and degrade to searching all versions.
+    """
+    link = _current_link(tool, cfg)
+    if link.is_symlink():
+        return link.resolve().name
+    if link.is_file():
+        try:
+            version = link.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        return version or None
+    return None
 
 
 def toolref_use(tool: str, version: str, *, cfg: Config | None = None) -> None:
@@ -111,8 +140,7 @@ def toolref_list(tool: str | None = None, *, cfg: Config | None = None) -> list[
         if not tdir.exists():
             continue
 
-        link = tdir / "current"
-        current_version = link.resolve().name if link.is_symlink() else None
+        current_version = _get_current(t, cfg)
 
         for vdir in sorted(tdir.iterdir()):
             if vdir.name == "current" or not vdir.is_dir():

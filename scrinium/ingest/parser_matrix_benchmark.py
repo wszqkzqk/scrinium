@@ -1,3 +1,9 @@
+"""Developer-only parser benchmark harness (not wired into the CLI).
+
+Unix only: the subprocess reader uses selectors on pipes, which Windows does
+not support. On Windows, run it under WSL.
+"""
+
 from __future__ import annotations
 
 import json

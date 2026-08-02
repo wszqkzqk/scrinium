@@ -162,6 +162,11 @@ pip install -e ".[full]"
 scrinium setup
 ```
 
+Two Windows-specific caveats:
+
+- **Git symlinks**: `skills` and `.agents/skills` in the repository are git symlinks to `.claude/skills`. Windows checks out with `core.symlinks=false` by default, which turns them into plain text files and silently breaks these two skill discovery paths. To fix: enable Developer Mode, run `git config core.symlinks true`, and re-checkout — or simply copy `.claude/skills` over those two locations manually.
+- **Path length (MAX_PATH 260)**: paper directories use `Author-Year-Title` names that can get long. Clone to a shallow path (e.g. `C:\scrinium`) to stay clear of the Windows path length limit.
+
 Then use a junction instead of a symlink:
 
 ```powershell

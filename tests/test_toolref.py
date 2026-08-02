@@ -39,18 +39,34 @@ def toolref_home(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _seed_tool_db(root: Path, tool: str, current: str, rows: list[tuple]) -> Path:
-    """Create root/<tool>/toolref.db with a `current` symlink and insert rows.
+def _require_symlink(directory: Path) -> None:
+    """Skip the test when symlinks cannot be created (Windows without Developer Mode)."""
+    probe = directory / ".symlink_probe"
+    try:
+        probe.symlink_to(directory, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation not permitted on this platform")
+    probe.unlink()
+
+
+def _seed_tool_db(root: Path, tool: str, current: str, rows: list[tuple], *, use_symlink: bool = True) -> Path:
+    """Create root/<tool>/toolref.db with a `current` marker and insert rows.
 
     Each row is (version, program, section, page_name, title, synopsis, content);
-    the tool name is prepended automatically.
+    the tool name is prepended automatically. With use_symlink=False the marker
+    is a plain text file (the Windows fallback form) instead of a symlink.
     """
+    if use_symlink:
+        _require_symlink(root)
     tdir = root / tool
     vdir = tdir / current
     vdir.mkdir(parents=True, exist_ok=True)
     link = tdir / "current"
-    if not link.is_symlink():
-        link.symlink_to(vdir, target_is_directory=True)
+    if use_symlink:
+        if not link.is_symlink():
+            link.symlink_to(vdir, target_is_directory=True)
+    else:
+        link.write_text(current, encoding="utf-8")
     db = tdir / "toolref.db"
     conn = sqlite3.connect(db)
     try:
@@ -897,6 +913,7 @@ def test_ensure_db_drops_legacy_fts_triggers(tmp_path):
 
 
 def test_toolref_use_sets_current_symlink(toolref_home):
+    _require_symlink(toolref_home)
     (toolref_home / "qe" / "7.5").mkdir(parents=True)
 
     toolref_use("qe", "7.5", cfg=None)
@@ -904,6 +921,53 @@ def test_toolref_use_sets_current_symlink(toolref_home):
     link = toolref_home / "qe" / "current"
     assert link.is_symlink()
     assert link.resolve().name == "7.5"
+
+
+def test_toolref_use_falls_back_to_text_marker_when_symlink_fails(toolref_home, monkeypatch, caplog):
+    """Windows without symlink privilege: OSError must fall back to a text marker."""
+    (toolref_home / "qe" / "7.5").mkdir(parents=True)
+
+    def _raise_oserror(self, target, target_is_directory=False):
+        raise OSError(1314, "A required privilege is not held by the client")
+
+    monkeypatch.setattr(Path, "symlink_to", _raise_oserror)
+
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="scrinium.toolref.storage"):
+        toolref_use("qe", "7.5", cfg=None)
+
+    marker = toolref_home / "qe" / "current"
+    assert marker.is_file()
+    assert not marker.is_symlink()
+    assert marker.read_text(encoding="utf-8") == "7.5"
+    assert "符号链接" in caplog.text
+
+
+def test_get_current_reads_text_marker(toolref_home):
+    (toolref_home / "qe" / "7.5").mkdir(parents=True)
+    (toolref_home / "qe" / "current").write_text("7.5\n", encoding="utf-8")
+
+    assert storage_mod._get_current("qe", cfg=None) == "7.5"
+
+
+def test_get_current_returns_none_when_missing_or_empty(toolref_home):
+    assert storage_mod._get_current("qe", cfg=None) is None
+
+    tdir = toolref_home / "qe"
+    tdir.mkdir(parents=True)
+    (tdir / "current").write_text("  \n", encoding="utf-8")
+    assert storage_mod._get_current("qe", cfg=None) is None
+
+
+def test_toolref_list_marks_current_from_text_marker(toolref_home):
+    vdir = toolref_home / "qe" / "7.5"
+    vdir.mkdir(parents=True)
+    (toolref_home / "qe" / "current").write_text("7.5", encoding="utf-8")
+
+    entries = toolref_list("qe", cfg=None)
+    assert len(entries) == 1
+    assert entries[0]["is_current"]
 
 
 def test_toolref_use_requires_existing_version_dir(toolref_home):
@@ -1276,6 +1340,7 @@ def test_toolref_fetch_manifest_uses_fallback_urls(toolref_home, monkeypatch):
 
 
 def test_toolref_list_reads_manifest_meta(toolref_home):
+    _require_symlink(toolref_home)
     vdir = toolref_home / "openfoam" / "2312"
     vdir.mkdir(parents=True)
     (vdir / "manifest.json").write_text(
@@ -1306,6 +1371,7 @@ def test_toolref_list_reads_manifest_meta(toolref_home):
 
 
 def test_toolref_list_reconciles_stale_manifest_meta_with_snapshot(toolref_home):
+    _require_symlink(toolref_home)
     vdir = toolref_home / "openfoam" / "2312"
     pages_dir = vdir / "pages"
     pages_dir.mkdir(parents=True)
@@ -1650,6 +1716,25 @@ def test_toolref_search_fallback_keeps_version_program_and_section_filters(toolr
     assert {row["section"] for row in rows} == {"SYSTEM"}
 
 
+def test_toolref_search_pins_version_from_text_marker(toolref_home):
+    """The plain-text `current` marker (Windows fallback) must pin the version."""
+    _seed_tool_db(
+        toolref_home,
+        "qe",
+        "7.5",
+        [
+            ("7.5", "pw.x", "SYSTEM", "pw.x/SYSTEM/ecutwfc", "pw.x ecutwfc", "cutoff", "pw.x cutoff variable"),
+            ("7.4", "pw.x", "SYSTEM", "pw.x/SYSTEM/legacy", "pw.x legacy", "old", "pw.x legacy variable"),
+        ],
+        use_symlink=False,
+    )
+
+    rows = toolref_search("qe", "pw.x", cfg=None)
+
+    assert rows
+    assert {row["version"] for row in rows} == {"7.5"}
+
+
 def test_toolref_search_scores_each_row_once(toolref_home, monkeypatch):
     _seed_tool_db(
         toolref_home,
@@ -1731,7 +1816,7 @@ def test_toolref_search_breaks_score_ties_by_fts_rank(tmp_path, monkeypatch):
     ]
 
     monkeypatch.setattr(search_mod, "_db_path", lambda tool, cfg=None: db_path)
-    monkeypatch.setattr(search_mod, "_current_link", lambda tool, cfg=None: tmp_path / "current")
+    monkeypatch.setattr(search_mod, "_get_current", lambda tool, cfg=None: None)
     monkeypatch.setattr(search_mod.sqlite3, "connect", lambda _path: FakeConn(rows))
 
     results = search_mod.toolref_search("gromacs", "pressure coupling", cfg=None)
