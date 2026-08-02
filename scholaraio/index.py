@@ -2,9 +2,12 @@
 index.py — SQLite FTS5 全文检索索引
 =====================================
 
-索引字段：title + abstract + conclusion（均可检索）
+索引字段：title + abstract + conclusion + tags（均可检索）
 其余字段（paper_id, authors, year, journal, doi, paper_type, citation_count, md_path）
 存储但不参与检索。
+
+FTS schema 版本由 ``PRAGMA user_version`` 记录（当前为 ``_SCHEMA_VERSION``）；
+检测到旧版本时自动 drop 重建 FTS 表并触发全量重索引。
 
 用法：
     from scholaraio.index import build_index, search
@@ -26,6 +29,10 @@ from scholaraio.search_common import fts_create_sql, rrf_merge, sanitize_fts_que
 if TYPE_CHECKING:
     from scholaraio.config import Config
 
+#: FTS schema version recorded in ``PRAGMA user_version``; bump when the
+#: ``papers`` FTS table layout changes (v0 = pre-tags databases).
+_SCHEMA_VERSION = 1
+
 _SCHEMA = fts_create_sql(
     "papers",
     [
@@ -36,6 +43,7 @@ _SCHEMA = fts_create_sql(
         ("journal", True),
         ("abstract", True),
         ("conclusion", True),
+        ("tags", True),
         ("doi", False),
         ("paper_type", False),
         ("citation_count", False),
@@ -107,6 +115,15 @@ _CITATIONS_IDX_TARGET_ID = (
     "CREATE INDEX IF NOT EXISTS idx_cit_target_id ON citations(target_id) WHERE target_id IS NOT NULL;"
 )
 
+_PAPER_TAGS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS paper_tags (
+    paper_id TEXT NOT NULL,
+    tag      TEXT NOT NULL,
+    UNIQUE(paper_id, tag)
+);
+"""
+_PAPER_TAGS_TAG_INDEX = "CREATE INDEX IF NOT EXISTS idx_paper_tags_tag ON paper_tags(tag);"
+
 
 def _index_hash(meta: dict) -> str:
     """Compute a short hash of the fields indexed in FTS5."""
@@ -117,6 +134,7 @@ def _index_hash(meta: dict) -> str:
         meta.get("journal") or "",
         meta.get("abstract") or "",
         meta.get("l3_conclusion") or "",
+        " ".join(meta.get("tags") or []),
         meta.get("doi") or "",
         meta.get("paper_type") or "",
         ((meta.get("ids") or {}).get("patent_publication_number", "") or ""),
@@ -133,11 +151,36 @@ def _index_hash(meta: dict) -> str:
 _best_citation = best_citation  # backward compat alias
 
 
+def _ensure_schema(conn: sqlite3.Connection) -> bool:
+    """Migrate the FTS schema when ``PRAGMA user_version`` is outdated.
+
+    Drops and recreates the ``papers`` FTS table with the current schema and
+    clears ``papers_hash``/``paper_tags`` so the next ``build_index`` run
+    reindexes everything. Other tables (``paper_vectors``, ``citations``,
+    ``papers_registry``) are left untouched.
+
+    Returns:
+        ``True`` when a migration was performed.
+    """
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version == _SCHEMA_VERSION:
+        return False
+    conn.execute("DROP TABLE IF EXISTS papers")
+    conn.execute(_SCHEMA)
+    conn.execute(_HASH_SCHEMA)
+    conn.execute("DELETE FROM papers_hash")  # force full reindex
+    conn.execute("DROP TABLE IF EXISTS paper_tags")
+    conn.execute(_PAPER_TAGS_SCHEMA)
+    conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+    return True
+
+
 def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
     """建立或增量更新 SQLite FTS5 全文检索索引。
 
-    索引字段: ``title`` + ``abstract`` + ``conclusion``，
+    索引字段: ``title`` + ``abstract`` + ``conclusion`` + ``tags``，
     均参与全文检索。其余字段（``paper_id``, ``authors`` 等）仅存储。
+    标签同时同步到 ``paper_tags`` 过滤表供 ``--tag`` 精确过滤。
 
     Args:
         papers_dir: 已入库论文目录，扫描其中的 ``*.json``。
@@ -157,6 +200,12 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
         conn.execute(_HASH_SCHEMA)
         conn.execute(_REGISTRY_SCHEMA)
         conn.execute(_CITATIONS_SCHEMA)
+        _ensure_schema(conn)  # migrate pre-tags FTS layout if needed
+        conn.execute(_PAPER_TAGS_SCHEMA)
+        try:
+            conn.execute(_PAPER_TAGS_TAG_INDEX)
+        except sqlite3.OperationalError:
+            pass  # index already exists
         try:
             conn.execute(_REGISTRY_DOI_INDEX)
         except sqlite3.OperationalError:
@@ -203,6 +252,7 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
             conn.execute("DELETE FROM papers_hash")
             conn.execute("DELETE FROM papers_registry")
             conn.execute("DELETE FROM citations")
+            conn.execute("DELETE FROM paper_tags")
 
         # Load existing hashes for incremental change detection
         existing_hashes: dict[str, str] = {}
@@ -226,12 +276,13 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
 
             best_cite = _best_citation(meta)
             md_file = pdir / "paper.md"
+            tags = [t for t in (meta.get("tags") or []) if isinstance(t, str)]
             conn.execute(
                 """
                 INSERT INTO papers
                     (paper_id, title, authors, year, journal, abstract, conclusion,
-                     doi, paper_type, citation_count, md_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     tags, doi, paper_type, citation_count, md_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     paper_id,
@@ -241,6 +292,7 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
                     meta.get("journal") or "",
                     meta.get("abstract") or "",
                     meta.get("l3_conclusion") or "",
+                    " ".join(tags),
                     meta.get("doi") or "",
                     meta.get("paper_type") or "",
                     str(best_cite) if best_cite is not None else "",
@@ -251,6 +303,14 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
                 "INSERT OR REPLACE INTO papers_hash (paper_id, content_hash) VALUES (?, ?)",
                 (paper_id, h),
             )
+
+            # Sync the paper_tags filter table from meta tags
+            conn.execute("DELETE FROM paper_tags WHERE paper_id = ?", (paper_id,))
+            if tags:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO paper_tags (paper_id, tag) VALUES (?, ?)",
+                    [(paper_id, t) for t in dict.fromkeys(tags)],
+                )
 
             # Update papers_registry — use ON CONFLICT(id) DO UPDATE so that
             # a publication_number UNIQUE violation is surfaced rather than
@@ -346,7 +406,7 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
     return count
 
 
-_SEARCH_COLS = "paper_id, title, authors, year, journal, doi, paper_type, citation_count"
+_SEARCH_COLS = "paper_id, title, authors, year, journal, doi, paper_type, citation_count, tags"
 _PROCEEDINGS_SEARCH_COLS = (
     "paper_id, title, authors, year, journal, doi, paper_type, citation_count, "
     "dir_name, proceeding_id, proceeding_dir, proceeding_title"
@@ -384,10 +444,17 @@ def _reference_dois(refs: list) -> list[str]:
 
 
 def _ensure_fts_table(conn: sqlite3.Connection) -> None:
-    """Raise FileNotFoundError if the FTS5 papers table does not exist."""
+    """Raise FileNotFoundError if the FTS5 papers table does not exist.
+
+    When the table exists but was created by an older schema version, migrate
+    it in place (drops and recreates the FTS table; rerun ``scholaraio index``
+    to repopulate).
+    """
     has_table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='papers'").fetchone()
     if not has_table:
         raise FileNotFoundError("FTS5 索引表不存在，请先运行 `scholaraio index`")
+    if _ensure_schema(conn):
+        conn.commit()
 
 
 def _ensure_proceedings_fts_table(conn: sqlite3.Connection) -> None:
@@ -512,11 +579,12 @@ def search(
     journal: str | None = None,
     paper_type: str | None = None,
     paper_ids: set[str] | None = None,
+    tags: list[str] | None = None,
 ) -> list[dict]:
     """FTS5 关键词全文检索。
 
-    在 ``title``、``abstract``、``conclusion`` 字段上执行 FTS5 MATCH，
-    按 BM25 相关性排序返回结果。
+    在 ``title``、``abstract``、``conclusion``、``tags`` 字段上执行 FTS5
+    MATCH，按 BM25 相关性排序返回结果。
 
     Args:
         query: 检索词（多词用空格分隔，FTS5 语法）。
@@ -527,11 +595,12 @@ def search(
         journal: 期刊名过滤（LIKE 模糊匹配）。
         paper_type: 论文类型过滤（如 ``"review"``、``"journal-article"``）。
         paper_ids: 论文 UUID 白名单，仅返回集合内的结果。
+        tags: 策展标签（canonical 名）列表，AND 语义精确过滤。
 
     Returns:
         匹配的论文字典列表，每项包含 ``paper_id``, ``title``,
         ``authors``, ``year``, ``journal``, ``doi``, ``paper_type``,
-        ``citation_count``。
+        ``citation_count``, ``tags``（标签列表）。
 
     Raises:
         FileNotFoundError: 索引文件或 FTS5 表不存在。
@@ -547,7 +616,7 @@ def search(
         _ensure_fts_table(conn)
 
         conn.row_factory = sqlite3.Row
-        filter_sql, filter_params = _build_filter_clause(year=year, journal=journal, paper_type=paper_type)
+        filter_sql, filter_params = _build_filter_clause(year=year, journal=journal, paper_type=paper_type, tags=tags)
 
         # Over-fetch when post-filtering by paper_ids to avoid empty results
         fetch_k = top_k * 5 if paper_ids else top_k
@@ -564,6 +633,7 @@ def search(
         ).fetchall()
         results = [dict(r) for r in rows]
         _enrich_dir_names(results, conn)
+        _normalize_result_tags(results)
     finally:
         conn.close()
     if paper_ids is not None:
@@ -625,6 +695,7 @@ def search_author(
         ).fetchall()
         results = [dict(r) for r in rows]
         _enrich_dir_names(results, conn)
+        _normalize_result_tags(results)
     finally:
         conn.close()
     if paper_ids is not None:
@@ -683,6 +754,7 @@ def top_cited(
         ).fetchall()
         results = [dict(r) for r in rows]
         _enrich_dir_names(results, conn)
+        _normalize_result_tags(results)
     finally:
         conn.close()
     if paper_ids is not None:
@@ -717,6 +789,7 @@ def _build_filter_clause(
     year: str | None = None,
     journal: str | None = None,
     paper_type: str | None = None,
+    tags: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     """构建过滤 WHERE 子句（不含前导 AND/WHERE）。
 
@@ -725,6 +798,8 @@ def _build_filter_clause(
         journal: 期刊名（LIKE 模糊匹配），为 ``None`` 时不过滤。
         paper_type: 论文类型（LIKE 模糊匹配，如 ``review``、``journal-article``），
             为 ``None`` 时不过滤。
+        tags: 策展标签（canonical 名）列表，AND 语义（论文须同时拥有全部
+            标签），为 ``None`` 时不过滤。
 
     Returns:
         ``(clauses_str, params)``，clauses_str 每个条件前带 ``AND``。
@@ -741,8 +816,39 @@ def _build_filter_clause(
     if paper_type:
         clauses.append("paper_type LIKE ?")
         params.append(f"%{paper_type}%")
+    if tags:
+        for tag in tags:
+            clauses.append("paper_id IN (SELECT paper_id FROM paper_tags WHERE tag = ?)")
+            params.append(tag)
     sql = "".join(f" AND {c}" for c in clauses)
     return sql, params
+
+
+def paper_ids_for_tags(db_path: Path, tags: list[str]) -> set[str]:
+    """返回同时拥有全部给定标签（AND 语义）的论文 UUID 集合。
+
+    Args:
+        db_path: SQLite 索引数据库路径。
+        tags: 策展标签（canonical 名）列表。
+
+    Returns:
+        匹配的论文 UUID 集合；数据库或 ``paper_tags`` 表不存在时为空集。
+    """
+    if not tags or not db_path.exists():
+        return set()
+    conn = sqlite3.connect(db_path)
+    try:
+        has_table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='paper_tags'").fetchone()
+        if not has_table:
+            return set()
+        ids: set[str] | None = None
+        for tag in tags:
+            rows = conn.execute("SELECT paper_id FROM paper_tags WHERE tag = ?", (tag,)).fetchall()
+            current = {row[0] for row in rows}
+            ids = current if ids is None else ids & current
+        return ids if ids is not None else set()
+    finally:
+        conn.close()
 
 
 _safe_query = sanitize_fts_query  # backward compat alias
@@ -758,6 +864,14 @@ def _enrich_dir_names(results: list[dict], conn: sqlite3.Connection) -> list[dic
         id_to_dir[row[0]] = row[1]
     for r in results:
         r["dir_name"] = id_to_dir.get(r["paper_id"], "")
+    return results
+
+
+def _normalize_result_tags(results: list[dict]) -> list[dict]:
+    """Convert the space-joined FTS ``tags`` column into a list of strings."""
+    for r in results:
+        raw = r.get("tags")
+        r["tags"] = raw.split() if isinstance(raw, str) and raw else []
     return results
 
 
@@ -831,6 +945,7 @@ def unified_search(
     journal: str | None = None,
     paper_type: str | None = None,
     paper_ids: set[str] | None = None,
+    tags: list[str] | None = None,
 ) -> list[dict]:
     """融合检索：FTS5 关键词 + FAISS 语义向量，合并去重排序。
 
@@ -849,6 +964,8 @@ def unified_search(
         journal: 期刊名过滤。
         paper_type: 论文类型过滤。
         paper_ids: 论文 UUID 白名单，仅返回集合内的结果。
+        tags: 策展标签（canonical 名）列表，AND 语义精确过滤
+            （两路检索统一生效）。
 
     Returns:
         论文字典列表，按综合得分降序。每项包含 ``paper_id``, ``title``,
@@ -857,6 +974,13 @@ def unified_search(
     """
     if top_k is None:
         top_k = cfg.search.top_k if cfg is not None else 20
+
+    # Tag filter: restrict both legs to papers carrying all requested tags
+    if tags:
+        tag_ids = paper_ids_for_tags(db_path, tags)
+        paper_ids = tag_ids if paper_ids is None else (paper_ids & tag_ids)
+        if not paper_ids:
+            return []
 
     # -- FTS5 leg --
     fts_results: list[dict] = []

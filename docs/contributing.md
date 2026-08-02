@@ -29,6 +29,7 @@ See [CONTRIBUTING.md](https://github.com/zimoliao/scholaraio/blob/main/CONTRIBUT
 | `citation_styles.py` | Citation style management (built-in APA/Vancouver/Chicago/MLA + dynamically loaded custom styles stored in `data/citation_styles/`) |
 | `citation_check.py` | Citation verification (extract author-year citations from text + cross-check against the local library) |
 | `audit.py` | Data-quality auditing + repair |
+| `tags.py` | Agent-curated tag system (taxonomy in `data/tags.yaml` with aliases + `meta.json["tags"]` read/write + usage counts) |
 | `sources/` | External source adapters (endnote / zotero / arxiv) |
 | `cli/` | Main CLI entry point (package split by domain: `common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`) |
 | `setup.py` | Environment detection + setup wizard |

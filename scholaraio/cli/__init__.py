@@ -5,10 +5,10 @@ cli/ — scholaraio 命令行入口（按域拆分的包）
 命令：
     scholaraio index [--rebuild]
     scholaraio embed [--rebuild]
-    scholaraio search <query> [--top N] [--year Y] [--journal J] [--type T]
+    scholaraio search <query> [--top N] [--year Y] [--journal J] [--type T] [--tag T]
     scholaraio search-author <query> [--top N] [--year Y] [--journal J] [--type T]
     scholaraio vsearch <query> [--top N] [--year Y] [--journal J] [--type T]
-    scholaraio usearch <query> [--top N] [--year Y] [--journal J] [--type T]
+    scholaraio usearch <query> [--top N] [--year Y] [--journal J] [--type T] [--tag T]
     scholaraio show <paper-id> [--layer 1|2|3|4]
     scholaraio enrich-toc [<paper-id> | --all] [--force] [--inspect]
     scholaraio enrich-l3 [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
@@ -19,6 +19,8 @@ cli/ — scholaraio 命令行入口（按域拆分的包）
     scholaraio refetch [<paper-id> | --all] [--force]
     scholaraio rename [<paper-id> | --all] [--dry-run]
     scholaraio audit [--severity error|warning|info]
+    scholaraio tag <paper-id> [<标签> ...] [--remove] [--json]
+    scholaraio tags [--json]
     scholaraio pending
     scholaraio repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]
     scholaraio backfill-abstract [--dry-run]
@@ -96,6 +98,8 @@ from .ingest import (
     cmd_refetch,
     cmd_rename,
     cmd_repair,
+    cmd_tag,
+    cmd_tags,
 )
 from .misc import (
     _cmd_document_inspect,
@@ -220,6 +224,8 @@ __all__ = [
     "cmd_shared_refs",
     "cmd_show",
     "cmd_style",
+    "cmd_tag",
+    "cmd_tags",
     "cmd_toolref",
     "cmd_top_cited",
     "cmd_topics",

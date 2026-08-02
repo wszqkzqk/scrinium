@@ -12,7 +12,7 @@ from pathlib import Path
 
 from scholaraio.log import ui
 
-from .common import _resolve_paper
+from .common import _emit_json, _resolve_paper
 
 _log = logging.getLogger(__package__)
 
@@ -32,6 +32,114 @@ def cmd_audit(args: argparse.Namespace, cfg) -> None:
         issues = [i for i in issues if i.severity == args.severity]
 
     ui(format_report(issues))
+
+
+def cmd_tag(args: argparse.Namespace, cfg) -> None:
+    from scholaraio.tags import normalize_tag, paper_tags, register_tag, resolve_tag, set_paper_tags
+
+    paper_d = _resolve_paper(args.paper_id, cfg)
+    current = paper_tags(paper_d)
+    raw_names = args.tags or []
+    remove = getattr(args, "remove", False)
+    json_mode = getattr(args, "json", False)
+
+    # No tag arguments: display current tags
+    if not raw_names:
+        if json_mode:
+            _emit_json({"paper": paper_d.name, "tags": current})
+            return
+        if current:
+            ui(f"{paper_d.name} 的标签: {', '.join(current)}")
+        else:
+            ui(f"{paper_d.name} 暂无标签（可用 scholaraio tag {paper_d.name} <标签...> 添加）")
+        return
+
+    added: list[str] = []
+    removed: list[str] = []
+    new_tags: list[str] = []
+    final = list(current)
+    for name in raw_names:
+        canonical = resolve_tag(cfg, name)
+        if canonical is None:
+            if remove:
+                # Allow removing stray tags missing from the taxonomy
+                canonical = normalize_tag(name)
+            else:
+                register_tag(cfg, name)
+                canonical = normalize_tag(name)
+                new_tags.append(canonical)
+        if remove:
+            if canonical in final:
+                final.remove(canonical)
+                removed.append(canonical)
+        elif canonical not in final:
+            final.append(canonical)
+            added.append(canonical)
+
+    set_paper_tags(paper_d, final)
+
+    if json_mode:
+        _emit_json(
+            {
+                "paper": paper_d.name,
+                "tags": final,
+                "added": added,
+                "removed": removed,
+                "new_tags": new_tags,
+            }
+        )
+        return
+
+    if remove:
+        ui(f"已移除标签: {', '.join(removed) if removed else '（无变化）'}")
+    else:
+        if added:
+            ui(f"已添加标签: {', '.join(added)}")
+        elif not new_tags:
+            ui("标签无变化")
+        for tag in new_tags:
+            ui(f"新标签已加入词表: {tag}（可用 scholaraio tags 查看）")
+    ui(f"{paper_d.name} 当前标签: {', '.join(final) if final else '（无）'}")
+    if added or removed:
+        ui("提示: 运行 scholaraio index 后标签才会进入检索索引")
+
+
+def cmd_tags(args: argparse.Namespace, cfg) -> None:
+    from scholaraio.tags import all_tags_with_counts, load_taxonomy
+
+    tax = load_taxonomy(cfg).get("tags") or {}
+    counts = all_tags_with_counts(cfg)
+    names = sorted(set(tax) | set(counts))
+
+    if not names:
+        if getattr(args, "json", False):
+            _emit_json({"count": 0, "tags": []})
+            return
+        ui("标签词表为空（可用 scholaraio tag <论文> <标签...> 创建）")
+        return
+
+    entries = []
+    for name in names:
+        entry = tax.get(name) or {}
+        entries.append(
+            {
+                "name": name,
+                "aliases": entry.get("aliases") or [],
+                "description": entry.get("description") or "",
+                "count": counts.get(name, 0),
+            }
+        )
+
+    if getattr(args, "json", False):
+        _emit_json({"count": len(entries), "tags": entries})
+        return
+
+    ui(f"标签词表（共 {len(entries)} 个标签）\n")
+    for e in entries:
+        alias_str = f"（别名: {', '.join(e['aliases'])}）" if e["aliases"] else ""
+        desc_str = f"  {e['description']}" if e["description"] else ""
+        ui(f"  {e['name']}{alias_str}: {e['count']} 篇{desc_str}")
+    ui(f"\n总计: {len(entries)} 个标签，{sum(counts.values())} 次标注")
 
 
 # Suggested remediation per pending.json issue type.
@@ -809,6 +917,19 @@ def register(sub) -> None:
     p_audit = sub.add_parser("audit", help="审计已入库论文的数据质量")
     p_audit.set_defaults(func=cmd_audit)
     p_audit.add_argument("--severity", choices=["error", "warning", "info"], help="只显示指定严重级别的问题")
+
+    # --- tag ---
+    p_tag = sub.add_parser("tag", help="为论文添加/移除/查看策展标签")
+    p_tag.set_defaults(func=cmd_tag)
+    p_tag.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
+    p_tag.add_argument("tags", nargs="*", help="要添加的标签（别名自动归一；未注册的自动加入词表）")
+    p_tag.add_argument("--remove", action="store_true", help="移除而非添加标签")
+    p_tag.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
+
+    # --- tags ---
+    p_tags = sub.add_parser("tags", help="浏览标签词表与各标签论文数")
+    p_tags.set_defaults(func=cmd_tags)
+    p_tags.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
 
     # --- pending ---
     p_pending = sub.add_parser("pending", help="列出待确认项（data/pending 与 data/duplicates）")

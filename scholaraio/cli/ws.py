@@ -8,7 +8,7 @@ from pathlib import Path
 
 from scholaraio.log import ui
 
-from .common import _add_filter_args, _emit_json, _format_match_tag, _resolve_top
+from .common import _add_filter_args, _add_tag_arg, _emit_json, _format_match_tag, _resolve_tag_filters, _resolve_top
 from .search import _print_search_next_steps, _print_search_result
 
 _log = logging.getLogger(__package__)
@@ -177,6 +177,7 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
         query = " ".join(args.query)
         mode = getattr(args, "mode", "unified")
         top_k = _resolve_top(args, cfg.search.top_k)
+        tags = _resolve_tag_filters(args, cfg)
 
         if mode == "keyword":
             from scholaraio.index import search as kw_search
@@ -190,9 +191,17 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
                 journal=args.journal,
                 paper_type=args.paper_type,
                 paper_ids=pids,
+                tags=tags,
             )
         elif mode == "semantic":
             from scholaraio.vectors import vsearch
+
+            if tags:
+                from scholaraio.index import paper_ids_for_tags
+
+                # vsearch has no native tag filter; intersect the workspace
+                # whitelist with the tag-matching id set instead
+                pids = pids & paper_ids_for_tags(cfg.index_db, tags)
 
             results = vsearch(
                 query,
@@ -216,6 +225,7 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
                 journal=args.journal,
                 paper_type=args.paper_type,
                 paper_ids=pids,
+                tags=tags,
             )
 
         if not results:
@@ -301,6 +311,7 @@ def register(sub) -> None:
         "--mode", choices=["unified", "keyword", "semantic"], default="unified", help="搜索模式（默认 unified）"
     )
     _add_filter_args(p_ws_search)
+    _add_tag_arg(p_ws_search)
 
     p_ws_rename = p_ws_sub.add_parser("rename", help="重命名工作区")
     p_ws_rename.add_argument("old_name", help="当前工作区名称")

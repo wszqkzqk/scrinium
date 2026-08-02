@@ -44,7 +44,7 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 把 skills 理解成“可复用工作流”就好：当用户意图明显对应某个能力时，优先去看相应 `SKILL.md`，按其中已经沉淀好的步骤执行，而不是每次从零设计流程。
 
 **现有 skills：**
-- 知识库管理：`search`、`arxiv`、`show`、`enrich`、`ingest`、`topics`、`explore`、`graph`、`citations`、`insights`、`index`、`workspace`、`export`、`import`、`rename`、`audit`、`translate`
+- 知识库管理：`search`、`arxiv`、`show`、`enrich`、`ingest`、`topics`、`explore`、`graph`、`citations`、`insights`、`index`、`workspace`、`export`、`import`、`rename`、`audit`、`curate`、`translate`
 - 学术写作：`literature-review`、`paper-writing`、`citation-check`、`writing-polish`、`review-response`、`research-gap`
 - 可视化与文档生成：`draw`、`document`
 - 系统运维：`setup`、`metrics`
@@ -58,6 +58,7 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 | 不做入库、只重建 FTS5 / 向量索引 | `index` | `ingest`（会触发 inbox 处理） |
 | 检索本地库中已有的论文 | `search` | `explore`（从 OpenAlex 拉外部论文进独立探索库） |
 | 从外部文献调研某个领域 / 期刊 / 机构 | `explore` | `search`（只检索已入库的内容） |
+| 给论文打标签 / 批量策展整理词表 | `curate` | `topics`（BERTopic 自动聚类，需嵌入后端） |
 | 写完整文献综述 | `literature-review` | `research-gap`（产出 gap 报告，不是综述叙述） |
 | 系统性识别研究空白 / 开放问题 | `research-gap` | `literature-review`（gap 讨论只是其收尾一节） |
 | 使用某个具体科学计算工具（QE / LAMMPS / GROMACS / OpenFOAM / bioinformatics） | 对应的工具 skill，并以 `scientific-runtime` 为配套协议 | 只用 `scientific-runtime`（它不含工具专门知识） |

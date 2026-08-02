@@ -12,6 +12,7 @@ audit.py — 已入库论文数据质量审计
   - DOI 重复检测
   - MD 内容过短（可能转换失败）
   - JSON title 与 MD 首个 H1 不一致
+  - 策展标签缺失（untagged，所有 paper_type 均提示）
 """
 
 from __future__ import annotations
@@ -117,6 +118,8 @@ def _check_missing(issues: list[Issue], pid: str, data: dict) -> None:
         issues.append(Issue(pid, "warning", "missing_journal", "缺少期刊名"))
     if not data.get("title"):
         issues.append(Issue(pid, "error", "missing_title", "缺少标题"))
+    if not data.get("tags"):
+        issues.append(Issue(pid, "info", "untagged", "未打策展标签；可运行 curate 流程或 scholaraio tag 补充"))
 
 
 def _check_content_consistency(

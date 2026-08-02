@@ -44,7 +44,7 @@ Skills are defined in the `.claude/skills/` directory and follow the [Agent Skil
 The right mental model is to treat skills as "reusable workflows": when the user's intent clearly matches a capability, read the corresponding `SKILL.md` first and follow the workflow already distilled there instead of inventing a process from scratch every time.
 
 **Current skills:**
-- Knowledge base management: `search`, `arxiv`, `show`, `enrich`, `ingest`, `topics`, `explore`, `graph`, `citations`, `insights`, `index`, `workspace`, `export`, `import`, `rename`, `audit`, `translate`
+- Knowledge base management: `search`, `arxiv`, `show`, `enrich`, `ingest`, `topics`, `explore`, `graph`, `citations`, `insights`, `index`, `workspace`, `export`, `import`, `rename`, `audit`, `curate`, `translate`
 - Academic writing: `literature-review`, `paper-writing`, `citation-check`, `writing-polish`, `review-response`, `research-gap`
 - Visualization and document generation: `draw`, `document`
 - System operations: `setup`, `metrics`
@@ -58,6 +58,7 @@ The right mental model is to treat skills as "reusable workflows": when the user
 | Rebuild FTS5 / vector indexes without ingesting | `index` | `ingest` (triggers inbox processing) |
 | Retrieve papers already in the local library | `search` | `explore` (fetches external OpenAlex papers into a separate exploration DB) |
 | Survey a field / journal / institution from external literature | `explore` | `search` (only searches what is already ingested) |
+| Tag papers / batch-curate and tidy the tag vocabulary | `curate` | `topics` (BERTopic auto-clustering, requires an embedding backend) |
 | Write a full literature review | `literature-review` | `research-gap` (produces a gap report, not a review narrative) |
 | Systematically identify research gaps / open questions | `research-gap` | `literature-review` (gap discussion is only its closing section) |
 | Use a specific scientific tool (QE / LAMMPS / GROMACS / OpenFOAM / bioinformatics) | The tool-specific skill, with `scientific-runtime` as the companion protocol | `scientific-runtime` alone (it contains no tool-specific knowledge) |

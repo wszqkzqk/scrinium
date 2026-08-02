@@ -60,6 +60,45 @@ def _add_filter_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_tag_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the repeatable ``--tag`` exact-filter argument to a search parser."""
+    parser.add_argument(
+        "--tag",
+        dest="tags",
+        action="append",
+        default=None,
+        metavar="TAG",
+        help="按策展标签精确过滤（可重复，AND 语义，支持别名）",
+    )
+
+
+def _resolve_tag_filters(args: argparse.Namespace, cfg) -> list[str] | None:
+    """Resolve ``--tag`` values to canonical tag names via the taxonomy.
+
+    Raises:
+        ValueError: any tag is unknown to the taxonomy (message lists the
+            current vocabulary).
+    """
+    raw = getattr(args, "tags", None)
+    if not raw:
+        return None
+    from scholaraio.tags import load_taxonomy, resolve_tag
+
+    resolved: list[str] = []
+    unknown: list[str] = []
+    for name in raw:
+        canonical = resolve_tag(cfg, name)
+        if canonical is None:
+            unknown.append(name)
+        elif canonical not in resolved:
+            resolved.append(canonical)
+    if unknown:
+        known = sorted((load_taxonomy(cfg).get("tags") or {}).keys())
+        hint = f"；当前词表: {', '.join(known)}" if known else "（词表为空，可先用 scholaraio tag 打标）"
+        raise ValueError(f"未知标签: {', '.join(unknown)}{hint}")
+    return resolved or None
+
+
 def _resolve_ws_paper_ids(args: argparse.Namespace, cfg) -> set[str] | None:
     ws_name = getattr(args, "ws", None)
     if not ws_name:
@@ -159,6 +198,7 @@ def _search_result_json(r: dict) -> dict:
         "doi": r.get("doi"),
         "paper_type": r.get("paper_type"),
         "citation_count": r.get("citation_count"),
+        "tags": r.get("tags") or [],
         "score": r.get("score"),
         "match": r.get("match"),
     }

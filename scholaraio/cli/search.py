@@ -11,11 +11,13 @@ from scholaraio.log import ui
 
 from .common import (
     _add_filter_args,
+    _add_tag_arg,
     _check_import_error,
     _emit_json,
     _format_match_tag,
     _record_search_metrics,
     _resolve_paper,
+    _resolve_tag_filters,
     _resolve_top,
     _search_result_json,
 )
@@ -74,6 +76,7 @@ def cmd_search(args: argparse.Namespace, cfg) -> None:
     from scholaraio.metrics import get_store
 
     query = " ".join(args.query)
+    tags = _resolve_tag_filters(args, cfg)
     t0 = time.monotonic()
     try:
         results = search(
@@ -83,6 +86,7 @@ def cmd_search(args: argparse.Namespace, cfg) -> None:
             year=args.year,
             journal=args.journal,
             paper_type=args.paper_type,
+            tags=tags,
         )
     except FileNotFoundError as e:
         _log.error("%s", e)
@@ -176,6 +180,11 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
 
     l1 = load_l1(json_path)
     l1["dir_name"] = paper_d.name
+
+    # Curated tags are shown in the L1 header when present
+    from scholaraio.tags import paper_tags
+
+    l1["tags"] = paper_tags(paper_d)
 
     # Load existing agent notes (T2 layer) if available
     try:
@@ -331,6 +340,7 @@ def cmd_usearch(args: argparse.Namespace, cfg) -> None:
     from scholaraio.metrics import get_store
 
     query = " ".join(args.query)
+    tags = _resolve_tag_filters(args, cfg)
     t0 = time.monotonic()
     results = unified_search(
         query,
@@ -340,6 +350,7 @@ def cmd_usearch(args: argparse.Namespace, cfg) -> None:
         year=args.year,
         journal=args.journal,
         paper_type=args.paper_type,
+        tags=tags,
     )
     elapsed = time.monotonic() - t0
     store = get_store()
@@ -631,6 +642,9 @@ def _print_header(l1: dict) -> None:
         ui(f"公开号   : {ids['patent_publication_number']}")
     if l1.get("paper_type"):
         ui(f"类型     : {l1['paper_type']}")
+    tags = l1.get("tags") or []
+    if tags:
+        ui(f"标签     : {', '.join(tags)}")
     cite_str = _format_citations(l1.get("citation_count") or {})
     if cite_str:
         ui(f"引用     : {cite_str}")
@@ -654,6 +668,7 @@ def register(sub) -> None:
     p_search.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
     p_search.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
     _add_filter_args(p_search)
+    _add_tag_arg(p_search)
 
     # --- search-author ---
     p_sa = sub.add_parser("search-author", help="按作者名搜索")
@@ -702,6 +717,7 @@ def register(sub) -> None:
     p_usearch.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
     p_usearch.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
     _add_filter_args(p_usearch)
+    _add_tag_arg(p_usearch)
 
     # --- top-cited ---
     p_tc = sub.add_parser("top-cited", help="按引用量排序查看论文")

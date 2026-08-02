@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Skill governance**: unified frontmatter and routing across all 34 skills, intent-to-skill routing table in AGENTS.md/CLAUDE.md, discipline checklists for citation-check and audit, document skill slimmed with API references moved to `reference.md`, skill bodies unified to Chinese
 - **Instruction files slimmed**: AGENTS.md / CLAUDE.md / AGENTS_CN.md reduced from ~540 to ~180 lines, keeping only always-needed behavioral instructions and conventions; architecture, data layouts, module overview, configuration details, and plugin packaging moved to `docs/` (progressive disclosure, loaded on demand)
 - **CLAUDE.md became an import stub**: Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so `CLAUDE.md` is now a 4-line stub importing `AGENTS.md` via Claude Code's `@`-import mechanism; `AGENTS.md` is the single source of truth and content drift between the two is impossible by construction
+- **Agent-curated tag system ("tags as topics")**: new `scholaraio/tags.py` with a controlled vocabulary in `data/tags.yaml` (aliases, descriptions) and per-paper tags in `meta.json`; `scholaraio tag` / `tags` commands; tags are indexed in FTS (schema v1 migration) and filterable via `--tag` on search/usearch/ws search; `audit` reports untagged papers; new `curate` skill drives batch curation via subagents. Designed for embedding-free deployments (`embed.provider: none`) where curated labels replace semantic discovery
 
 ### Removed
 
