@@ -228,6 +228,19 @@ def test_enrich_metadata_rejects_title_search_hit_when_author_and_year_both_conf
         ),
     )
     monkeypatch.setattr(
+        "scrinium.ingest.metadata._api._query_crossref_relaxed",
+        lambda title: {
+            "DOI": "10.1002/9781118527221.ch2",
+            "title": ["Structure of Turbulent Boundary Layers"],
+            "author": [{"given": "Ronald J.", "family": "Adrian"}],
+            "published-print": {"date-parts": [[2013]]},
+            "container-title": ["Coherent Flow Structures at Earth's Surface"],
+            "type": "other",
+            "is-referenced-by-count": 5,
+            "abstract": "Wrong candidate abstract.",
+        },
+    )
+    monkeypatch.setattr(
         "scrinium.ingest.metadata._api.query_semantic_scholar",
         lambda **kwargs: {},
     )

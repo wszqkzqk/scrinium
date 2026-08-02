@@ -36,10 +36,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        # Keep the floor (3.10, matches requires-python) and the current dev
+        # version (3.14); Windows runs one mid version to bound CI time.
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.14"]
         include:
-          # Windows runs only the newest Python to keep CI time in check.
           - os: windows-latest
             python-version: "3.12"
     steps:
