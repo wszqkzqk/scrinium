@@ -2,6 +2,8 @@
 
 **Scrinium** — a research infrastructure for AI agents (hard fork of [ScholarAIO](https://github.com/ZimoLiao/scholaraio)).
 
+> This site is published at <https://wszqkzqk.github.io/scrinium/> via GitHub Pages.
+
 Scrinium is a research infrastructure for AI agents. You interact with your literature knowledge base through natural language — searching, reading, analyzing, and writing — all from the command line.
 
 ## Features
