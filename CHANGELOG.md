@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **toolref legacy snapshot**: Deleted `toolref/_legacy_snapshot.py` (2430 lines) and the `_ToolrefModule` attribute-hijack shim; the toolref test suite is now behavior-contract based, and the package exports an explicit 7-name public API
 
+### Fixed
+
+- **Comprehensive agent-facing audit**: ~30 staleness/executability fixes across skills, docs, configs, and wrappers. Notably: explore semantic/unified search no longer crashes when vectors are missing or `embed.provider: none`; `setup.py` config template re-synced with `config.yaml` (with a drift-prevention test); `config.local.example.yaml` no longer silently overrides `config.yaml` embed settings; setup wizard keeps editable installs editable; `clawhub.yaml` lists all 35 skills; `QWEN.md` wrapper completes Qwen Code support; runtime-env instructions are environment-manager agnostic
+
 ## [1.3.0] — 2026-04-06
 
 ### Added
