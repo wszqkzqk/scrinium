@@ -32,12 +32,8 @@ Then start your agent in the repository root:
 
 | Agent | What happens in this repo |
 |-------|----------------------------|
+| Codex / OpenClaw / Cursor / Windsurf / Copilot / Cline / opencode / Kimi Code | Reads `AGENTS.md` natively; skills discovered via `.agents/skills/` or `.claude/skills/` |
 | Claude Code | Reads `CLAUDE.md` (stub importing `AGENTS.md`) and loads `.claude/skills/` |
-| Codex / OpenClaw | Reads `AGENTS.md` natively and discovers `.agents/skills/` |
-| Cline | Reads `AGENTS.md` natively and can use `.claude/skills/` |
-| Cursor | Reads `AGENTS.md` natively |
-| Windsurf | Reads `AGENTS.md` natively |
-| GitHub Copilot | Reads `AGENTS.md` natively |
 | Qwen Code | Reads `QWEN.md` (pointer to `AGENTS.md`) |
 
 This mode is best when you want the full project context, not just the Scrinium skills.

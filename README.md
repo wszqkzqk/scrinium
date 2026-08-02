@@ -87,19 +87,9 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 
 ## Works With Your Agent
 
-Scrinium is designed to be **agent-agnostic**, but different agents expose different integration paths. Some work best when you open this repository directly; others are easier to use through plugins.
+Scrinium follows the [AGENTS.md](https://agents.md) open standard — open this repository in any compatible agent and it just works: [Codex](https://openai.com/codex), OpenClaw, [Cursor](https://cursor.sh), [Windsurf](https://codeium.com/windsurf), [GitHub Copilot](https://github.com/features/copilot), [Cline](https://github.com/cline/cline), opencode, Kimi Code, and others. Two agents use their own entry filename: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) reads `CLAUDE.md` (a stub importing `AGENTS.md`), and [Qwen Code](https://github.com/QwenLM/qwen-code) reads `QWEN.md` (a pointer to `AGENTS.md`).
 
-| Agent / IDE | Open this repo directly | Reuse from another project |
-|-------------|-------------------------|-----------------------------|
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `CLAUDE.md` + `.claude/skills/` | Claude plugin marketplace |
-| [Codex](https://openai.com/codex) / OpenClaw | `AGENTS.md` + `.agents/skills/` | Symlink skills into `~/.agents/skills/` |
-| [Cline](https://github.com/cline/cline) | `AGENTS.md` (native) + `.claude/skills/` | CLI + skills |
-| [Cursor](https://cursor.sh) | `AGENTS.md` (native) | CLI + skills |
-| [Windsurf](https://codeium.com/windsurf) | `AGENTS.md` (native) | CLI + skills |
-| [GitHub Copilot](https://github.com/features/copilot) | `AGENTS.md` (native) | CLI + skills |
-| [Qwen Code](https://github.com/QwenLM/qwen-code) | `QWEN.md` | CLI + skills |
-
-Skills follow the open [AgentSkills.io](https://agentskills.io) standard, and `.agents/skills/` is a symlink to `.claude/skills/` so different agents can discover and reuse the same skills.
+Skills follow the open [AgentSkills.io](https://agentskills.io) standard and live in `.claude/skills/` (with `.agents/skills/` and `skills/` as discovery symlinks). To reuse the skills from another project, either install the Claude Code plugin from the marketplace or symlink the skills directory into `~/.agents/skills/`.
 
 **Migrating from existing tools?** Import directly from Endnote (XML/RIS) and Zotero (Web API or local SQLite), with PDFs, metadata, and references brought over together. More import sources are on the roadmap.
 

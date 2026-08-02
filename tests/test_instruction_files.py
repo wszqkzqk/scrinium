@@ -1,10 +1,9 @@
 """Alignment checks for the multi-agent instruction files.
 
-`AGENTS.md` is the single source of truth. Claude Code reads `CLAUDE.md`,
-not `AGENTS.md`, so `CLAUDE.md` must stay a minimal stub that imports
-`AGENTS.md` via Claude Code's ``@``-import mechanism. `AGENTS_CN.md` is a
-real translation and cannot be byte-compared, so only its top-level section
-structure is checked.
+`AGENTS.md` is the single source of truth, natively read by most agents.
+Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so `CLAUDE.md` must stay a
+minimal stub that imports `AGENTS.md` via Claude Code's ``@``-import
+mechanism; Qwen Code reads `QWEN.md`, which must stay a minimal pointer.
 """
 
 from pathlib import Path
@@ -38,21 +37,11 @@ class TestClaudeStub:
             assert anchor in agents
 
 
-class TestAgentsCnStructure:
-    def test_same_section_count(self):
-        en_sections = [ln for ln in _read("AGENTS.md").splitlines() if ln.startswith("## ")]
-        cn_sections = [ln for ln in _read("AGENTS_CN.md").splitlines() if ln.startswith("## ")]
-        assert len(en_sections) == len(cn_sections), (
-            f"AGENTS_CN.md has {len(cn_sections)} top-level sections, "
-            f"AGENTS.md has {len(en_sections)}; keep the translation structurally aligned"
-        )
+class TestQwenPointer:
+    def test_qwen_md_points_to_agents_md(self):
+        qwen = _read("QWEN.md")
+        assert "AGENTS.md" in qwen
 
-    def test_deep_reference_pointers_present(self):
-        cn = _read("AGENTS_CN.md")
-        for target in (
-            "docs/guide/architecture.md",
-            "docs/contributing.md",
-            "docs/getting-started/configuration.md",
-            "docs/getting-started/agent-setup.md",
-        ):
-            assert target in cn
+    def test_stays_a_thin_pointer(self):
+        lines = [ln for ln in _read("QWEN.md").splitlines() if ln.strip()]
+        assert len(lines) <= 12

@@ -160,14 +160,7 @@ For plugin mode, see `docs/getting-started/agent-setup.md`; for configuration an
 
 ## Multi-Agent Compatibility
 
-This project supports multiple AI coding agents at the same time. `AGENTS.md` is the general project instruction file and the single source of truth; most agents read it natively. Only two agents need their own entry file, and both are minimal pointers (no duplicated content): Claude Code reads `CLAUDE.md`, a stub that imports `AGENTS.md` via Claude Code's `@`-import mechanism; Qwen Code reads `QWEN.md`, a thin pointer to `AGENTS.md`. `tests/test_instruction_files.py` verifies both pointers.
-
-| Agent | Instruction file | Skills |
-|-------|---------|--------|
-| Claude Code | `CLAUDE.md` (stub -> `@AGENTS.md` import) | `.claude/skills/` |
-| Qwen Code | `QWEN.md` (pointer -> `AGENTS.md`) | - |
-| Codex / OpenClaw | `AGENTS.md` (native) | `.agents/skills/` -> `.claude/skills/` |
-| Cursor / Windsurf / GitHub Copilot / Cline | `AGENTS.md` (native) | Cline also reads `.claude/skills/` natively |
+Project instructions live only in `AGENTS.md`, following the [AGENTS.md](https://agents.md) open standard. Agents that read it natively — Codex, OpenClaw, Cursor, Windsurf, GitHub Copilot, Cline, opencode, Kimi Code, and others — need no extra files. Two agents use their own entry filename and get a minimal pointer with no duplicated content: Claude Code reads `CLAUDE.md` (a stub importing `AGENTS.md` via Claude Code's `@`-import), and Qwen Code reads `QWEN.md` (a pointer to `AGENTS.md`). `tests/test_instruction_files.py` verifies both pointers.
 
 Skills follow the [AgentSkills.io](https://agentskills.io) open standard (`SKILL.md` format). The canonical location is `.claude/skills/`; `.agents/skills/` is the symlink for cross-agent discovery, and `skills/` is the symlink for Claude plugin / skill-system discovery.
 
