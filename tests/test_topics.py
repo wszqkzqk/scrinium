@@ -7,10 +7,10 @@ import pytest
 
 pd = pytest.importorskip("pandas", reason="topics extra not installed")
 
-from scrinium import cli
-from scrinium.cli import misc as cli_misc
-from scrinium.index import build_index
-from scrinium.topics import get_outliers, get_topic_overview, get_topic_papers
+from scrinium import cli  # noqa: E402
+from scrinium.cli import misc as cli_misc  # noqa: E402
+from scrinium.index import build_index  # noqa: E402
+from scrinium.topics import get_outliers, get_topic_overview, get_topic_papers  # noqa: E402
 
 
 class _FakeTopicModel:
