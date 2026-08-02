@@ -33,6 +33,7 @@ nav:
       - Installation: getting-started/installation.md
       - Agent Setup: getting-started/agent-setup.md
       - Configuration: getting-started/configuration.md
+      - Migrating from ScholarAIO: getting-started/migrating-from-scholaraio.md
   - User Guide:
       - Architecture: guide/architecture.md
       - CLI Reference: guide/cli-reference.md
