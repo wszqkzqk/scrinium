@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import subprocess
@@ -9,6 +10,7 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 
@@ -123,6 +125,22 @@ class TestBrokenPipe:
 
         assert proc.returncode == 0, proc.stderr.decode(errors="replace")
         assert b"Traceback" not in proc.stderr
+
+    def test_main_treats_windows_einval_as_broken_pipe(self):
+        # Windows raises OSError(EINVAL) instead of BrokenPipeError on closed pipes
+        def fake_flush():
+            raise OSError(errno.EINVAL, "Invalid argument")
+
+        # Context-scoped patches restore before pytest's capture teardown flushes
+        with (
+            mock.patch.object(sys, "argv", ["scrinium", "style", "list"]),
+            mock.patch.object(os, "open", lambda *a, **k: 999),
+            mock.patch.object(os, "dup2", lambda a, b: None),
+            mock.patch.object(sys.stdout, "flush", fake_flush),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            cli.main()
+        assert exc_info.value.code == 0
 
 
 def _make_papers(tmp_path: Path, papers: dict[str, dict]) -> Path:

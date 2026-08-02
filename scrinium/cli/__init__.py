@@ -72,6 +72,7 @@ cli/ — scrinium 命令行入口（按域拆分的包）
 from __future__ import annotations
 
 import argparse
+import errno
 import logging
 import os
 import sys
@@ -321,6 +322,13 @@ def main() -> None:
     except BrokenPipeError:
         # Downstream closed the pipe early (e.g. `| head`): not a failure.
         # Redirect stdout to devnull so the shutdown flush cannot raise again.
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(0)
+    except OSError as exc:
+        # Windows reports a broken pipe as EINVAL instead of BrokenPipeError.
+        if exc.errno not in (errno.EPIPE, errno.EINVAL):
+            raise
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
         sys.exit(0)
