@@ -22,6 +22,7 @@ tags: ["academic", "papers", "reading", "content"]
 
 ```bash
 scholaraio show "<paper-id>" --layer <N>
+scholaraio show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_name/notes 字段），需要程序化解析时使用
 ```
 
 4. 将内容格式化后展示给用户。对于 L4 全文，如果内容过长，先展示摘要并询问用户是否需要完整内容。

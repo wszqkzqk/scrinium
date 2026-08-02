@@ -128,6 +128,8 @@ Workflow:
 **Context management principles:**
 - Large payloads such as workspace paper lists (>30 papers) and full paper text (L4) should be handled by subagents, with only conclusions brought back into the main context
 - Avoid dumping long lists directly in the main agent; use subagents to filter first and return summaries
+- **Parallelize independent work**: when a task decomposes into independent units (batch paper analysis/curation with disjoint paper sets, independent investigations, scanning large result sets), dispatch subagents in parallel rather than serially
+- Do **not** parallelize steps with order dependencies, code edits that may touch the same files, or anything mutating shared state (index rebuilds, ingest runs)
 
 ## Key Conventions and Code Style
 
@@ -135,7 +137,7 @@ Workflow:
 - **Workspace version control**: workspace subdirectories that involve code development (such as reproduction projects or data-analysis scripts) should use `git init` for their own internal version management, with a `.gitignore` that excludes `__pycache__/`, `.venv/`, large data files, and so on. This does not affect the main ScholarAIO repository (`workspace/` is already ignored in the main `.gitignore`)
 - **Do not modify the regex logic in `scholaraio/ingest/metadata/_extract.py`**; extend only through the extractor abstraction layer
 - `data/` and `workspace/` are not tracked in git (already configured in `.gitignore`)
-- Python 3.10+, runtime environment: conda `scholaraio`
+- Python 3.10+, runtime environment: the project-local `.venv/` (fresh setups: any env with `pip install -e .`)
 - Tests: `python -m pytest tests/ -v`
 - **Code comments**: English only, and only when the logic is not self-evident.
 - **LLM prompts**: all new LLM prompts must be registered in `scholaraio/prompts.py` (English instructions + Chinese glossary where needed); any prompt change must be recorded in the changelog.

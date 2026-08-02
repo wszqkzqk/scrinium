@@ -73,9 +73,9 @@ scholaraio ws search <名称> "<查询词>" [--top N] [--year YYYY] [--journal �
 ```
 
 搜索模式：
-- `unified`（默认）：融合检索（关键词 + 语义 RRF 排序）
+- `unified`（默认）：融合检索（关键词 + 语义 RRF 排序；无嵌入后端时自动降级为纯关键词）
 - `keyword`：FTS5 关键词检索
-- `semantic`：FAISS 语义向量检索
+- `semantic`：FAISS 语义向量检索（需嵌入后端，`embed.provider: none` 时不可用）
 
 范围限定在工作区论文内。
 

@@ -30,8 +30,9 @@ scholaraio export bibtex --all
 # 导出全部论文到文件
 scholaraio export bibtex --all -o workspace/library.bib
 
-# 导出指定论文
+# 导出指定论文（标识符支持目录名 / UUID / DOI，与 show 一致）
 scholaraio export bibtex "Smith-2023-Turbulence" "Doe-2024-DNS"
+scholaraio export bibtex "10.1038/s41467-022-28817-4"
 
 # 按年份筛选导出
 scholaraio export bibtex --all --year 2020-2024 -o workspace/recent.bib
@@ -232,4 +233,4 @@ echo "# 标题\n内容..." | scholaraio export docx --output workspace/doc.docx
 → 执行 `export docx --input workspace/review.md --output workspace/review.docx`
 
 用户说："导出 DNS 相关的论文引用"
-→ 先用 `usearch "DNS"` 搜索，从结果中提取目录名，再 `export markdown <dir1> <dir2> ...`
+→ 先用 `usearch "DNS"` 搜索，再用结果中的目录名 / DOI / UUID 执行 `export markdown <标识1> <标识2> ...`

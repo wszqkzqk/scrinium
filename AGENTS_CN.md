@@ -128,6 +128,8 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 **Context 管理原则：**
 - 工作区论文列表（>30 篇）、论文全文（L4）等大体量内容应由 subagent 处理，仅将结论带回主 context
 - 主 agent 中避免直接 dump 长列表，改用 subagent 筛选后返回摘要
+- **独立工作应并行**：任务能分解为互不依赖的单元时（批次互不重叠的论文分析/策展、相互独立的代码/文献调查、大结果集扫描），应并行派发 subagent 而不是串行
+- 有先后依赖的步骤、可能改动同一批文件的代码编辑、以及会修改共享状态的操作（索引重建、ingest）**不要**并行
 
 ## 关键约定与代码风格
 
@@ -135,7 +137,7 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 - **工作区版本管理**：涉及代码开发的 workspace 子目录（如复现项目、数据分析脚本）应使用 `git init` 进行内部版本管理，并添加 `.gitignore` 排除 `__pycache__/`、`.venv/`、大型数据文件等。这不影响 scholaraio 主仓库（`workspace/` 已在主 `.gitignore` 中）
 - **不修改 `scholaraio/ingest/metadata/_extract.py` 的正则逻辑**，只通过 extractor 抽象层扩展
 - `data/`、`workspace/` 不进 git（`.gitignore` 已配置）
-- Python 3.10+，运行环境：conda `scholaraio`
+- Python 3.10+，运行环境：项目根目录的 `.venv/`（全新安装时：任何执行过 `pip install -e .` 的环境均可）
 - 测试：`python -m pytest tests/ -v`
 - **代码注释**：仅用英文，且只在逻辑不自明时添加。
 - **LLM prompts**：所有新 LLM prompt 必须注册在 `scholaraio/prompts.py`（英文指令 + 必要时附中文术语表）；任何 prompt 变更都要记录进 changelog。

@@ -99,6 +99,7 @@ ids, toc, l3_conclusion, tags
 
 ## 检索策略
 
+- **结构化输出**：`search`/`usearch`/`show`/`ws show`/`top-cited` 支持 `--json`，结果含 `dir_name`、`score`、`match` 等字段；需要程序化解析时用 `--json`，不要正则解析排版文本。
 - **多查询扩展**：单个查询词容易漏召回。对同一问题换 2-4 个角度各搜一轮（同义词、上下位概念、缩写/全称、方法名/体系名），合并去重——agent 的语言能力就是查询扩展层。
 - **无嵌入部署**（`embed.provider=none`）：`vsearch` 不可用，`usearch`/`ws search` 自动降级为纯关键词（结果标注"关键词"）。此时发现文献的主路径是：**多查询关键词 + `--tag` 过滤 + 引用图滚雪球**（`refs`/`citing`/`shared-refs`，见 `/graph` skill）。
 

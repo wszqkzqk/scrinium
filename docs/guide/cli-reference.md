@@ -23,13 +23,19 @@ scholaraio vsearch
 scholaraio usearch
 scholaraio fsearch
 scholaraio top-cited
+scholaraio tag
+scholaraio tags
+scholaraio pending
 ```
 
 - `search` performs keyword search.
-- `vsearch` performs semantic vector search.
+- `vsearch` performs semantic vector search (requires an embedding backend).
 - `usearch` performs fused keyword + semantic retrieval.
 - `fsearch` searches across the main library, proceedings, explore databases, and arXiv.
 - `show` supports layered reading from metadata to full text.
+- `tag` / `tags` manage agent-curated paper tags and the controlled vocabulary (`data/tags.yaml`); `search` / `usearch` / `ws search` accept `--tag` filters.
+- `pending` lists items blocked in `data/pending/` and `data/duplicates/` with resolution hints.
+- Read-oriented commands (`search` / `usearch` / `show` / `ws show` / `top-cited`) accept `--json` for structured output.
 
 ## Ingest And Enrich
 
