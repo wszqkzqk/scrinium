@@ -740,6 +740,22 @@ _FTS_SCHEMA = fts_create_sql(
     ],
 )
 
+#: Per-column BM25 weights for the ``papers_fts`` table, in ``_FTS_SCHEMA``
+#: column order. Proportional to the main library's ``_BM25_WEIGHTS``:
+#: title is the dominant signal, authors carry provenance weight, abstract
+#: is long body text where incidental mentions are common. UNINDEXED
+#: columns never match, so their weight is pinned to 0.0.
+_FTS_BM25_WEIGHTS = (
+    0.0,  # paper_id (UNINDEXED)
+    10.0,  # title
+    5.0,  # authors
+    2.0,  # abstract
+    0.0,  # year (UNINDEXED)
+)
+
+#: Pre-rendered ``bm25(papers_fts, ...)`` rank expression for ORDER BY.
+_FTS_BM25_EXPR = f"bm25(papers_fts, {', '.join(str(w) for w in _FTS_BM25_WEIGHTS)})"
+
 
 def _ensure_fts(db_path: Path) -> None:
     """Create FTS5 table in explore.db if it doesn't exist."""
@@ -804,7 +820,7 @@ def explore_search(name: str, query: str, *, top_k: int = 20, cfg: Config | None
         cfg: 可选的全局配置。
 
     Returns:
-        论文列表，按 BM25 排名。
+        论文列表，按 BM25 排名（标题列权重最高，见 ``_FTS_BM25_WEIGHTS``）。
     """
     db = _db_path(name, cfg)
     if not db.exists():
@@ -830,8 +846,17 @@ def explore_search(name: str, query: str, *, top_k: int = 20, cfg: Config | None
         if not safe_query:
             return []
         try:
+            # bm25() returns negative scores (ascending = best first); the
+            # explicit per-column weights replace the default equal-weight
+            # ``rank`` ordering.
             rows = conn.execute(
-                "SELECT paper_id, rank FROM papers_fts WHERE papers_fts MATCH ? ORDER BY rank LIMIT ?",
+                f"""
+                SELECT paper_id, {_FTS_BM25_EXPR} AS bm25_score
+                FROM papers_fts
+                WHERE papers_fts MATCH ?
+                ORDER BY bm25_score
+                LIMIT ?
+                """,
                 (safe_query, top_k),
             ).fetchall()
         except sqlite3.OperationalError:
@@ -845,9 +870,9 @@ def explore_search(name: str, query: str, *, top_k: int = 20, cfg: Config | None
 
     paper_map = build_papers_map(name, cfg)
     results = []
-    for pid, rank in rows:
+    for pid, bm25_score in rows:
         p = paper_map.get(pid, {})
-        results.append({**p, "score": -rank, "match": "fts"})
+        results.append({**p, "score": -bm25_score, "match": "fts"})
     return results
 
 

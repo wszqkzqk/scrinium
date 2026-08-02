@@ -412,6 +412,33 @@ _PROCEEDINGS_SEARCH_COLS = (
     "dir_name, proceeding_id, proceeding_dir, proceeding_title"
 )
 
+#: Per-column BM25 weights for the ``papers`` FTS table, in ``_SCHEMA``
+#: column order. bm25() weights are multiplicative factors: a query-term hit
+#: in a higher-weighted column contributes proportionally more to the final
+#: score (bm25 returns negative values, so ascending order = best first).
+#: Tuning rationale: a hit in the title or in curated tags is the strongest
+#: topicality signal and must dominate body-text hits; authors and journal
+#: carry provenance signal; abstract/conclusion are long body text where
+#: incidental term mentions are common; year is nearly noise. UNINDEXED
+#: columns never match, so their weight is irrelevant (pinned to 0.0).
+_BM25_WEIGHTS = (
+    0.0,  # paper_id (UNINDEXED)
+    10.0,  # title
+    5.0,  # authors
+    0.5,  # year
+    3.0,  # journal
+    2.0,  # abstract
+    1.5,  # conclusion
+    8.0,  # tags (curated)
+    0.0,  # doi (UNINDEXED)
+    0.0,  # paper_type (UNINDEXED)
+    0.0,  # citation_count (UNINDEXED)
+    0.0,  # md_path (UNINDEXED)
+)
+
+#: Pre-rendered ``bm25(papers, ...)`` rank expression for ORDER BY clauses.
+_BM25_EXPR = f"bm25(papers, {', '.join(str(w) for w in _BM25_WEIGHTS)})"
+
 
 def _reference_dois(refs: list) -> list[str]:
     """Extract DOI strings from heterogeneous reference entries.
@@ -584,7 +611,8 @@ def search(
     """FTS5 关键词全文检索。
 
     在 ``title``、``abstract``、``conclusion``、``tags`` 字段上执行 FTS5
-    MATCH，按 BM25 相关性排序返回结果。
+    MATCH，按 BM25 相关性排序返回结果。BM25 按列加权（见
+    ``_BM25_WEIGHTS``）：标题与策展标签命中的权重显著高于正文字段。
 
     Args:
         query: 检索词（多词用空格分隔，FTS5 语法）。
@@ -626,7 +654,7 @@ def search(
             SELECT {_SEARCH_COLS}
             FROM papers
             WHERE papers MATCH ?{filter_sql}
-            ORDER BY rank
+            ORDER BY {_BM25_EXPR}
             LIMIT ?
             """,
             [_safe_query(query), *filter_params, fetch_k],

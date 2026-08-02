@@ -159,3 +159,92 @@ class TestLookupPaper:
     def test_lookup_nonexistent_returns_none(self, tmp_papers, tmp_db):
         build_index(tmp_papers, tmp_db)
         assert lookup_paper(tmp_db, "nonexistent-id") is None
+
+
+class TestBm25FieldWeights:
+    """Field-weighted BM25: title/tags hits must outrank body-text hits."""
+
+    @staticmethod
+    def _write_paper(papers_dir, name, meta):
+        d = papers_dir / name
+        d.mkdir(parents=True)
+        (d / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+        (d / "paper.md").write_text("# paper\n", encoding="utf-8")
+
+    def _build_weighted_corpus(self, tmp_path, tmp_db, a_extra):
+        """Index a corpus where paper A carries 'quixotic' via ``a_extra``
+        and paper B only repeats it in the abstract.
+
+        Four filler papers keep the term's document frequency below half the
+        corpus so the BM25 IDF stays positive and ranking is meaningful.
+        """
+        papers_dir = tmp_path / "papers"
+        papers_dir.mkdir()
+        base = {"authors": ["T Tester"], "year": 2023, "journal": "", "doi": "", "paper_type": "journal-article"}
+        self._write_paper(
+            papers_dir,
+            "A-2023-Signal",
+            {
+                **base,
+                "id": "aaaa-0001",
+                "title": "A study of fluid flow",
+                "abstract": "Nothing special here.",
+                **a_extra,
+            },
+        )
+        self._write_paper(
+            papers_dir,
+            "B-2023-Body",
+            {
+                **base,
+                "id": "bbbb-0002",
+                "title": "Ordinary results",
+                "abstract": "The quixotic quixotic quixotic results are discussed in this quixotic paper.",
+            },
+        )
+        for i in range(4):
+            self._write_paper(
+                papers_dir,
+                f"Filler{i}-2023-Noise",
+                {**base, "id": f"ffff-000{i}", "title": f"Filler paper {i}", "abstract": "Unrelated filler text."},
+            )
+        build_index(papers_dir, tmp_db)
+
+    def test_title_hit_outranks_abstract_hit(self, tmp_path, tmp_db):
+        self._build_weighted_corpus(tmp_path, tmp_db, {"title": "Quixotic methods for fluid flow"})
+        ids = [r["paper_id"] for r in search("quixotic", tmp_db)]
+        assert "bbbb-0002" in ids
+        assert ids[0] == "aaaa-0001"
+
+    def test_tag_hit_outranks_abstract_hit(self, tmp_path, tmp_db):
+        self._build_weighted_corpus(tmp_path, tmp_db, {"tags": ["quixotic"]})
+        ids = [r["paper_id"] for r in search("quixotic", tmp_db)]
+        assert "bbbb-0002" in ids
+        assert ids[0] == "aaaa-0001"
+
+    def test_weights_match_papers_schema(self, tmp_papers, tmp_db):
+        from scrinium.index import _BM25_WEIGHTS
+
+        build_index(tmp_papers, tmp_db)
+        with sqlite3.connect(tmp_db) as conn:
+            col_count = len(conn.execute("PRAGMA table_info(papers)").fetchall())
+        assert len(_BM25_WEIGHTS) == col_count
+        assert all(isinstance(w, float) for w in _BM25_WEIGHTS)
+        # title (col 1) is the dominant weight, curated tags (col 7) second
+        assert _BM25_WEIGHTS[1] == max(_BM25_WEIGHTS)
+        assert _BM25_WEIGHTS[7] == sorted(_BM25_WEIGHTS, reverse=True)[1]
+
+    def test_explore_weights_match_fts_schema(self):
+        from scrinium.explore import _FTS_BM25_WEIGHTS, _FTS_SCHEMA
+
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.executescript(_FTS_SCHEMA)
+            col_count = len(conn.execute("PRAGMA table_info(papers_fts)").fetchall())
+        finally:
+            conn.close()
+        assert len(_FTS_BM25_WEIGHTS) == col_count
+        assert all(isinstance(w, float) for w in _FTS_BM25_WEIGHTS)
+        # title (col 1) dominates, abstract (col 3) next among indexed fields
+        assert _FTS_BM25_WEIGHTS[1] == max(_FTS_BM25_WEIGHTS)
+        assert _FTS_BM25_WEIGHTS[3] > 0.0
