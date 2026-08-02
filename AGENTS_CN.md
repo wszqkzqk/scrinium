@@ -160,18 +160,14 @@ Skills 定义在 `.claude/skills/` 目录，遵循 [Agent Skills](https://agents
 
 ## 多 Agent 兼容
 
-本项目同时支持多种 AI coding agent。`AGENTS.md` 是通用项目指令，也是唯一事实源。Claude Code 读取 `CLAUDE.md` 而非 `AGENTS.md`，因此 `CLAUDE.md` 是一个通过 Claude Code 的 `@` 导入机制引用 `AGENTS.md` 的极简 stub；`tests/test_instruction_files.py` 会校验该 stub 始终保持导入。
+本项目同时支持多种 AI coding agent。`AGENTS.md` 是通用项目指令，也是唯一事实源；多数 agent 已原生读取它。只有两个 agent 需要自己的入口文件，且都是极简指针（无重复内容）：Claude Code 读取 `CLAUDE.md`——一个通过 Claude Code 的 `@` 导入机制引用 `AGENTS.md` 的 stub；Qwen Code 读取 `QWEN.md`——一个指向 `AGENTS.md` 的薄指针。`tests/test_instruction_files.py` 会校验这两个指针。
 
 | Agent | 指令文件 | Skills |
 |-------|---------|--------|
 | Claude Code | `CLAUDE.md`（stub -> `@AGENTS.md` 导入） | `.claude/skills/` |
-| Codex (OpenAI) | `AGENTS.md`（本文件） | `.agents/skills/` → `.claude/skills/` |
-| OpenClaw | `AGENTS.md`（本文件） | `.agents/skills/` → `.claude/skills/` |
-| Cursor | `.cursorrules`（wrapper → 指向 `AGENTS.md`） | — |
-| Windsurf | `.windsurfrules`（wrapper → 指向 `AGENTS.md`） | — |
-| GitHub Copilot | `.github/copilot-instructions.md`（wrapper → 指向 `AGENTS.md`） | — |
-| Cline | `.clinerules`（wrapper → 指向 `AGENTS.md`） | `.claude/skills/`（原生支持） |
-| Qwen Code | `QWEN.md`（wrapper → 指向 `AGENTS.md`） | — |
+| Qwen Code | `QWEN.md`（指针 -> `AGENTS.md`） | — |
+| Codex / OpenClaw | `AGENTS.md`（原生） | `.agents/skills/` → `.claude/skills/` |
+| Cursor / Windsurf / GitHub Copilot / Cline | `AGENTS.md`（原生） | Cline 另可原生读 `.claude/skills/` |
 
 Skills 采用 [AgentSkills.io](https://agentskills.io) 开放标准（`SKILL.md` 格式）。规范位置为 `.claude/skills/`；`.agents/skills/` 是面向跨 agent 发现的符号链接，`skills/` 是面向 Claude 插件/技能系统发现的符号链接。
 

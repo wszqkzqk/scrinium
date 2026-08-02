@@ -93,10 +93,10 @@ Scrinium is designed to be **agent-agnostic**, but different agents expose diffe
 |-------------|-------------------------|-----------------------------|
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `CLAUDE.md` + `.claude/skills/` | Claude plugin marketplace |
 | [Codex](https://openai.com/codex) / OpenClaw | `AGENTS.md` + `.agents/skills/` | Symlink skills into `~/.agents/skills/` |
-| [Cline](https://github.com/cline/cline) | `.clinerules` + `.claude/skills/` | CLI + skills |
-| [Cursor](https://cursor.sh) | `.cursorrules` | CLI + skills |
-| [Windsurf](https://codeium.com/windsurf) | `.windsurfrules` | CLI + skills |
-| [GitHub Copilot](https://github.com/features/copilot) | `.github/copilot-instructions.md` | CLI + skills |
+| [Cline](https://github.com/cline/cline) | `AGENTS.md` (native) + `.claude/skills/` | CLI + skills |
+| [Cursor](https://cursor.sh) | `AGENTS.md` (native) | CLI + skills |
+| [Windsurf](https://codeium.com/windsurf) | `AGENTS.md` (native) | CLI + skills |
+| [GitHub Copilot](https://github.com/features/copilot) | `AGENTS.md` (native) | CLI + skills |
 | [Qwen Code](https://github.com/QwenLM/qwen-code) | `QWEN.md` | CLI + skills |
 
 Skills follow the open [AgentSkills.io](https://agentskills.io) standard, and `.agents/skills/` is a symlink to `.claude/skills/` so different agents can discover and reuse the same skills.

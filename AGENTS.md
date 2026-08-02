@@ -160,18 +160,14 @@ For plugin mode, see `docs/getting-started/agent-setup.md`; for configuration an
 
 ## Multi-Agent Compatibility
 
-This project supports multiple AI coding agents at the same time. `AGENTS.md` is the general project instruction file and the single source of truth. Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so `CLAUDE.md` is a minimal stub that imports `AGENTS.md` via Claude Code's `@`-import mechanism; `tests/test_instruction_files.py` verifies that the stub keeps importing it.
+This project supports multiple AI coding agents at the same time. `AGENTS.md` is the general project instruction file and the single source of truth; most agents read it natively. Only two agents need their own entry file, and both are minimal pointers (no duplicated content): Claude Code reads `CLAUDE.md`, a stub that imports `AGENTS.md` via Claude Code's `@`-import mechanism; Qwen Code reads `QWEN.md`, a thin pointer to `AGENTS.md`. `tests/test_instruction_files.py` verifies both pointers.
 
 | Agent | Instruction file | Skills |
 |-------|---------|--------|
 | Claude Code | `CLAUDE.md` (stub -> `@AGENTS.md` import) | `.claude/skills/` |
-| Codex (OpenAI) | `AGENTS.md` | `.agents/skills/` -> `.claude/skills/` |
-| OpenClaw | `AGENTS.md` | `.agents/skills/` -> `.claude/skills/` |
-| Cursor | `.cursorrules` (wrapper -> points to `AGENTS.md`) | - |
-| Windsurf | `.windsurfrules` (wrapper -> points to `AGENTS.md`) | - |
-| GitHub Copilot | `.github/copilot-instructions.md` (wrapper -> points to `AGENTS.md`) | - |
-| Cline | `.clinerules` (wrapper -> points to `AGENTS.md`) | `.claude/skills/` (natively supported) |
-| Qwen Code | `QWEN.md` (wrapper -> points to `AGENTS.md`) | - |
+| Qwen Code | `QWEN.md` (pointer -> `AGENTS.md`) | - |
+| Codex / OpenClaw | `AGENTS.md` (native) | `.agents/skills/` -> `.claude/skills/` |
+| Cursor / Windsurf / GitHub Copilot / Cline | `AGENTS.md` (native) | Cline also reads `.claude/skills/` natively |
 
 Skills follow the [AgentSkills.io](https://agentskills.io) open standard (`SKILL.md` format). The canonical location is `.claude/skills/`; `.agents/skills/` is the symlink for cross-agent discovery, and `skills/` is the symlink for Claude plugin / skill-system discovery.
 

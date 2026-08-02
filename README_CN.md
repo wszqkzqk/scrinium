@@ -94,10 +94,10 @@ Scrinium 的设计目标是 **agent 无关**，但不同 agent 的接入方式�
 | ------------------------------------------------------------- | --------------------------------- | -------------------------- |
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `CLAUDE.md` + `.claude/skills/`   | Claude 插件市场            |
 | [Codex](https://openai.com/codex) / OpenClaw                  | `AGENTS.md` + `.agents/skills/`   | 注册到 `~/.agents/skills/` |
-| [Cline](https://github.com/cline/cline)                       | `.clinerules` + `.claude/skills/` | CLI + skills               |
-| [Cursor](https://cursor.sh)                                   | `.cursorrules`                    | CLI + skills               |
-| [Windsurf](https://codeium.com/windsurf)                      | `.windsurfrules`                  | CLI + skills               |
-| [GitHub Copilot](https://github.com/features/copilot)         | `.github/copilot-instructions.md` | CLI + skills               |
+| [Cline](https://github.com/cline/cline)                       | `AGENTS.md`（原生）+ `.claude/skills/` | CLI + skills               |
+| [Cursor](https://cursor.sh)                                   | `AGENTS.md`（原生）                    | CLI + skills               |
+| [Windsurf](https://codeium.com/windsurf)                      | `AGENTS.md`（原生）                    | CLI + skills               |
+| [GitHub Copilot](https://github.com/features/copilot)         | `AGENTS.md`（原生）                    | CLI + skills               |
 | [Qwen Code](https://github.com/QwenLM/qwen-code)              | `QWEN.md`                         | CLI + skills               |
 
 Skills 遵循开放的 [AgentSkills.io](https://agentskills.io) 标准，`.agents/skills/` 是 `.claude/skills/` 的符号链接，方便不同 agent 发现和复用。
