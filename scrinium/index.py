@@ -261,12 +261,14 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
                 existing_hashes[row[0]] = row[1]
 
         count = 0
+        seen: set[str] = set()
         for pdir in iter_paper_dirs(papers_dir):
             try:
                 meta = _read_meta(pdir)
             except (ValueError, FileNotFoundError):
                 continue
             paper_id = meta.get("id") or pdir.name
+            seen.add(paper_id)
             h = _index_hash(meta)
             if not rebuild and existing_hashes.get(paper_id) == h:
                 continue  # unchanged, skip
@@ -391,6 +393,25 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
                 )
 
             count += 1
+
+        # Garbage-collect entries whose paper directory no longer exists
+        if not rebuild:
+            stale = set(existing_hashes) - seen
+            for pid in stale:
+                conn.execute("DELETE FROM papers WHERE paper_id = ?", (pid,))
+                conn.execute("DELETE FROM papers_hash WHERE paper_id = ?", (pid,))
+                conn.execute("DELETE FROM papers_registry WHERE id = ?", (pid,))
+                conn.execute("DELETE FROM paper_tags WHERE paper_id = ?", (pid,))
+                conn.execute("DELETE FROM citations WHERE source_id = ?", (pid,))
+            if stale:
+                import logging
+
+                logging.getLogger(__name__).info("removed %d stale index entries", len(stale))
+            # Drop citation links pointing at papers that no longer exist
+            conn.execute("""
+                UPDATE citations SET target_id = NULL
+                WHERE target_id IS NOT NULL AND target_id NOT IN (SELECT id FROM papers_registry)
+            """)
 
         # Bulk resolve target_id for citations where target paper is in library
         conn.execute("""

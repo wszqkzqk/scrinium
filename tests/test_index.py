@@ -51,6 +51,32 @@ class TestBuildAndSearch:
         turbulence_results = [r for r in results if "Turbulence" in r.get("title", "")]
         assert len(turbulence_results) == 1
 
+    def test_deleted_paper_is_garbage_collected(self, tmp_papers, tmp_db):
+        """Removing a paper directory must purge it from all index tables."""
+        import shutil
+        import sqlite3 as _sqlite3
+
+        build_index(tmp_papers, tmp_db)
+        victim = next(d for d in tmp_papers.iterdir() if d.is_dir())
+        import json as _json
+
+        paper_id = _json.loads((victim / "meta.json").read_text())["id"]
+        shutil.rmtree(victim)
+        build_index(tmp_papers, tmp_db)
+
+        with _sqlite3.connect(tmp_db) as conn:
+            for table, col in (
+                ("papers", "paper_id"),
+                ("papers_hash", "paper_id"),
+                ("papers_registry", "id"),
+                ("paper_tags", "paper_id"),
+                ("citations", "source_id"),
+            ):
+                n = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {col} = ?", (paper_id,)).fetchone()[0]
+                assert n == 0, f"stale row in {table}"
+        results = search("turbulence", tmp_db)
+        assert all(r["paper_id"] != paper_id for r in results)
+
     def test_build_index_accepts_reference_dicts(self, tmp_path, tmp_db):
         papers_dir = tmp_path / "papers"
         paper_dir = papers_dir / "Smith-2023-Turbulence"
