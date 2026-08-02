@@ -2,7 +2,7 @@
 name: audit
 description: Audit paper data quality in the knowledge base. Checks for missing fields, filename issues, DOI duplicates, title mismatches, and more. Supports LLM-based deep diagnosis for title mismatches and automated repair. Use when the user wants to check data quality, find problems, or fix metadata issues.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "research", "metadata", "data-quality"]
 ---
@@ -13,7 +13,7 @@ tags: ["academic", "research", "metadata", "data-quality"]
 ## 阶段一：规则化检查
 
 ```bash
-scholaraio audit [--severity error|warning|info]
+scrinium audit [--severity error|warning|info]
 ```
 
 问题按严重程度分类：
@@ -33,13 +33,13 @@ scholaraio audit [--severity error|warning|info]
 
 ```bash
 # 先 dry-run 预览
-scholaraio repair "<paper-id>" --title "正确标题" [--author "一作"] [--year YYYY] [--doi "10.xxx/..."] --dry-run
+scrinium repair "<paper-id>" --title "正确标题" [--author "一作"] [--year YYYY] [--doi "10.xxx/..."] --dry-run
 
 # 确认后执行
-scholaraio repair "<paper-id>" --title "正确标题" [--author "一作"] [--year YYYY] [--doi "10.xxx/..."] [--no-api]
+scrinium repair "<paper-id>" --title "正确标题" [--author "一作"] [--year YYYY] [--doi "10.xxx/..."] [--no-api]
 
 # 修复后重建索引
-scholaraio pipeline reindex
+scrinium pipeline reindex
 ```
 
 ## 检查规则
@@ -53,7 +53,7 @@ scholaraio pipeline reindex
 | `missing_abstract` | warning | 缺少摘要 |
 | `title_mismatch` | warning | JSON 标题与 MD H1 不一致 |
 | `nonstandard_filename` | info | 文件名不符合规范格式 |
-| `untagged` | info | 未打策展标签（可用 `/curate` 流程或 `scholaraio tag` 补充） |
+| `untagged` | info | 未打策展标签（可用 `/curate` 流程或 `scrinium tag` 补充） |
 
 ## 示例
 
@@ -70,7 +70,7 @@ scholaraio pipeline reindex
 
 - **笔记写了吗**：LLM 逐篇诊断确认的真实内容错配（非无害 H1 问题），已通过 CLI 写入对应论文的笔记：
   ```bash
-  scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <任务来源> | audit
+  scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <任务来源> | audit
   - 关键发现"
   ```
 - **修复闭环了吗**：确认的错配都已 `repair` 并执行 `pipeline reindex`，重跑 `audit` 不再复现相同问题

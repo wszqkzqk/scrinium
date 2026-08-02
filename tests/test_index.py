@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from scholaraio.index import build_index, lookup_paper, search, unified_search
+from scrinium.index import build_index, lookup_paper, search, unified_search
 
 
 class TestBuildAndSearch:
@@ -93,7 +93,7 @@ class TestBuildAndSearch:
         def boom(*_args, **_kwargs):
             raise RuntimeError("proxy unavailable")
 
-        monkeypatch.setattr("scholaraio.vectors.vsearch", boom)
+        monkeypatch.setattr("scrinium.vectors.vsearch", boom)
 
         results = unified_search("turbulence", tmp_db)
 

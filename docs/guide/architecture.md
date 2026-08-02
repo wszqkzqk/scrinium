@@ -1,6 +1,6 @@
 # Architecture
 
-This page is the architecture reference for ScholarAIO. Core behavioral instructions for agents live in `AGENTS.md` at the repository root.
+This page is the architecture reference for Scrinium. Core behavioral instructions for agents live in `AGENTS.md` at the repository root.
 
 ## Main Ingest Flow
 
@@ -53,7 +53,7 @@ This page is the architecture reference for ScholarAIO. Core behavioral instruct
 The embedding pipeline in `vectors.py` automatically adjusts batch size based on available GPU memory:
 
 1. **Initial profiling** (~10 seconds): starting from 64 tokens, it doubles step by step, measuring incremental memory usage for each length until OOM
-2. **Cache reuse**: results are written to `~/.cache/scholaraio/gpu_profile.json`, keyed by `model_name::GPU_name`; changing GPU or model triggers automatic re-profiling
+2. **Cache reuse**: results are written to `~/.cache/scrinium/gpu_profile.json`, keyed by `model_name::GPU_name`; changing GPU or model triggers automatic re-profiling
 3. **Runtime bucketing**: texts are bucketed by token length (64/128/.../16384), and each bucket interpolates an optimal batch size from the profile
 4. **OOM fallback**: on OOM, batch size is halved and retried automatically; if OOM still occurs at batch size 1, it falls back to CPU
 
@@ -184,7 +184,7 @@ Patents are ingested automatically (from the patent inbox), deduplicated by publ
 
 ## `data/duplicates/` Directory
 
-Duplicate entries left over from ingest dedup judgments (for example, items confirmed as duplicates of papers already in the library). `scholaraio pending` scans this directory together with `data/pending/` and lists its entries with the `duplicate` issue.
+Duplicate entries left over from ingest dedup judgments (for example, items confirmed as duplicates of papers already in the library). `scrinium pending` scans this directory together with `data/pending/` and lists its entries with the `duplicate` issue.
 
 ## `data/explore/` Directory
 
@@ -197,7 +197,7 @@ data/explore/<name>/
 ├── faiss_ids.json      # List of paper_ids corresponding to the FAISS index
 └── topic_model/
     ├── bertopic_model.pkl   # BERTopic model (unified format, same as main library)
-    ├── scholaraio_meta.pkl  # Additional metadata (paper_ids/metas/topics/embeddings/docs)
+    ├── scrinium_meta.pkl  # Additional metadata (paper_ids/metas/topics/embeddings/docs)
     ├── info.json            # Statistics (n_topics/n_outliers/n_papers)
     └── viz/                 # 6 HTML visualizations
 ```
@@ -211,7 +211,7 @@ tags:
     description: 分子力场相关
 ```
 
-Agent-curated tag taxonomy (see `scholaraio/tags.py`). Canonical tags with aliases and descriptions; per-paper tags live in `meta.json["tags"]`, are indexed into FTS (schema v1), and can filter searches via `--tag`. In embedding-free deployments (`embed.provider: none`), curated tags plus the citation graph replace semantic discovery ("tags as topics").
+Agent-curated tag taxonomy (see `scrinium/tags.py`). Canonical tags with aliases and descriptions; per-paper tags live in `meta.json["tags"]`, are indexed into FTS (schema v1), and can filter searches via `--tag`. In embedding-free deployments (`embed.provider: none`), curated tags plus the citation graph replace semantic discovery ("tags as topics").
 
 ## `sources/` Abstraction Layer
 

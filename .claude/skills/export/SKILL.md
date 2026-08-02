@@ -2,7 +2,7 @@
 name: export
 description: Export papers from the knowledge base to standard citation formats (BibTeX, RIS, Markdown reference list) or export any Markdown content as a Word DOCX file. Supports exporting all papers, specific papers, or filtered by year/journal. Use when the user needs citation files, wants to import into Zotero/Endnote/Mendeley, needs a reference list for writing, or wants to share a document as Word.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "bibtex", "citations", "export", "docx", "ris"]
 ---
@@ -25,33 +25,33 @@ tags: ["academic", "bibtex", "citations", "export", "docx", "ris"]
 
 ```bash
 # 导出全部论文到屏幕
-scholaraio export bibtex --all
+scrinium export bibtex --all
 
 # 导出全部论文到文件
-scholaraio export bibtex --all -o workspace/library.bib
+scrinium export bibtex --all -o workspace/library.bib
 
 # 导出指定论文（标识符支持目录名 / UUID / DOI，与 show 一致）
-scholaraio export bibtex "Smith-2023-Turbulence" "Doe-2024-DNS"
-scholaraio export bibtex "10.1038/s41467-022-28817-4"
+scrinium export bibtex "Smith-2023-Turbulence" "Doe-2024-DNS"
+scrinium export bibtex "10.1038/s41467-022-28817-4"
 
 # 按年份筛选导出
-scholaraio export bibtex --all --year 2020-2024 -o workspace/recent.bib
+scrinium export bibtex --all --year 2020-2024 -o workspace/recent.bib
 
 # 按期刊筛选导出
-scholaraio export bibtex --all --journal "Fluid Mechanics" -o workspace/jfm.bib
+scrinium export bibtex --all --journal "Fluid Mechanics" -o workspace/jfm.bib
 ```
 
 ## RIS 导出（Zotero / Endnote / Mendeley）
 
 ```bash
 # 导出全部论文
-scholaraio export ris --all -o workspace/library.ris
+scrinium export ris --all -o workspace/library.ris
 
 # 导出指定论文
-scholaraio export ris "Smith-2023-Turbulence" "Doe-2024-DNS" -o workspace/refs.ris
+scrinium export ris "Smith-2023-Turbulence" "Doe-2024-DNS" -o workspace/refs.ris
 
 # 按年份筛选
-scholaraio export ris --all --year 2022-2024 -o workspace/recent.ris
+scrinium export ris --all --year 2022-2024 -o workspace/recent.ris
 ```
 
 导出后可直接在 Zotero 中：File → Import → 选择 .ris 文件
@@ -70,28 +70,28 @@ scholaraio export ris --all --year 2022-2024 -o workspace/recent.ris
 
 ```bash
 # 导出全部论文（APA 风格，默认）
-scholaraio export markdown --all
+scrinium export markdown --all
 
 # 指定引用格式
-scholaraio export markdown --all --style vancouver
-scholaraio export markdown --all --style chicago-author-date
-scholaraio export markdown --all --style jcp        # 自定义格式
+scrinium export markdown --all --style vancouver
+scrinium export markdown --all --style chicago-author-date
+scrinium export markdown --all --style jcp        # 自定义格式
 
 # 导出到文件
-scholaraio export markdown --all --style apa -o workspace/references.md
+scrinium export markdown --all --style apa -o workspace/references.md
 
 # 无序列表
-scholaraio export markdown --all --bullet
+scrinium export markdown --all --bullet
 
 # 按年份筛选
-scholaraio export markdown --all --year 2020-2024 -o workspace/recent_refs.md
+scrinium export markdown --all --year 2020-2024 -o workspace/recent_refs.md
 ```
 
 ### 查看可用格式
 
 ```bash
-scholaraio style list           # 列出全部格式（内置 + 自定义）
-scholaraio style show jcp       # 查看某个自定义格式的代码
+scrinium style list           # 列出全部格式（内置 + 自定义）
+scrinium style show jcp       # 查看某个自定义格式的代码
 ```
 
 ---
@@ -118,7 +118,7 @@ def format_ref(meta: dict, idx: int | None = None) -> str:
 
 1. **检查是否已有缓存**
    ```bash
-   scholaraio style list
+   scrinium style list
    ```
    如果已有 `jcp` 或目标格式名，直接跳到第 4 步。
 
@@ -135,7 +135,7 @@ def format_ref(meta: dict, idx: int | None = None) -> str:
 
 4. **导出**
    ```bash
-   scholaraio export markdown --all --style <name> -o workspace/refs.md
+   scrinium export markdown --all --style <name> -o workspace/refs.md
    ```
 
 ### 示例：JCP 格式文件（data/citation_styles/jcp.py）
@@ -195,13 +195,13 @@ def format_ref(meta: dict, idx: int | None = None) -> str:
 
 ```bash
 # 将 Markdown 文件导出为 Word
-scholaraio export docx --input workspace/literature_review.md --output workspace/review.docx
+scrinium export docx --input workspace/literature_review.md --output workspace/review.docx
 
 # 添加文档标题
-scholaraio export docx --input workspace/report.md --output workspace/report.docx --title "研究报告"
+scrinium export docx --input workspace/report.md --output workspace/report.docx --title "研究报告"
 
 # 从 stdin 读取（配合 Claude 生成内容直接导出）
-echo "# 标题\n内容..." | scholaraio export docx --output workspace/doc.docx
+echo "# 标题\n内容..." | scrinium export docx --output workspace/doc.docx
 ```
 
 支持的 Markdown 元素：标题（H1-H9）、段落、**粗体**、*斜体*、列表、表格、代码块、引用块

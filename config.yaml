@@ -1,4 +1,8 @@
-# ScholarAIO configuration 配置文件
+# Scrinium configuration 配置文件
+#
+# 全局配置位置 Global config: ~/.scrinium/config.yaml
+#   （旧目录 ~/.scholaraio/config.yaml 仍兼容读取，会提示迁移）
+# 所有 SCRINIUM_* 环境变量的旧名 SCHOLARAIO_* 仍兼容（deprecated，命中时告警）。
 
 paths:
   papers_dir: data/papers # Ingested papers directory 已入库论文目录
@@ -7,7 +11,7 @@ paths:
 # LLM backend LLM 后端配置
 # Put api_key in config.local.yaml (gitignored) or use env vars:
 # 敏感信息（api_key）放 config.local.yaml（不进 git），或用环境变量：
-#   SCHOLARAIO_LLM_API_KEY (通用) 或按 backend 自动查找对应环境变量：
+#   SCRINIUM_LLM_API_KEY (通用) 或按 backend 自动查找对应环境变量：
 #   openai-compat: DEEPSEEK_API_KEY / OPENAI_API_KEY
 #   anthropic:     ANTHROPIC_API_KEY
 #   google:        GOOGLE_API_KEY / GEMINI_API_KEY
@@ -76,8 +80,9 @@ ingest:
 # provider=none disables embeddings: vsearch/usearch lose the semantic leg
 # (keyword-only) and topics models cannot be built/rebuilt.
 # provider=none 禁用向量：vsearch/usearch 失去语义腿（退化为纯关键词），topics 无法构建/重建。
-# Env overrides 环境变量覆盖: SCHOLARAIO_EMBED_PROVIDER / SCHOLARAIO_EMBED_MODEL /
-#   SCHOLARAIO_EMBED_CACHE_DIR / SCHOLARAIO_EMBED_API_BASE / SCHOLARAIO_EMBED_API_KEY
+# Env overrides 环境变量覆盖: SCRINIUM_EMBED_PROVIDER / SCRINIUM_EMBED_MODEL /
+#   SCRINIUM_EMBED_CACHE_DIR / SCRINIUM_EMBED_API_BASE / SCRINIUM_EMBED_API_KEY
+#   （旧名 SCHOLARAIO_EMBED_* 仍兼容，deprecated）
 embed:
   provider: local # local | openai-compat | none
   model: Qwen/Qwen3-Embedding-0.6B
@@ -85,9 +90,9 @@ embed:
   device: auto # auto | cpu | cuda
   top_k: 10 # vsearch default results vsearch 默认返回条数
   source: modelscope # modelscope (China) | huggingface (international) 模型下载源
-  hf_endpoint: null # optional HuggingFace mirror endpoint (env SCHOLARAIO_HF_ENDPOINT > HF_ENDPOINT)
+  hf_endpoint: null # optional HuggingFace mirror endpoint (env SCRINIUM_HF_ENDPOINT > HF_ENDPOINT)
   api_base: null # OpenAI-compatible endpoint, e.g. https://api.openai.com/v1
-  api_key: null # -> config.local.yaml or env SCHOLARAIO_EMBED_API_KEY
+  api_key: null # -> config.local.yaml or env SCRINIUM_EMBED_API_KEY
   api_timeout: 30
   batch_size: 64
   max_retries: 3
@@ -98,7 +103,7 @@ search:
 # Logging & metrics 日志与指标
 logging:
   level: INFO
-  file: data/scholaraio.log
+  file: data/scrinium.log
   max_bytes: 10000000 # 10 MB, rotate on overflow 超出轮转
   backup_count: 3
   metrics_db: data/metrics.db

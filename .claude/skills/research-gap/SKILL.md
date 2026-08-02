@@ -2,7 +2,7 @@
 name: research-gap
 description: Identify research gaps and open questions from the literature in a workspace. Combines topic clustering, citation analysis, and cross-paper comparison. Use when the user wants to find unexplored areas, formulate research questions, or assess where the field is heading.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "research", "gap-analysis", "discovery"]
 ---
@@ -22,8 +22,8 @@ tags: ["academic", "research", "gap-analysis", "discovery"]
 ### 1. 全局扫描
 
 ```bash
-scholaraio ws show <name>                    # 论文列表
-scholaraio topics                             # 主题聚类（如已建模）
+scrinium ws show <name>                    # 论文列表
+scrinium topics                             # 主题聚类（如已建模）
 ```
 
 对工作区论文做 L2 扫描（标题 + 摘要），建立领域地图。`show` 命令会自动展示已有的 `notes.md` 历史笔记，优先复用已有发现。
@@ -32,8 +32,8 @@ scholaraio topics                             # 主题聚类（如已建模）
 
 #### 维度 1：主题覆盖度
 ```bash
-scholaraio topics                             # 全库主题分布
-scholaraio topics --topic <ID>                # 各主题下的论文
+scrinium topics                             # 全库主题分布
+scrinium topics --topic <ID>                # 各主题下的论文
 ```
 工作区论文是否集中在某几个主题？哪些相关主题缺乏覆盖？
 
@@ -48,7 +48,7 @@ scholaraio topics --topic <ID>                # 各主题下的论文
 #### 维度 3：方法论对比
 扫描工作区论文的方法部分（L3-L4），绘制方法论矩阵：
 ```bash
-scholaraio show <paper-id> --layer 3          # 结论中通常提及方法
+scrinium show <paper-id> --layer 3          # 结论中通常提及方法
 ```
 - 哪些方法被广泛使用？
 - 哪些方法组合尚未被尝试？
@@ -56,9 +56,9 @@ scholaraio show <paper-id> --layer 3          # 结论中通常提及方法
 
 #### 维度 4：引用图谱空洞
 ```bash
-scholaraio shared-refs "<id1>" "<id2>"        # 共同引用
-scholaraio refs "<id>"                        # 参考文献
-scholaraio citing "<id>"                      # 被引论文
+scrinium shared-refs "<id1>" "<id2>"        # 共同引用
+scrinium refs "<id>"                        # 参考文献
+scrinium citing "<id>"                      # 被引论文
 ```
 - 哪些论文互相引用但观点矛盾？（未解决的争议）
 - 哪些论文被大量引用但缺乏后续验证/复现？
@@ -67,11 +67,11 @@ scholaraio citing "<id>"                      # 被引论文
 #### 维度 5：论文自述的 Future Work
 加载工作区中高引论文的 L3（结论），提取作者自己提出的未来方向：
 ```bash
-scholaraio show <paper-id> --layer 3
+scrinium show <paper-id> --layer 3
 ```
 这些 future work 是否已有人做了？交叉搜索验证：
 ```bash
-scholaraio usearch "<future work 关键词>"
+scrinium usearch "<future work 关键词>"
 ```
 
 ### 3. 输出报告
@@ -102,7 +102,7 @@ scholaraio usearch "<future work 关键词>"
 
 **分析笔记持久化**：对深度分析过的论文，**必须**通过 CLI 将关键发现写入笔记：
 ```bash
-scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | research-gap
+scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | research-gap
 - 关键发现"
 ```
 

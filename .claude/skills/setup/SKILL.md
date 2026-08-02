@@ -1,24 +1,24 @@
 ---
 name: setup
-description: Initialize and diagnose the ScholarAIO environment. Run interactive setup wizard (bilingual EN/ZH) to install dependencies, create config files, and configure API keys. Run status check to see what's installed and what's missing. Use when the user wants to set up, install, configure, or troubleshoot ScholarAIO.
+description: Initialize and diagnose the Scrinium environment. Run interactive setup wizard (bilingual EN/ZH) to install dependencies, create config files, and configure API keys. Run status check to see what's installed and what's missing. Use when the user wants to set up, install, configure, or troubleshoot Scrinium.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["setup", "configuration", "installation"]
 ---
 # Setup / 环境配置
 
-当用户需要配置、安装、初始化 ScholarAIO 时，按以下流程操作：
+当用户需要配置、安装、初始化 Scrinium 时，按以下流程操作：
 
 ## 1. 诊断当前状态
 
 ```bash
-scholaraio setup check --lang zh
+scrinium setup check --lang zh
 ```
 
 阅读输出，了解哪些组件已就绪、哪些缺失。
 如果用户明确是在让 agent 代为配置，而不是自己逐步操作：
-- 默认先跑 `scholaraio setup check --lang zh`
+- 默认先跑 `scrinium setup check --lang zh`
 - 优先利用检查输出中的错误说明和建议链接，直接继续下一步配置
 - 只有在会影响后续决策时，才回头问用户一个关键问题
 - 对失败项要用“现状 + 原因 + 建议动作”的方式转述，不要只说“没装”或“不可达”
@@ -57,11 +57,11 @@ scholaraio setup check --lang zh
 - 运行 `pip install -e ".[full]"` 或按需安装
 
 ### config.yaml 缺失
-- 运行 `scholaraio setup` 交互式向导自动创建
+- 运行 `scrinium setup` 交互式向导自动创建
 - 或者直接帮用户创建（默认配置即可）
 
 ### API key 未配置
-- **LLM key**（DeepSeek / OpenAI / Anthropic / Google）：问用户是否有。没有也能用，但元数据提取降级为纯正则、enrich 不可用。要明确说明：**这通常由所选提供商单独计费，不要默认认为 coding agent 订阅会自动覆盖 ScholarAIO 的 API 调用**
+- **LLM key**（DeepSeek / OpenAI / Anthropic / Google）：问用户是否有。没有也能用，但元数据提取降级为纯正则、enrich 不可用。要明确说明：**这通常由所选提供商单独计费，不要默认认为 coding agent 订阅会自动覆盖 Scrinium 的 API 调用**
 - **PDF 解析器选择**：先问用户想用 `MinerU` 还是 `Docling`
 - 如果用户已经明确知道要用哪个解析器，**不要替用户改主意**，直接按用户选择继续配置
 - 如果用户不知道选哪个：
@@ -91,7 +91,7 @@ scholaraio setup check --lang zh
 - `Zotero API key`
   - 用途：走 Zotero Web API 导入
   - 何时需要：用户明确要用 `import-zotero` 的 Web API 路径，而不是本地 `zotero.sqlite`
-  - 补充说明：Zotero 官方允许对**公开库**做匿名只读访问，但 ScholarAIO 当前的 Web API 导入路径按“提供 key”设计；如果用户不想配 key，优先建议本地 `zotero.sqlite` 导入
+  - 补充说明：Zotero 官方允许对**公开库**做匿名只读访问，但 Scrinium 当前的 Web API 导入路径按“提供 key”设计；如果用户不想配 key，优先建议本地 `zotero.sqlite` 导入
   - 做法：写入 `zotero.api_key` 或环境变量 `ZOTERO_API_KEY`
   - 开销：**按第三方政策**
 - 自定义 LLM backend / model / base_url
@@ -103,11 +103,11 @@ scholaraio setup check --lang zh
 ### MinerU 高级字段约束
 - 对用户暴露时，默认坚持“能不改就不改”，优先开箱即用
 - `mineru_model_version_cloud`
-  - ScholarAIO 当前是 PDF 解析场景，云端只建议 `pipeline` 或 `vlm`
+  - Scrinium 当前是 PDF 解析场景，云端只建议 `pipeline` 或 `vlm`
   - 不要引导用户设置 `MinerU-HTML`；那是 HTML 解析专用，不是 PDF 默认路径
 - `mineru_parse_method`
   - 对云端精准解析 API，不存在通用的 `parse_method` 请求字段
-  - ScholarAIO 只在用户明确要求 `ocr` 时映射为官方 `file.is_ocr=true`
+  - Scrinium 只在用户明确要求 `ocr` 时映射为官方 `file.is_ocr=true`
   - `auto` / `txt` 默认都按“不强制 OCR”处理，不要过度解释成不同云端模式
 - `mineru_enable_formula` / `mineru_enable_table` / `mineru_lang`
   - 这些字段只对 `pipeline` / `vlm` 有效
@@ -130,7 +130,7 @@ scholaraio setup check --lang zh
   - 至少提供 `pip install docling`，以及 Linux CPU-only 场景的官方安装示例
 
 ### 能写成代码的优先写成代码
-- `scholaraio setup` 里应尽量直接实现：
+- `scrinium setup` 里应尽量直接实现：
   - 网络可达性探测
   - 解析器推荐逻辑
   - MinerU 本地/云端分流提问
@@ -172,14 +172,14 @@ setup 过程中，agent 不要只说“需要 key”，必须同时说明：
 - `Zotero API key`：用于当前的 Zotero Web API 导入路径；不配就改走本地 `zotero.sqlite`
 
 ### 目录不存在
-- 运行 `scholaraio setup check` 后如果目录缺失，运行任意 scholaraio 命令会自动创建（`ensure_dirs()`）
+- 运行 `scrinium setup check` 后如果目录缺失，运行任意 scrinium 命令会自动创建（`ensure_dirs()`）
 
 ## 3. 验证
 
-配置完成后再次运行 `scholaraio setup check` 确认所有项目 [OK]。
+配置完成后再次运行 `scrinium setup check` 确认所有项目 [OK]。
 
 ## 注意
 
-- 用户也可以直接运行 `scholaraio setup` 进入交互式向导（bilingual EN/ZH）
+- 用户也可以直接运行 `scrinium setup` 进入交互式向导（bilingual EN/ZH）
 - `config.local.yaml` 存放敏感信息（API key），不进 git
 - 嵌入模型（~1.2GB）会在首次 embed/vsearch 时自动下载，setup 不触发下载

@@ -2,7 +2,7 @@
 name: explore
 description: Explore literature by fetching papers from OpenAlex with multi-dimensional filters (ISSN, concept, author, institution, keyword, etc.), building local embeddings, running BERTopic clustering, and multi-mode search (semantic/keyword/unified). Data is isolated in data/explore/<name>/. Use when the user wants to survey a journal, explore a research field, analyze an author's output, or do landscape analysis.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "research", "literature", "discovery", "openalex"]
 ---
@@ -28,25 +28,25 @@ explore 库的语义能力依赖嵌入后端（`embed.provider: local` 或 `open
 
 ```bash
 # 按期刊 ISSN
-scholaraio explore fetch --issn <ISSN> --name <名称> [--year-range <起-止>]
+scrinium explore fetch --issn <ISSN> --name <名称> [--year-range <起-止>]
 
 # 按研究概念
-scholaraio explore fetch --concept <OpenAlex-concept-ID> --name <名称>
+scrinium explore fetch --concept <OpenAlex-concept-ID> --name <名称>
 
 # 按作者
-scholaraio explore fetch --author <OpenAlex-author-ID> --name <名称>
+scrinium explore fetch --author <OpenAlex-author-ID> --name <名称>
 
 # 按机构
-scholaraio explore fetch --institution <OpenAlex-institution-ID> --name <名称>
+scrinium explore fetch --institution <OpenAlex-institution-ID> --name <名称>
 
 # 按关键词
-scholaraio explore fetch --keyword "acoustic metamaterial" --name <名称>
+scrinium explore fetch --keyword "acoustic metamaterial" --name <名称>
 
 # 多维组合 + 高引过滤
-scholaraio explore fetch --institution I123 --year-range 2020-2025 --min-citations 50 --name <名称>
+scrinium explore fetch --institution I123 --year-range 2020-2025 --min-citations 50 --name <名称>
 
 # 增量更新（追加新论文，DOI 去重）
-scholaraio explore fetch --issn 0022-1120 --name jfm --incremental
+scrinium explore fetch --issn 0022-1120 --name jfm --incremental
 ```
 
 全部过滤参数：
@@ -72,48 +72,48 @@ scholaraio explore fetch --issn 0022-1120 --name jfm --incremental
 ### 生成嵌入
 
 ```bash
-scholaraio explore embed --name <名称> [--rebuild]
+scrinium explore embed --name <名称> [--rebuild]
 ```
 
 ### 主题聚类
 
 ```bash
-scholaraio explore topics --name <名称> --build
-scholaraio explore topics --name <名称> --rebuild --nr-topics <N>
-scholaraio explore topics --name <名称>
-scholaraio explore topics --name <名称> --topic <ID> [--top N]
+scrinium explore topics --name <名称> --build
+scrinium explore topics --name <名称> --rebuild --nr-topics <N>
+scrinium explore topics --name <名称>
+scrinium explore topics --name <名称> --topic <ID> [--top N]
 ```
 
 ### 搜索（三种模式）
 
 ```bash
 # 语义搜索（默认）
-scholaraio explore search --name <名称> "<查询词>" [--top N]
+scrinium explore search --name <名称> "<查询词>" [--top N]
 
 # 关键词搜索（FTS5）
-scholaraio explore search --name <名称> "<查询词>" --mode keyword
+scrinium explore search --name <名称> "<查询词>" --mode keyword
 
 # 融合搜索（语义 + 关键词 RRF 排序）
-scholaraio explore search --name <名称> "<查询词>" --mode unified
+scrinium explore search --name <名称> "<查询词>" --mode unified
 ```
 
 ### 生成可视化
 
 ```bash
-scholaraio explore viz --name <名称>
+scrinium explore viz --name <名称>
 ```
 
 ### 列出所有探索库
 
 ```bash
-scholaraio explore list
+scrinium explore list
 ```
 
 ### 查看探索库信息
 
 ```bash
-scholaraio explore info
-scholaraio explore info --name <名称>
+scrinium explore info
+scrinium explore info --name <名称>
 ```
 
 对于全新探索库，完整流程是：fetch → embed → topics --build → viz

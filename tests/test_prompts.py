@@ -1,4 +1,4 @@
-"""Tests for scholaraio.prompts — registry integrity and the parse_llm_json contract.
+"""Tests for scrinium.prompts — registry integrity and the parse_llm_json contract.
 
 Golden tests only: no LLM calls. Prompt rendering compatibility with the
 pre-refactor inline strings is verified separately (byte-identical renders);
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from scholaraio.prompts import (
+from scrinium.prompts import (
     DETECT_TYPE_PARAMS,
     PROMPTS,
     Prompt,
@@ -144,19 +144,19 @@ class TestCallSiteDelegates:
     """Thin compatibility wrappers delegate to parse_llm_json."""
 
     def test_pipeline_parse_detect_json(self):
-        from scholaraio.ingest.pipeline import _parse_detect_json
+        from scrinium.ingest.pipeline import _parse_detect_json
 
         assert _parse_detect_json('```json\n{"is_book": true}\n```') == {"is_book": True}
         assert _parse_detect_json("garbage") == {}
 
     def test_doc_extract_parse_llm_response(self):
-        from scholaraio.ingest.metadata._doc_extract import _parse_llm_response
+        from scrinium.ingest.metadata._doc_extract import _parse_llm_response
 
         assert _parse_llm_response('prefix {"title": "T"} suffix') == {"title": "T"}
         assert _parse_llm_response("garbage") == {}
 
     def test_loader_parse_json_raises_on_failure(self):
-        from scholaraio.loader import _parse_json
+        from scrinium.loader import _parse_json
 
         assert _parse_json('{"line": 3}') == {"line": 3}
         with pytest.raises(ValueError):

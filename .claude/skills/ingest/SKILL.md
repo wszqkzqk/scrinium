@@ -2,7 +2,7 @@
 name: ingest
 description: Use when the user wants to process new papers, patents, theses, documents, or proceedings from inbox into the knowledge base via the ingest pipeline. For rebuilding search indexes without ingesting inbox items, see the /index skill.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "papers", "patent", "pipeline", "pdf", "docx", "office"]
 ---
@@ -35,7 +35,7 @@ tags: ["academic", "papers", "patent", "pipeline", "pdf", "docx", "office"]
 2. 执行流水线命令：
 
 ```bash
-scholaraio pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
+scrinium pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
 ```
 
 可用预设：`full` | `ingest` | `enrich` | `reindex`
@@ -63,12 +63,12 @@ scholaraio pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
    - 如果用户问“为什么标题 / 作者 / DOI 提取不准”，先检查这里的模式配置
 
 5. 论文集（proceedings）采用半自动两阶段流程：
-   - 第一阶段：`scholaraio pipeline ingest` 只负责把 PDF/MD 转成 `data/proceedings/<Volume>/proceeding.md`，并生成 `split_candidates.json`
+   - 第一阶段：`scrinium pipeline ingest` 只负责把 PDF/MD 转成 `data/proceedings/<Volume>/proceeding.md`，并生成 `split_candidates.json`
    - 此时不会自动拆成子论文；CLI 会显式提示等待 agent 审阅 `split_candidates.json` 并生成 `split_plan.json`
    - 第二阶段：由 agent/人工审阅结构后，执行
 
 ```bash
-scholaraio proceedings apply-split <proceeding_dir> <split_plan.json>
+scrinium proceedings apply-split <proceeding_dir> <split_plan.json>
 ```
 
    - 这一步才会真正把子论文落到 `data/proceedings/<Volume>/papers/<Paper>/`
@@ -77,7 +77,7 @@ scholaraio proceedings apply-split <proceeding_dir> <split_plan.json>
    - 先执行
 
 ```bash
-scholaraio proceedings build-clean-candidates <proceeding_dir>
+scrinium proceedings build-clean-candidates <proceeding_dir>
 ```
 
    - 该命令会生成 `clean_candidates.json`，用于汇总每个 child paper 的开头窗口、heading、缺失字段和结构信号
@@ -85,7 +85,7 @@ scholaraio proceedings build-clean-candidates <proceeding_dir>
    - 最后执行
 
 ```bash
-scholaraio proceedings apply-clean <proceeding_dir> <clean_plan.json>
+scrinium proceedings apply-clean <proceeding_dir> <clean_plan.json>
 ```
 
    - 第一版支持的清洗动作是 `keep` / `rename` / `reclassify` / `drop`
@@ -113,7 +113,7 @@ scholaraio proceedings apply-clean <proceeding_dir> <clean_plan.json>
      - 提取到 arXiv ID → 标记为 preprint 并入库
      - 三者都不是 → 转入 `data/pending/` 待人工确认
 
-10. 待确认项查看：ingest 结束后若有 pending / duplicate 条目，运行 `scholaraio pending` 查看清单（按 issue 分组，含标题、duplicate_of 和处理建议）。处理 pending 是 ingest 工作流的一部分——入库操作后应主动检查一次。
+10. 待确认项查看：ingest 结束后若有 pending / duplicate 条目，运行 `scrinium pending` 查看清单（按 issue 分组，含标题、duplicate_of 和处理建议）。处理 pending 是 ingest 工作流的一部分——入库操作后应主动检查一次。
 
 11. 超长 PDF 会在 MinerU 转换前按需自动切分后合并：
    - 本地 MinerU 按 `chunk_page_limit`（默认 >100 页）
@@ -142,7 +142,7 @@ scholaraio proceedings apply-clean <proceeding_dir> <clean_plan.json>
 → 执行 `pipeline ingest`（自动处理五个 inbox 目录，专利按公开号去重）
 
 用户说："我有一本文集放在 inbox-proceedings 里"
-→ 先执行 `pipeline ingest`，等生成 `split_candidates.json` 后由 agent 审阅，再执行 `scholaraio proceedings apply-split ...`
+→ 先执行 `pipeline ingest`，等生成 `split_candidates.json` 后由 agent 审阅，再执行 `scrinium proceedings apply-split ...`
 
 用户说："重新建索引"
 → 执行 `pipeline reindex`

@@ -1,10 +1,10 @@
-"""Tests for scholaraio.citation_styles — APA, Vancouver, Chicago, MLA formatting."""
+"""Tests for scrinium.citation_styles — APA, Vancouver, Chicago, MLA formatting."""
 
 from __future__ import annotations
 
 import pytest
 
-from scholaraio.citation_styles import (
+from scrinium.citation_styles import (
     BUILTIN_STYLES,
     _fmt_apa,
     _fmt_chicago_author_date,
@@ -15,7 +15,7 @@ from scholaraio.citation_styles import (
     show_style,
     styles_dir,
 )
-from scholaraio.config import _build_config
+from scrinium.config import _build_config
 
 
 @pytest.fixture()

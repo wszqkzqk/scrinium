@@ -5,7 +5,7 @@
 Place PDFs in `data/inbox/` and run the pipeline:
 
 ```bash
-scholaraio pipeline ingest
+scrinium pipeline ingest
 ```
 
 This will:
@@ -28,17 +28,17 @@ If `translate.auto_translate: true` is enabled in config, the pipeline will also
 | Patents | `data/inbox-patent/` | Extracts publication number and deduplicates as patent |
 | Documents | `data/inbox-doc/` | Skips DOI check, LLM-generated title/abstract |
 
-Proceedings are only routed from the dedicated `data/inbox-proceedings/` path. Regular `data/inbox/` items always stay on the normal paper/document flow unless you move them into the proceedings inbox explicitly. Child papers are written under `data/proceedings/<Volume>/papers/` only after you review the split and run `scholaraio proceedings apply-split`.
+Proceedings are only routed from the dedicated `data/inbox-proceedings/` path. Regular `data/inbox/` items always stay on the normal paper/document flow unless you move them into the proceedings inbox explicitly. Child papers are written under `data/proceedings/<Volume>/papers/` only after you review the split and run `scrinium proceedings apply-split`.
 
 ## Proceedings Search
 
 Proceedings child papers are not included in default main-library search. Use federated search when you want them:
 
 ```bash
-scholaraio fsearch granular damping --scope proceedings
+scrinium fsearch granular damping --scope proceedings
 ```
 
-ScholarAIO prefers MinerU when available, but the live ingest path does not depend on MinerU alone. If MinerU is unavailable or fails, the fallback parser chain is `Docling -> PyMuPDF`.
+Scrinium prefers MinerU when available, but the live ingest path does not depend on MinerU alone. If MinerU is unavailable or fails, the fallback parser chain is `Docling -> PyMuPDF`.
 
 ## Skip PDF Parsing
 
@@ -52,10 +52,10 @@ Papers without DOI (that aren't theses) go to `data/pending/` for manual review.
 
 ```bash
 # From Endnote
-scholaraio import-endnote library.xml
+scrinium import-endnote library.xml
 
 # From Zotero
-scholaraio import-zotero --api-key KEY --library-id ID
+scrinium import-zotero --api-key KEY --library-id ID
 ```
 
 ## Metadata Maintenance
@@ -64,12 +64,12 @@ After papers are already in `data/papers/`, the metadata subpackage also powers 
 
 ```bash
 # Backfill missing abstracts from paper.md, with optional DOI-page fetch
-scholaraio backfill-abstract
-scholaraio backfill-abstract --doi-fetch
+scrinium backfill-abstract
+scrinium backfill-abstract --doi-fetch
 
 # Re-fetch citation counts and bibliographic details from APIs
-scholaraio refetch --all
-scholaraio refetch "<paper-id>"
+scrinium refetch --all
+scrinium refetch "<paper-id>"
 ```
 
 - `backfill-abstract` fills missing abstracts from local Markdown, and can prefer official publisher abstracts when `--doi-fetch` is enabled.

@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from scholaraio.ingest.metadata._api import query_semantic_scholar
-from scholaraio.ingest.metadata._models import PaperMetadata
-from scholaraio.ingest.pipeline import (
+from scrinium.ingest.metadata._api import query_semantic_scholar
+from scrinium.ingest.metadata._models import PaperMetadata
+from scrinium.ingest.pipeline import (
     InboxCtx,
     StepResult,
     _collect_existing_ids,
@@ -18,7 +18,7 @@ from scholaraio.ingest.pipeline import (
     step_office_convert,
     step_translate,
 )
-from scholaraio.translate import SKIP_ALL_CHUNKS_FAILED, TranslateResult
+from scrinium.translate import SKIP_ALL_CHUNKS_FAILED, TranslateResult
 
 
 class _DummyResponse:
@@ -42,7 +42,7 @@ def test_query_semantic_scholar_encodes_old_style_arxiv_id(monkeypatch):
         seen["url"] = url
         return _DummyResponse()
 
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.SESSION.get", fake_get)
+    monkeypatch.setattr("scrinium.ingest.metadata._api.SESSION.get", fake_get)
 
     query_semantic_scholar(arxiv_id="hep-th/9901001")
 
@@ -61,7 +61,7 @@ def test_query_semantic_scholar_encodes_doi_path_segment(monkeypatch):
         seen["url"] = url
         return _DummyResponse()
 
-    monkeypatch.setattr("scholaraio.ingest.metadata._api.SESSION.get", fake_get)
+    monkeypatch.setattr("scrinium.ingest.metadata._api.SESSION.get", fake_get)
 
     query_semantic_scholar(doi="10.1017/S0022112094000431")
 
@@ -100,10 +100,10 @@ def test_step_dedup_rejects_duplicate_arxiv_only_preprint(tmp_path: Path, monkey
     existing_json.parent.mkdir(parents=True)
     existing_json.write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr("scholaraio.ingest.metadata.enrich_metadata", lambda meta: meta)
-    monkeypatch.setattr("scholaraio.ingest.pipeline._detect_patent", lambda ctx: False)
-    monkeypatch.setattr("scholaraio.ingest.pipeline._detect_thesis", lambda ctx: False)
-    monkeypatch.setattr("scholaraio.ingest.pipeline._detect_book", lambda ctx: False)
+    monkeypatch.setattr("scrinium.ingest.metadata.enrich_metadata", lambda meta: meta)
+    monkeypatch.setattr("scrinium.ingest.pipeline._detect_patent", lambda ctx: False)
+    monkeypatch.setattr("scrinium.ingest.pipeline._detect_thesis", lambda ctx: False)
+    monkeypatch.setattr("scrinium.ingest.pipeline._detect_book", lambda ctx: False)
 
     moved: dict[str, object] = {}
 
@@ -111,7 +111,7 @@ def test_step_dedup_rejects_duplicate_arxiv_only_preprint(tmp_path: Path, monkey
         moved["issue"] = issue
         moved["extra"] = extra or {}
 
-    monkeypatch.setattr("scholaraio.ingest.pipeline._move_to_pending", fake_move_to_pending)
+    monkeypatch.setattr("scrinium.ingest.pipeline._move_to_pending", fake_move_to_pending)
 
     ctx = InboxCtx(
         pdf_path=None,
@@ -148,15 +148,15 @@ def test_step_dedup_rejects_duplicate_when_existing_preprint_has_only_arxiv_id_b
     existing_json.parent.mkdir(parents=True)
     existing_json.write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr("scholaraio.ingest.pipeline._detect_patent", lambda ctx: False)
-    monkeypatch.setattr("scholaraio.ingest.pipeline._detect_thesis", lambda ctx: False)
-    monkeypatch.setattr("scholaraio.ingest.pipeline._detect_book", lambda ctx: False)
+    monkeypatch.setattr("scrinium.ingest.pipeline._detect_patent", lambda ctx: False)
+    monkeypatch.setattr("scrinium.ingest.pipeline._detect_thesis", lambda ctx: False)
+    monkeypatch.setattr("scrinium.ingest.pipeline._detect_book", lambda ctx: False)
 
     def fake_enrich(meta):
         meta.doi = "10.1000/test-preprint"
         return meta
 
-    monkeypatch.setattr("scholaraio.ingest.metadata.enrich_metadata", fake_enrich)
+    monkeypatch.setattr("scrinium.ingest.metadata.enrich_metadata", fake_enrich)
 
     moved: dict[str, object] = {}
 
@@ -164,7 +164,7 @@ def test_step_dedup_rejects_duplicate_when_existing_preprint_has_only_arxiv_id_b
         moved["issue"] = issue
         moved["extra"] = extra or {}
 
-    monkeypatch.setattr("scholaraio.ingest.pipeline._move_to_pending", fake_move_to_pending)
+    monkeypatch.setattr("scrinium.ingest.pipeline._move_to_pending", fake_move_to_pending)
 
     ctx = InboxCtx(
         pdf_path=None,
@@ -194,13 +194,13 @@ def test_step_dedup_rejects_duplicate_when_existing_preprint_has_only_arxiv_id_b
     }
 
 
-def test_step_office_convert_reports_scholaraio_office_extra(tmp_path: Path, monkeypatch):
+def test_step_office_convert_reports_scrinium_office_extra(tmp_path: Path, monkeypatch):
     office_path = tmp_path / "report.docx"
     office_path.write_text("dummy", encoding="utf-8")
 
     errors: list[str] = []
     monkeypatch.setattr(
-        "scholaraio.ingest.pipeline._log.error", lambda msg, *args: errors.append(msg % args if args else msg)
+        "scrinium.ingest.pipeline._log.error", lambda msg, *args: errors.append(msg % args if args else msg)
     )
 
     import builtins
@@ -227,7 +227,7 @@ def test_step_office_convert_reports_scholaraio_office_extra(tmp_path: Path, mon
 
     assert result == StepResult.FAIL
     assert ctx.status == "failed"
-    assert any("pip install scholaraio[office]" in msg for msg in errors)
+    assert any("pip install scrinium[office]" in msg for msg in errors)
 
 
 def test_step_extract_labels_arxiv_id_as_generic_id(tmp_path: Path, monkeypatch):
@@ -245,8 +245,8 @@ def test_step_extract_labels_arxiv_id_as_generic_id(tmp_path: Path, monkeypatch)
                 arxiv_id="hep-th/9901001",
             )
 
-    monkeypatch.setattr("scholaraio.ingest.pipeline.ui", lambda msg="": messages.append(msg))
-    monkeypatch.setattr("scholaraio.ingest.extractor.get_extractor", lambda cfg: DummyExtractor())
+    monkeypatch.setattr("scrinium.ingest.pipeline.ui", lambda msg="": messages.append(msg))
+    monkeypatch.setattr("scrinium.ingest.extractor.get_extractor", lambda cfg: DummyExtractor())
 
     ctx = InboxCtx(
         pdf_path=None,
@@ -273,9 +273,9 @@ def test_step_translate_treats_all_chunks_failed_as_failure(tmp_path: Path, monk
     (paper_dir / "paper.md").write_text("Original text", encoding="utf-8")
 
     messages: list[str] = []
-    monkeypatch.setattr("scholaraio.ingest.pipeline.ui", lambda msg="": messages.append(msg))
+    monkeypatch.setattr("scrinium.ingest.pipeline.ui", lambda msg="": messages.append(msg))
     monkeypatch.setattr(
-        "scholaraio.translate.translate_paper",
+        "scrinium.translate.translate_paper",
         lambda *args, **kwargs: TranslateResult(skip_reason=SKIP_ALL_CHUNKS_FAILED, total_chunks=3),
     )
 
@@ -320,8 +320,8 @@ def test_run_pipeline_auto_injects_translate_for_new_ingest(tmp_path: Path, monk
         (paper_dir / "paper.md").write_text("content", encoding="utf-8")
         ingested_jsons.append(meta_json)
 
-    monkeypatch.setattr("scholaraio.ingest.pipeline._collect_existing_ids", lambda *_: ({}, {}, {}))
-    monkeypatch.setattr("scholaraio.ingest.pipeline._process_inbox", fake_process_inbox)
+    monkeypatch.setattr("scrinium.ingest.pipeline._collect_existing_ids", lambda *_: ({}, {}, {}))
+    monkeypatch.setattr("scrinium.ingest.pipeline._process_inbox", fake_process_inbox)
 
     paper_calls: list[str] = []
 
@@ -342,7 +342,7 @@ def test_run_pipeline_auto_injects_translate_for_new_ingest(tmp_path: Path, monk
         return StepResult.OK
 
     monkeypatch.setattr(
-        "scholaraio.ingest.pipeline.STEPS",
+        "scrinium.ingest.pipeline.STEPS",
         {
             "mineru": SimpleNamespace(scope="inbox", fn=lambda ctx: StepResult.OK, desc=""),
             "extract": SimpleNamespace(scope="inbox", fn=lambda ctx: StepResult.OK, desc=""),

@@ -2,7 +2,7 @@
 name: literature-review
 description: Write a literature review based on papers in a workspace. Covers topic organization, narrative structure, gap identification, and BibTeX export. Use when the user wants to draft a literature review, survey a research area, or summarize the state of the art.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "writing", "literature-review", "survey"]
 ---
@@ -15,7 +15,7 @@ tags: ["academic", "writing", "literature-review", "survey"]
 ## 前提
 
 用户必须指定一个**工作区名称**。如果用户未指定：
-1. 运行 `scholaraio ws list` 列出已有工作区
+1. 运行 `scrinium ws list` 列出已有工作区
 2. 让用户选择或创建一个
 
 综述输出写入 `workspace/<name>/` 目录。
@@ -34,14 +34,14 @@ tags: ["academic", "writing", "literature-review", "survey"]
 ### 2. 摸底文献范围
 
 ```bash
-scholaraio ws show <name>                    # 查看工作区论文列表
-scholaraio ws search <name> "<主题>"          # 范围内搜索
-scholaraio topics                             # 主题聚类概览（如已建模）
+scrinium ws show <name>                    # 查看工作区论文列表
+scrinium ws search <name> "<主题>"          # 范围内搜索
+scrinium topics                             # 主题聚类概览（如已建模）
 ```
 
 对工作区内论文做 L1-L2 快速扫描（标题 + 摘要），建立全局认知：
 ```bash
-scholaraio show <paper-id> --layer 2          # 逐篇扫描摘要
+scrinium show <paper-id> --layer 2          # 逐篇扫描摘要
 ```
 
 > 工作区论文超过 30 篇时，逐篇扫描应派 subagent 分批执行，只把结论摘要带回主 context，避免长列表和全文堆进主 context。
@@ -58,16 +58,16 @@ scholaraio show <paper-id> --layer 2          # 逐篇扫描摘要
 
 ### 4. 深度阅读关键论文
 
-对每个章节的核心论文，用 `scholaraio show` 阅读——已有的 `notes.md` 历史笔记会自动展示在标题之后，有则优先复用，避免重复劳动。
+对每个章节的核心论文，用 `scrinium show` 阅读——已有的 `notes.md` 历史笔记会自动展示在标题之后，有则优先复用，避免重复劳动。
 
 ```bash
-scholaraio show <paper-id> --layer 3          # 结论（自动展示已有笔记）
-scholaraio show <paper-id> --layer 4          # 全文（仅关键论文）
+scrinium show <paper-id> --layer 3          # 结论（自动展示已有笔记）
+scrinium show <paper-id> --layer 4          # 全文（仅关键论文）
 ```
 
 分析完成后，**必须**通过 CLI 将关键发现写入笔记：
 ```bash
-scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | literature-review
+scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | literature-review
 - 方法特点
 - 核心贡献
 - 与其他论文的关键对比"
@@ -80,9 +80,9 @@ scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | liter
 
 引用图谱辅助发现关联：
 ```bash
-scholaraio shared-refs "<id1>" "<id2>"        # 共同引用分析
-scholaraio refs "<id>"                        # 参考文献
-scholaraio citing "<id>"                      # 被引论文
+scrinium shared-refs "<id1>" "<id2>"        # 共同引用分析
+scrinium refs "<id>"                        # 参考文献
+scrinium citing "<id>"                      # 被引论文
 ```
 
 ### 5. 撰写综述
@@ -102,7 +102,7 @@ scholaraio citing "<id>"                      # 被引论文
 - 撰写综述开头（研究背景 + 综述范围 + 组织方式）和结尾（现状总结 + 研究空白 + 未来方向）
 - 导出参考文献：
 ```bash
-scholaraio ws export <name> -o workspace/<name>/references.bib
+scrinium ws export <name> -o workspace/<name>/references.bib
 ```
 - 定稿前用 `/citation-check` 检查正文中的 author-year 引用，避免幻觉引用和年份/作者错配
 - 将综述正文保存到 `workspace/<name>/literature-review.md`（或用户指定的文件名）

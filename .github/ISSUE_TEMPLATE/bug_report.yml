@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in ScholarAIO
+description: Report a bug in Scrinium
 labels: ["bug"]
 body:
   - type: markdown
@@ -21,7 +21,7 @@ body:
       label: Steps to reproduce
       description: Commands or steps to trigger the issue.
       placeholder: |
-        1. Run `scholaraio search "..."`
+        1. Run `scrinium search "..."`
         2. See error...
     validations:
       required: true
@@ -38,7 +38,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Paste the output of `scholaraio setup check` here.
+      description: Paste the output of `scrinium setup check` here.
       render: text
     validations:
       required: true

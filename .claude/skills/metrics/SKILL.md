@@ -2,7 +2,7 @@
 name: metrics
 description: View LLM token usage, API call timing, and runtime metrics. Use when the user asks about token consumption, API costs, or performance statistics.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["monitoring", "metrics", "llm", "tokens"]
 ---
@@ -14,22 +14,22 @@ tags: ["monitoring", "metrics", "llm", "tokens"]
 
 **查看最近 LLM 调用详情：**
 ```bash
-scholaraio metrics --last 20
+scrinium metrics --last 20
 ```
 
 **查看汇总统计：**
 ```bash
-scholaraio metrics --summary
+scrinium metrics --summary
 ```
 
 **查看特定时间段：**
 ```bash
-scholaraio metrics --since 2026-03-01
+scrinium metrics --since 2026-03-01
 ```
 
 **查看其他类别事件：**
 ```bash
-scholaraio metrics --category api --last 50
+scrinium metrics --category api --last 50
 ```
 
 ## 示例

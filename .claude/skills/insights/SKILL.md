@@ -2,7 +2,7 @@
 name: insights
 description: Analyze research behavior data — search hot keywords, most-read papers, reading trends, and semantic neighbors you haven't read yet. Use when the user wants to understand their reading habits, discover overlooked papers, or review recent research activity.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "research", "analytics", "habits", "discovery"]
 ---
@@ -14,7 +14,7 @@ tags: ["academic", "research", "analytics", "habits", "discovery"]
 ## 执行逻辑
 
 ```bash
-scholaraio insights [--days N]  # 默认分析过去30天
+scrinium insights [--days N]  # 默认分析过去30天
 ```
 
 ## 输出内容

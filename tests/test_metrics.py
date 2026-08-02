@@ -1,4 +1,4 @@
-"""Tests for scholaraio.metrics — MetricsStore, timer, timed."""
+"""Tests for scrinium.metrics — MetricsStore, timer, timed."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from scholaraio.metrics import (
+from scrinium.metrics import (
     LLMResult,
     MetricsStore,
     TimerResult,

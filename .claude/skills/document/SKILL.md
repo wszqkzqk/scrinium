@@ -1,15 +1,15 @@
 ---
 name: document
-description: Generate and inspect Office documents (DOCX, PPTX, XLSX). Generate by writing Python scripts that call python-docx, python-pptx, and openpyxl APIs directly. Inspect with `scholaraio document inspect` to verify layout, content, and catch issues (overflow, missing elements). Use when the user wants to create Word reports, PowerPoint presentations, Excel data sheets, or inspect any Office document.
+description: Generate and inspect Office documents (DOCX, PPTX, XLSX). Generate by writing Python scripts that call python-docx, python-pptx, and openpyxl APIs directly. Inspect with `scrinium document inspect` to verify layout, content, and catch issues (overflow, missing elements). Use when the user wants to create Word reports, PowerPoint presentations, Excel data sheets, or inspect any Office document.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 ---
 
 # Office 文档生成与检查
 
-直接用 Python API 生成 Word / PowerPoint / Excel 文档，并通过 `scholaraio document inspect` 检查文档结构和布局。
+直接用 Python API 生成 Word / PowerPoint / Excel 文档，并通过 `scrinium document inspect` 检查文档结构和布局。
 
 ## 何时使用
 
@@ -20,14 +20,14 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 - 检查任何 Office 文档的结构与布局问题（溢出、缺失元素）
 
 不适用：
-- 简单的 Markdown → DOCX 转换（用 `scholaraio export docx`，见 `/export` skill）
+- 简单的 Markdown → DOCX 转换（用 `scrinium export docx`，见 `/export` skill）
 - 纯 Markdown 写作（直接写 `.md` 即可，无需 Office 文档）
 
 ## 核心思路
 
-**生成**：不要用 `scholaraio export docx`（那个只是简单的 Markdown 转换器）。本 skill 直接编写 Python 脚本调用 Office 库 API，类似 draw skill 直接调用 Inkscape API 画图。
+**生成**：不要用 `scrinium export docx`（那个只是简单的 Markdown 转换器）。本 skill 直接编写 Python 脚本调用 Office 库 API，类似 draw skill 直接调用 Inkscape API 画图。
 
-**检查**：生成后必须用 `scholaraio document inspect <file>` 检查文档，确认布局、内容、图片尺寸无误，再交付给用户。
+**检查**：生成后必须用 `scrinium document inspect <file>` 检查文档，确认布局、内容、图片尺寸无误，再交付给用户。
 
 输出目录：`workspace/` 下（如 `workspace/reports/`、`workspace/figures/`）。
 
@@ -47,11 +47,11 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 
 1. **判断输出格式**：按上表选型
 2. **收集内容**：调用其他 skill/CLI 获取数据
-   - `scholaraio search/usearch` — 搜索论文
-   - `scholaraio show --layer 2/3` — 获取摘要/结论
-   - `scholaraio top-cited` — 高引论文
-   - `scholaraio topics --topic N` — 主题论文
-   - `scholaraio ws show <name>` — 工作区论文列表
+   - `scrinium search/usearch` — 搜索论文
+   - `scrinium show --layer 2/3` — 获取摘要/结论
+   - `scrinium top-cited` — 高引论文
+   - `scrinium topics --topic N` — 主题论文
+   - `scrinium ws show <name>` — 工作区论文列表
 3. **生成图表**（如需要）：用 draw skill 生成 PNG/SVG 到 `workspace/figures/`
 4. **编写 Python 脚本**：参照 [reference.md](reference.md) 中对应库的模板与 API 速查，在一个脚本中完成全部操作
 5. **输出到 `workspace/`**：
@@ -62,7 +62,7 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
        ├── presentation.pptx
        └── paper_stats.xlsx
    ```
-6. **检查文档**：运行 `scholaraio document inspect <file>` 检查生成结果
+6. **检查文档**：运行 `scrinium document inspect <file>` 检查生成结果
    - PPTX：确认图片未溢出、文字未超出容器、布局合理
    - DOCX：确认标题层级正确、表格完整、图片已嵌入
    - XLSX：确认数据完整、图表标题正确、冻结窗格生效
@@ -73,13 +73,13 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 
 ```bash
 # 检查 PPTX：逐页输出 shape 位置/尺寸/文字/图片信息 + 溢出警告
-scholaraio document inspect presentation.pptx
+scrinium document inspect presentation.pptx
 
 # 检查 DOCX：段落/标题/表格/图片结构 + 样式摘要
-scholaraio document inspect report.docx
+scrinium document inspect report.docx
 
 # 检查 XLSX：Sheet 概览 + 数据预览 + 图表列表
-scholaraio document inspect data.xlsx
+scrinium document inspect data.xlsx
 ```
 
 **输出内容**：
@@ -104,7 +104,7 @@ scholaraio document inspect data.xlsx
 
 对于简单的 Markdown → DOCX 转换（不需要高级排版），仍可使用：
 ```bash
-scholaraio export docx --input file.md --output file.docx
+scrinium export docx --input file.md --output file.docx
 ```
 
 ## 示例

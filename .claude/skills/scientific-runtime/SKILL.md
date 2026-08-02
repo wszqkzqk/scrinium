@@ -1,8 +1,8 @@
 ---
 name: scientific-runtime
-description: Underlying working protocol for scientific computing tasks in ScholarAIO, meant to be consulted alongside a tool-specific skill (quantum-espresso, lammps, gromacs, openfoam, bioinformatics). Defines toolref-first behavior, graceful fallback under partial coverage, and keeping documentation maintenance away from users.
+description: Underlying working protocol for scientific computing tasks in Scrinium, meant to be consulted alongside a tool-specific skill (quantum-espresso, lammps, gromacs, openfoam, bioinformatics). Defines toolref-first behavior, graceful fallback under partial coverage, and keeping documentation maintenance away from users.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["scientific-computing", "toolref", "runtime-protocol"]
 ---
@@ -24,7 +24,7 @@ tags: ["scientific-computing", "toolref", "runtime-protocol"]
 
 ## 核心原则
 
-ScholarAIO 是为用户服务的，而不是为想一起维护内部文档层的人服务的。
+Scrinium 是为用户服务的，而不是为想一起维护内部文档层的人服务的。
 
 所以 agent 应尽可能自己吸收复杂度。
 
@@ -56,20 +56,20 @@ ScholarAIO 是为用户服务的，而不是为想一起维护内部文档层的
 
 agent 应优先使用：
 
-- `scholaraio toolref show <tool> ...` 做精确查询
-- `scholaraio toolref search <tool> "..."` 做自然语言入口
+- `scrinium toolref show <tool> ...` 做精确查询
+- `scrinium toolref search <tool> "..."` 做自然语言入口
 
 稳定的公开入口是：
 
-- `scholaraio toolref ...` CLI
-- 顶层 `scholaraio.toolref` 包门面（facade）
+- `scrinium toolref ...` CLI
+- 顶层 `scrinium.toolref` 包门面（facade）
 
 不应把用户引导到内部实现模块，例如：
 
-- `scholaraio.toolref.fetch`
-- `scholaraio.toolref.manifest`
-- `scholaraio.toolref.storage`
-- `scholaraio.toolref.search`
+- `scrinium.toolref.fetch`
+- `scrinium.toolref.manifest`
+- `scrinium.toolref.storage`
+- `scrinium.toolref.search`
 
 这些内部模块边界在重构中可能变化。面向用户的指引应始终锚定在 CLI 和顶层包行为上。
 
@@ -111,7 +111,7 @@ agent 应优先使用：
 
 涉及代码变更时：
 
-- 保持 `scholaraio.toolref` 公开入口面不变
+- 保持 `scrinium.toolref` 公开入口面不变
 - 包内部重组视为实现细节
 - 如果重构改变了通过 CLI 或顶层 import 可见的行为，先按回归处理，除非证明不是
 

@@ -1,4 +1,4 @@
-"""Tests for the `scholaraio pending` command."""
+"""Tests for the `scrinium pending` command."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import json
 from argparse import Namespace
 from types import SimpleNamespace
 
-from scholaraio import cli
-from scholaraio.cli import ingest as cli_ingest
+from scrinium import cli
+from scrinium.cli import ingest as cli_ingest
 
 
 def _run_pending(tmp_path, monkeypatch) -> list[str]:

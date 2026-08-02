@@ -1,8 +1,8 @@
-site_name: ScholarAIO
-site_description: Scholar All-In-One — A research infrastructure for AI agents
-site_url: https://zimoliao.github.io/scholaraio/
-repo_url: https://github.com/zimoliao/scholaraio
-repo_name: zimoliao/scholaraio
+site_name: Scrinium
+site_description: Scrinium — a research infrastructure for AI agents (hard fork of ScholarAIO)
+site_url: https://wszqkzqk.github.io/scrinium/
+repo_url: https://github.com/wszqkzqk/scrinium
+repo_name: wszqkzqk/scrinium
 
 theme:
   name: material

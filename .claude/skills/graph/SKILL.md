@@ -2,7 +2,7 @@
 name: graph
 description: Query citation graphs — view a paper's references, find which papers cite it, and analyze shared references between multiple papers. Use when the user asks about citation relationships, reference overlap, or bibliographic connections.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "citations", "graph", "references"]
 ---
@@ -15,19 +15,19 @@ tags: ["academic", "citations", "graph", "references"]
 ### 查看论文的参考文献
 
 ```bash
-scholaraio refs "<paper-id>" [--ws NAME]
+scrinium refs "<paper-id>" [--ws NAME]
 ```
 
 ### 查看谁引用了此论文
 
 ```bash
-scholaraio citing "<paper-id>" [--ws NAME]
+scrinium citing "<paper-id>" [--ws NAME]
 ```
 
 ### 共同参考文献分析
 
 ```bash
-scholaraio shared-refs "<id1>" "<id2>" [--min N] [--ws NAME]
+scrinium shared-refs "<id1>" "<id2>" [--min N] [--ws NAME]
 ```
 
 参数说明：

@@ -1,25 +1,25 @@
 # Translation Guide
 
-ScholarAIO can translate `paper.md` into `paper_{lang}.md` while preserving Markdown structure, LaTeX formulas, code blocks, and image links.
+Scrinium can translate `paper.md` into `paper_{lang}.md` while preserving Markdown structure, LaTeX formulas, code blocks, and image links.
 
 ## Basic Usage
 
 Translate one paper:
 
 ```bash
-scholaraio translate "<paper-id>" --lang zh
+scrinium translate "<paper-id>" --lang zh
 ```
 
 Translate all papers:
 
 ```bash
-scholaraio translate --all --lang zh
+scrinium translate --all --lang zh
 ```
 
 Read the translated version:
 
 ```bash
-scholaraio show "<paper-id>" --layer 4 --lang zh
+scrinium show "<paper-id>" --layer 4 --lang zh
 ```
 
 ## Concurrency and Resume
@@ -39,7 +39,7 @@ scholaraio show "<paper-id>" --layer 4 --lang zh
 If you want a translated copy that can be moved out of the paper directory without breaking image links:
 
 ```bash
-scholaraio translate "<paper-id>" --lang zh --portable
+scrinium translate "<paper-id>" --lang zh --portable
 ```
 
 This keeps the normal in-place translation:

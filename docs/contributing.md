@@ -1,6 +1,6 @@
 # Contributing
 
-See [CONTRIBUTING.md](https://github.com/zimoliao/scholaraio/blob/main/CONTRIBUTING.md) for the full guide.
+See [CONTRIBUTING.md](https://github.com/wszqkzqk/scrinium/blob/main/CONTRIBUTING.md) for the full guide.
 
 ## Module Overview
 
@@ -38,7 +38,7 @@ See [CONTRIBUTING.md](https://github.com/zimoliao/scholaraio/blob/main/CONTRIBUT
 | `insights.py` | Research behavior analytics (hot keywords, read trends, semantic neighbor recommendations, workspace activity) |
 | `translate.py` | Paper translation (language detection + concurrent chunked LLM translation + batch translation + optional portable bundle export) |
 
-CLI command reference: `scholaraio --help`
+CLI command reference: `scrinium --help`
 
 Besides skills, the current CLI also provides several important capabilities worth using directly:
 
@@ -52,4 +52,4 @@ Besides skills, the current CLI also provides several important capabilities wor
 
 ## Adding a New Skill
 
-The workflow for adding a new skill (tool-oriented skills wrapping CLI commands vs prompt-only orchestration skills) is documented in the "Agent Skills" section of [`AGENTS.md`](https://github.com/zimoliao/scholaraio/blob/main/AGENTS.md).
+The workflow for adding a new skill (tool-oriented skills wrapping CLI commands vs prompt-only orchestration skills) is documented in the "Agent Skills" section of [`AGENTS.md`](https://github.com/wszqkzqk/scrinium/blob/main/AGENTS.md).

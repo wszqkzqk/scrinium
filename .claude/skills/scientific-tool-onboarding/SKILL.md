@@ -1,8 +1,8 @@
 ---
 name: scientific-tool-onboarding
-description: Use when adding or upgrading ScholarAIO support for a new scientific computing tool, especially when the work needs official docs ingestion, toolref integration, lightweight skill design, and end-to-end CLI verification
+description: Use when adding or upgrading Scrinium support for a new scientific computing tool, especially when the work needs official docs ingestion, toolref integration, lightweight skill design, and end-to-end CLI verification
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["scientific-computing", "toolref", "onboarding", "documentation"]
 ---
@@ -11,7 +11,7 @@ tags: ["scientific-computing", "toolref", "onboarding", "documentation"]
 
 ## 概述
 
-把一个新科学工具接入 ScholarAIO，目标不是“写一份长教程”，而是形成这三个层次的闭环：
+把一个新科学工具接入 Scrinium，目标不是“写一份长教程”，而是形成这三个层次的闭环：
 
 - `toolref` 能查官方接口和参数
 - 对应 `skill` 能指导 agent 何时使用、如何验证
@@ -25,7 +25,7 @@ tags: ["scientific-computing", "toolref", "onboarding", "documentation"]
 ## 何时使用
 
 适用于：
-- 新增一个科学计算工具到 `scholaraio toolref`
+- 新增一个科学计算工具到 `scrinium toolref`
 - 升级某个工具的官方文档源或版本策略
 - 发现现有 scientific skill 过重，需要改成 `toolref-first`
 
@@ -112,7 +112,7 @@ tags: ["scientific-computing", "toolref", "onboarding", "documentation"]
 最低应有测试：
 - 解析器能提取 title / synopsis / content
 - 版本或 program 规范化逻辑
-- top-level `scholaraio.toolref` 入口在内部重构后仍保持兼容
+- top-level `scrinium.toolref` 入口在内部重构后仍保持兼容
 - manifest 工具的“是否完整”判断
 - 失败后残缺目录不会被误判成已完成
 - 用户自然说法对应的 alias / query expansion
@@ -125,7 +125,7 @@ tags: ["scientific-computing", "toolref", "onboarding", "documentation"]
 
 如果这次工作包含 `toolref` 内部重构或拆包，必须额外补这类兼容测试：
 
-- `import scholaraio.toolref` 后旧调用路径仍可用
+- `import scrinium.toolref` 后旧调用路径仍可用
 - 顶层兼容 patch 点仍能影响真实行为
 - CLI 不需要知道内部模块名变化
 - 旧缓存数据库在新 schema / trigger 下不会损坏或重复触发
@@ -165,10 +165,10 @@ manifest 工具的额外要求：
 不能只跑测试。必须像用户一样手动执行：
 
 ```bash
-scholaraio toolref fetch <tool>
-scholaraio toolref list <tool>
-scholaraio toolref show <tool> <natural query>
-scholaraio toolref search <tool> "<real query>"
+scrinium toolref fetch <tool>
+scrinium toolref list <tool>
+scrinium toolref show <tool> <natural query>
+scrinium toolref search <tool> "<real query>"
 ```
 
 检查：
@@ -181,7 +181,7 @@ scholaraio toolref search <tool> "<real query>"
 - 如果是工具链型工具，用户的描述能不能先路由到对的 `program`
 - `fetch` 报的页数/条目数，和 `list` 看到的最终数值是否一致
 - manifest 工具在旧缓存存在时，`list` 会不会出现自相矛盾的显示
-- 对外入口是否仍然只需要 `scholaraio toolref ...`，而不是内部模块命令
+- 对外入口是否仍然只需要 `scrinium toolref ...`，而不是内部模块命令
 
 如果手感不好，就继续打磨 CLI；不要因为测试是绿的就停。
 
@@ -213,8 +213,8 @@ scholaraio toolref search <tool> "<real query>"
 
 不要把内部包结构泄漏到 skill：
 
-- skill 和用户文档应该引用 `scholaraio toolref ...`
-- 如果确实需要提 Python API，引用顶层 `scholaraio.toolref`
+- skill 和用户文档应该引用 `scrinium toolref ...`
+- 如果确实需要提 Python API，引用顶层 `scrinium.toolref`
 - 不要把 `fetch.py` / `manifest.py` / `storage.py` 之类内部模块写成公开入口
 
 ### 8. 最后做发布门槛检查
@@ -242,7 +242,7 @@ scholaraio toolref search <tool> "<real query>"
 - 只看测试，不自己用 CLI
 - 第一次抓取失败后没处理脏目录
 - `page_name` 为抓取方便而设计，导致 `show` 很难用
-- 内部拆包后忘了保护 `scholaraio.toolref` 顶层兼容面
+- 内部拆包后忘了保护 `scrinium.toolref` 顶层兼容面
 - 把 scientific skill 写成超长命令手册
 - 新 skill 没有写清楚覆盖缺口时 agent 应如何继续服务用户
 - 用第三方教程代替官方文档
@@ -291,7 +291,7 @@ scholaraio toolref search <tool> "<real query>"
 
 ## 生产级心态
 
-面向 ScholarAIO 用户时，要始终记住：
+面向 Scrinium 用户时，要始终记住：
 
 - 用户不是来帮我们修 `toolref` 的
 - 新工具接入的目标是让 agent 更自主，而不是把复杂性重新转嫁给用户

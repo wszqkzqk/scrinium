@@ -19,8 +19,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check scholaraio/ tests/
-      - run: ruff format --check scholaraio/ tests/
+      - run: ruff check scrinium/ tests/
+      - run: ruff format --check scrinium/ tests/
 
   typecheck:
     runs-on: ubuntu-latest
@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: mypy scholaraio/
+      - run: mypy scrinium/
 
   test:
     runs-on: ubuntu-latest

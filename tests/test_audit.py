@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from scholaraio.audit import Issue, audit_papers
+from scrinium.audit import Issue, audit_papers
 
 
 class TestAuditDetection:

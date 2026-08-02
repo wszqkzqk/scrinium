@@ -1,8 +1,8 @@
 ---
 name: search
-description: Search academic papers in the local ScholarAIO knowledge base. Supports unified search (keyword + semantic fusion), keyword-only (FTS5), semantic-only (FAISS), author search, and federated search across main library, explore databases, and arXiv. Use when the user wants to find papers, look up literature, search by author, or search across multiple sources. For citation rankings and citation count updates, see the /citations skill.
+description: Search academic papers in the local Scrinium knowledge base. Supports unified search (keyword + semantic fusion), keyword-only (FTS5), semantic-only (FAISS), author search, and federated search across main library, explore databases, and arXiv. Use when the user wants to find papers, look up literature, search by author, or search across multiple sources. For citation rankings and citation count updates, see the /citations skill.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "search", "papers", "semantic", "fts5"]
 ---
@@ -31,55 +31,55 @@ tags: ["academic", "search", "papers", "semantic", "fts5"]
 
 **融合检索（默认）：**
 ```bash
-scholaraio usearch "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
+scrinium usearch "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
 ```
 
 **关键词搜索：**
 ```bash
-scholaraio search "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
+scrinium search "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
 ```
 
 **语义搜索：**
 ```bash
-scholaraio vsearch "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
+scrinium vsearch "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
 ```
 
 **作者搜索：**
 ```bash
-scholaraio search-author "<作者名>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
+scrinium search-author "<作者名>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
 ```
 
-> **引用量排序**：使用 `/citations` skill 中的 `scholaraio top-cited` 命令。
+> **引用量排序**：使用 `/citations` skill 中的 `scrinium top-cited` 命令。
 
 **联邦搜索（跨库 + arXiv）：**
 ```bash
 # 同时搜主库和 arXiv
-scholaraio fsearch "<查询词>" --scope main,arxiv --top <N>
+scrinium fsearch "<查询词>" --scope main,arxiv --top <N>
 
 # 同时搜主库和 proceedings
-scholaraio fsearch "<查询词>" --scope main,proceedings
+scrinium fsearch "<查询词>" --scope main,proceedings
 
 # 同时搜主库和所有 explore 库
-scholaraio fsearch "<查询词>" --scope main,explore:*
+scrinium fsearch "<查询词>" --scope main,explore:*
 
 # 搜指定 explore 库
-scholaraio fsearch "<查询词>" --scope explore:my-survey
+scrinium fsearch "<查询词>" --scope explore:my-survey
 
 # 仅搜 arXiv（在线查询，不需要本地数据）
-scholaraio fsearch "<查询词>" --scope arxiv
+scrinium fsearch "<查询词>" --scope arxiv
 
 # 全部来源
-scholaraio fsearch "<查询词>" --scope main,proceedings,explore:*,arxiv
+scrinium fsearch "<查询词>" --scope main,proceedings,explore:*,arxiv
 ```
 
 `--scope` 支持逗号分隔组合：`main`（主库融合搜索）、`proceedings`（论文集子论文）、`explore:<名称>` 或 `explore:*`（explore 库）、`arxiv`（在线 arXiv API）。默认 scope 为 `main`。arXiv 结果会标注 `[已入库]` 表示该论文已在本地库中。
 
 **标签检索（策展标签）：**
 ```bash
-scholaraio tags                                                    # 浏览词表（canonical + 别名 + 论文数）
-scholaraio usearch "<查询词>" --tag milestoning                    # 单标签过滤
-scholaraio search "<查询词>" --tag milestoning --tag drug-binding  # 多标签 AND
-scholaraio ws search <名称> "<查询词>" --tag cryo-em               # 工作区内同样可用
+scrinium tags                                                    # 浏览词表（canonical + 别名 + 论文数）
+scrinium usearch "<查询词>" --tag milestoning                    # 单标签过滤
+scrinium search "<查询词>" --tag milestoning --tag drug-binding  # 多标签 AND
+scrinium ws search <名称> "<查询词>" --tag cryo-em               # 工作区内同样可用
 ```
 
 标签来自人工/agent 策展的受控词表（`data/tags.yaml`），别名自动归一。标签本身已进入检索索引（搜 "force field" 能命中打了该标签的论文）。给论文打标签用 `/curate` skill。
@@ -139,7 +139,7 @@ ids, toc, l3_conclusion, tags
 → 执行 `fsearch "granular damping" --scope main,proceedings`
 
 用户说："库里都有哪些主题标签"
-→ 执行 `scholaraio tags`
+→ 执行 `scrinium tags`
 
 用户说："找库里 milestoning 用在药物动力学上的论文"
 → 执行 `usearch "kinetics" --tag milestoning --tag drug-binding`

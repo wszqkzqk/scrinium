@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from scholaraio.config import Config
-from scholaraio.ingest.pipeline import (
+from scrinium.config import Config
+from scrinium.ingest.pipeline import (
     DedupIndex,
     PipelineError,
     PipelineOptions,
@@ -68,7 +68,7 @@ class TestPipelineErrorBoundary:
         cfg._root = tmp_path
         monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
 
-        import scholaraio.ingest.mineru as mineru
+        import scrinium.ingest.mineru as mineru
 
         monkeypatch.setattr(mineru, "check_server", lambda *_: False)
 
@@ -96,7 +96,7 @@ class TestCollectExistingIdsFailures:
         bad.mkdir()
         (bad / "meta.json").write_text("{not valid json", encoding="utf-8")
 
-        with caplog.at_level("WARNING", logger="scholaraio.ingest.pipeline"):
+        with caplog.at_level("WARNING", logger="scrinium.ingest.pipeline"):
             collected = _collect_existing_ids(papers_dir)
 
         assert isinstance(collected, DedupIndex)
@@ -117,9 +117,9 @@ class TestCollectExistingIdsFailures:
             papers_dir=tmp_path / "papers",
         )
         messages: list[str] = []
-        monkeypatch.setattr("scholaraio.ingest.pipeline.ui", lambda msg="": messages.append(msg))
+        monkeypatch.setattr("scrinium.ingest.pipeline.ui", lambda msg="": messages.append(msg))
         monkeypatch.setattr(
-            "scholaraio.ingest.pipeline._collect_existing_ids",
+            "scrinium.ingest.pipeline._collect_existing_ids",
             lambda *_: DedupIndex(
                 dois={},
                 pub_nums={},
@@ -127,7 +127,7 @@ class TestCollectExistingIdsFailures:
                 failed=[tmp_path / "papers" / "Broken-2023-Bad" / "meta.json"],
             ),
         )
-        monkeypatch.setattr("scholaraio.ingest.pipeline._process_inbox", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline._process_inbox", lambda *_args, **_kwargs: None)
 
         run_pipeline(["extract"], cfg, {})
 
@@ -140,8 +140,8 @@ class TestCollectExistingIdsFailures:
             papers_dir=tmp_path / "papers",
         )
         messages: list[str] = []
-        monkeypatch.setattr("scholaraio.ingest.pipeline.ui", lambda msg="": messages.append(msg))
-        monkeypatch.setattr("scholaraio.ingest.pipeline._process_inbox", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr("scrinium.ingest.pipeline.ui", lambda msg="": messages.append(msg))
+        monkeypatch.setattr("scrinium.ingest.pipeline._process_inbox", lambda *_args, **_kwargs: None)
 
         run_pipeline(["extract"], cfg, {})
 
@@ -150,7 +150,7 @@ class TestCollectExistingIdsFailures:
 
 class TestInboxCtxOptsCoercion:
     def test_legacy_dict_opts_are_coerced(self, tmp_path):
-        from scholaraio.ingest.pipeline import InboxCtx
+        from scrinium.ingest.pipeline import InboxCtx
 
         ctx = InboxCtx(
             pdf_path=None,
@@ -165,7 +165,7 @@ class TestInboxCtxOptsCoercion:
         assert ctx.opts.no_api is True
 
     def test_unknown_opts_key_raises(self, tmp_path):
-        from scholaraio.ingest.pipeline import InboxCtx
+        from scrinium.ingest.pipeline import InboxCtx
 
         with pytest.raises(TypeError, match="unknown pipeline option"):
             InboxCtx(

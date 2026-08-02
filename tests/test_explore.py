@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from scholaraio.config import _build_config
-from scholaraio.explore import (
+from scrinium.config import _build_config
+from scrinium.explore import (
     _build_filter,
     build_explore_fts,
     explore_db_path,
@@ -89,7 +89,7 @@ class TestExploreSearchWithoutVectors:
     """Regression: explore silo with FTS only (embed never ran) must not crash."""
 
     def test_unified_search_degrades_to_keyword(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("SCHOLARAIO_EMBED_PROVIDER", raising=False)
+        monkeypatch.delenv("SCRINIUM_EMBED_PROVIDER", raising=False)
         cfg = _build_config({}, tmp_path)
         _make_explore_lib(tmp_path)
         build_explore_fts("demo", cfg=cfg)
@@ -106,7 +106,7 @@ class TestExploreSearchWithoutVectors:
         assert results[0]["title"] == "Turbulent drag reduction"
 
     def test_vsearch_raises_clean_error_without_table(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("SCHOLARAIO_EMBED_PROVIDER", raising=False)
+        monkeypatch.delenv("SCRINIUM_EMBED_PROVIDER", raising=False)
         cfg = _build_config({}, tmp_path)
         _make_explore_lib(tmp_path)
         build_explore_fts("demo", cfg=cfg)

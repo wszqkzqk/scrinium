@@ -1,4 +1,4 @@
-"""Tests for scholaraio.log — logging setup, session ID, ui()."""
+"""Tests for scrinium.log — logging setup, session ID, ui()."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import logging
 
 import pytest
 
-from scholaraio.config import _build_config
-from scholaraio.log import get_logger, get_session_id, reset, setup, ui
+from scrinium.config import _build_config
+from scrinium.log import get_logger, get_session_id, reset, setup, ui
 
 
 @pytest.fixture(autouse=True)
@@ -57,12 +57,12 @@ class TestGetLogger:
 
 class TestUI:
     def test_ui_no_args(self, caplog):
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             ui()
         # Should not crash
 
     def test_ui_with_message(self, caplog):
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             ui("hello %s", "world")
         assert "hello world" in caplog.text
 

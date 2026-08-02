@@ -1,4 +1,4 @@
-"""Tests for scholaraio.insights and the insights CLI surface."""
+"""Tests for scrinium.insights and the insights CLI surface."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
 
-from scholaraio import cli, insights, metrics
-from scholaraio.cli import misc as cli_misc
+from scrinium import cli, insights, metrics
+from scrinium.cli import misc as cli_misc
 
 
 def test_extract_hot_keywords_filters_stopwords_and_punctuation():
@@ -123,7 +123,7 @@ def test_cmd_insights_smoke_with_metrics_store(tmp_path: Path, monkeypatch):
     messages: list[str] = []
     monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))
     monkeypatch.setattr(
-        "scholaraio.vectors.vsearch",
+        "scrinium.vectors.vsearch",
         lambda query, db_path, top_k, cfg: [
             {"dir_name": "Paper-B", "score": 0.93},
             {"dir_name": "Paper-C", "score": 0.81},

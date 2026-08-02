@@ -1,6 +1,6 @@
 # Onboarding a Scientific Tool
 
-ScholarAIO can index official documentation for scientific computing tools through `toolref`.
+Scrinium can index official documentation for scientific computing tools through `toolref`.
 
 This guide is for users and external contributors who want to add support for a new tool without reverse-engineering the current codebase. It focuses on the public workflow and the quality bar for a production-ready integration.
 
@@ -19,27 +19,27 @@ Do not add a tool just because documentation exists somewhere online. A useful i
 
 The stable public surfaces are:
 
-- `scholaraio toolref fetch <tool>`
-- `scholaraio toolref list [tool]`
-- `scholaraio toolref show <tool> ...`
-- `scholaraio toolref search <tool> "..."`
-- `scholaraio toolref use <tool> <version>` — switch the active version
-- the top-level Python facade `scholaraio.toolref`
+- `scrinium toolref fetch <tool>`
+- `scrinium toolref list [tool]`
+- `scrinium toolref show <tool> ...`
+- `scrinium toolref search <tool> "..."`
+- `scrinium toolref use <tool> <version>` — switch the active version
+- the top-level Python facade `scrinium.toolref`
 
 User-facing documentation should stay anchored to those surfaces.
 
 Do not teach users to depend on internal modules such as:
 
-- `scholaraio.toolref.fetch`
-- `scholaraio.toolref.manifest`
-- `scholaraio.toolref.storage`
-- `scholaraio.toolref.search`
+- `scrinium.toolref.fetch`
+- `scrinium.toolref.manifest`
+- `scrinium.toolref.storage`
+- `scrinium.toolref.search`
 
 Those modules exist for implementation, not as the public onboarding surface.
 
 ## Choose an Ingestion Mode
 
-ScholarAIO currently uses two onboarding patterns.
+Scrinium currently uses two onboarding patterns.
 
 ### `git + parser`
 
@@ -199,10 +199,10 @@ For toolchains, getting the right `program` is often more important than adding 
 Every new tool should satisfy this minimal loop:
 
 ```bash
-scholaraio toolref fetch <tool>
-scholaraio toolref list <tool>
-scholaraio toolref show <tool> <natural query>
-scholaraio toolref search <tool> "<real query>"
+scrinium toolref fetch <tool>
+scrinium toolref list <tool>
+scrinium toolref show <tool> <natural query>
+scrinium toolref search <tool> "<real query>"
 ```
 
 What to verify:
@@ -230,7 +230,7 @@ For contributors, the practical lesson is simple:
 
 ## What "Production-Ready" Means
 
-For ScholarAIO, a production-ready scientific tool integration means:
+For Scrinium, a production-ready scientific tool integration means:
 
 - the most important `show` queries directly hit the correct page
 - the most important `search` queries usually rank the correct page first
@@ -278,10 +278,10 @@ Examples:
 ### 4. Validate the public loop
 
 ```bash
-scholaraio toolref fetch mysolver
-scholaraio toolref list mysolver
-scholaraio toolref show mysolver timestep
-scholaraio toolref search mysolver "adaptive time step"
+scrinium toolref fetch mysolver
+scrinium toolref list mysolver
+scrinium toolref show mysolver timestep
+scrinium toolref search mysolver "adaptive time step"
 ```
 
 If those queries are not convincing yet, improve naming, routing, and ranking before adding more pages.

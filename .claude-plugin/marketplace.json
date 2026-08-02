@@ -1,25 +1,25 @@
 {
-  "name": "scholaraio-marketplace",
+  "name": "scrinium-marketplace",
   "owner": {
     "name": "ZimoLiao",
     "email": "zimoliao@mail.ustc.edu.cn"
   },
   "metadata": {
-    "description": "ScholarAIO — A research infrastructure for AI agents. Search, read, analyze, and operationalize papers from your local knowledge base while coding.",
-    "version": "1.3.0"
+    "description": "Scrinium — A research infrastructure for AI agents. Search, read, analyze, and operationalize papers from your local knowledge base while coding.",
+    "version": "2.0.0"
   },
   "plugins": [
     {
-      "name": "scholaraio",
+      "name": "scrinium",
       "source": "./",
-      "description": "Full ScholarAIO skill suite: literature search, arXiv discovery, layered reading, ingestion, topic modeling, citation graphs, insights analytics, scientific tool docs, Office document inspection, workspace management, academic writing, and more. Requires Python 3.10+; auto-installs on first session.",
-      "version": "1.3.0",
+      "description": "Full Scrinium skill suite: literature search, arXiv discovery, layered reading, ingestion, topic modeling, citation graphs, insights analytics, scientific tool docs, Office document inspection, workspace management, academic writing, and more. Requires Python 3.10+; auto-installs on first session.",
+      "version": "2.0.0",
       "author": {
         "name": "ZimoLiao",
         "email": "zimoliao@mail.ustc.edu.cn"
       },
-      "homepage": "https://github.com/ZimoLiao/scholaraio",
-      "repository": "https://github.com/ZimoLiao/scholaraio",
+      "homepage": "https://github.com/wszqkzqk/scrinium",
+      "repository": "https://github.com/wszqkzqk/scrinium",
       "license": "MIT",
       "keywords": [
         "academic",

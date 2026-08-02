@@ -9,23 +9,23 @@
 
 ```bash
 # Core installation
-pip install scholaraio
+pip install scrinium
 
 # Full installation (embed + topics + import + pdf + office + draw)
-pip install "scholaraio[full]"
+pip install "scrinium[full]"
 ```
 
 Then run:
 
 ```bash
-scholaraio setup
+scrinium setup
 ```
 
 ## Install from Source
 
 ```bash
-git clone https://github.com/zimoliao/scholaraio.git
-cd scholaraio
+git clone https://github.com/wszqkzqk/scrinium.git
+cd scrinium
 
 # Core only (search, export, audit)
 pip install -e .
@@ -54,13 +54,13 @@ Use the source install path when you want to inspect the codebase, edit the pack
 Run the interactive setup wizard to configure API keys and directories:
 
 ```bash
-scholaraio setup
+scrinium setup
 ```
 
 Or check what's already configured:
 
 ```bash
-scholaraio setup check
+scrinium setup check
 ```
 
 `setup check` is the most complete initial diagnostic surface. It covers:
@@ -76,7 +76,7 @@ Cost transparency:
 - `MINERU_TOKEN`: free to apply
 - `contact_email`: free
 - `Semantic Scholar API key`: optional; most endpoints work anonymously, but some require a key
-- `Zotero API key`: optional; ScholarAIO's current Web API import path expects it, while local `zotero.sqlite` import does not
+- `Zotero API key`: optional; Scrinium's current Web API import path expects it, while local `zotero.sqlite` import does not
 
 ## Agent Setup
 
@@ -87,7 +87,7 @@ If you want to know which path to use for Claude Code, Codex, OpenClaw, Cursor, 
 That guide separates:
 
 - opening this repository directly
-- registering ScholarAIO for use from another project
+- registering Scrinium for use from another project
 - choosing between native skills and plugins
 
 ## Embedding Model

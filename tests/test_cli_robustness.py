@@ -12,9 +12,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from scholaraio import cli, insights, metrics
-from scholaraio.cli import misc as cli_misc
-from scholaraio.index import build_index
+from scrinium import cli, insights, metrics
+from scrinium.cli import misc as cli_misc
+from scrinium.index import build_index
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,7 +26,7 @@ def _fake_main_cfg(tmp_path: Path, index_db: Path) -> SimpleNamespace:
         metrics_db_path=str(tmp_path / "metrics.db"),
         ingest=SimpleNamespace(contact_email=""),
         resolved_s2_api_key=lambda: "",
-        log_file=tmp_path / "logs" / "scholaraio.log",
+        log_file=tmp_path / "logs" / "scrinium.log",
         log=SimpleNamespace(max_bytes=1_000_000, backup_count=1, level="INFO"),
         index_db=index_db,
         search=SimpleNamespace(top_k=10),
@@ -35,16 +35,16 @@ def _fake_main_cfg(tmp_path: Path, index_db: Path) -> SimpleNamespace:
 
 class TestMainValueError:
     def test_bad_year_prints_message_without_traceback(self, tmp_papers, tmp_db, tmp_path, monkeypatch, capsys):
-        from scholaraio import log
+        from scrinium import log
 
         build_index(tmp_papers, tmp_db)
 
         log.reset()
         monkeypatch.setattr(cli, "load_config", lambda: _fake_main_cfg(tmp_path, tmp_db))
-        monkeypatch.setattr("scholaraio.metrics.init", lambda *_args, **_kwargs: None)
-        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_session", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_s2_session", lambda *_: None)
-        monkeypatch.setattr(sys, "argv", ["scholaraio", "search", "RNA", "--year", "abc"])
+        monkeypatch.setattr("scrinium.metrics.init", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr("scrinium.ingest.metadata._models.configure_session", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.metadata._models.configure_s2_session", lambda *_: None)
+        monkeypatch.setattr(sys, "argv", ["scrinium", "search", "RNA", "--year", "abc"])
 
         with pytest.raises(SystemExit) as exc_info:
             try:
@@ -61,20 +61,20 @@ class TestMainValueError:
 
 class TestMainPipelineError:
     def test_pipeline_error_prints_message_without_traceback(self, tmp_path, monkeypatch, capsys):
-        from scholaraio import log
-        from scholaraio.ingest.pipeline import PipelineError
+        from scrinium import log
+        from scrinium.ingest.pipeline import PipelineError
 
         log.reset()
         monkeypatch.setattr(cli, "load_config", lambda: _fake_main_cfg(tmp_path, tmp_path / "index.db"))
-        monkeypatch.setattr("scholaraio.metrics.init", lambda *_args, **_kwargs: None)
-        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_session", lambda *_: None)
-        monkeypatch.setattr("scholaraio.ingest.metadata._models.configure_s2_session", lambda *_: None)
+        monkeypatch.setattr("scrinium.metrics.init", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr("scrinium.ingest.metadata._models.configure_session", lambda *_: None)
+        monkeypatch.setattr("scrinium.ingest.metadata._models.configure_s2_session", lambda *_: None)
 
         def fake_run_pipeline(*_args, **_kwargs):
             raise PipelineError("MinerU 不可达且未配置 MinerU token")
 
-        monkeypatch.setattr("scholaraio.ingest.pipeline.run_pipeline", fake_run_pipeline)
-        monkeypatch.setattr(sys, "argv", ["scholaraio", "pipeline", "full", "--dry-run"])
+        monkeypatch.setattr("scrinium.ingest.pipeline.run_pipeline", fake_run_pipeline)
+        monkeypatch.setattr(sys, "argv", ["scrinium", "pipeline", "full", "--dry-run"])
 
         with pytest.raises(SystemExit) as exc_info:
             try:
@@ -91,7 +91,7 @@ class TestMainPipelineError:
 
 class TestVersionFlag:
     def test_version_flag_prints_version_and_exits_zero(self, capsys):
-        from scholaraio import __version__
+        from scrinium import __version__
 
         parser = cli._build_parser()
         with pytest.raises(SystemExit) as exc_info:
@@ -99,7 +99,7 @@ class TestVersionFlag:
 
         assert exc_info.value.code == 0
         out = capsys.readouterr().out
-        assert f"scholaraio {__version__}" in out
+        assert f"scrinium {__version__}" in out
 
 
 class TestBrokenPipe:
@@ -111,7 +111,7 @@ class TestBrokenPipe:
                 [
                     sys.executable,
                     "-c",
-                    "import sys; sys.argv = ['scholaraio', 'style', 'list']; from scholaraio.cli import main; main()",
+                    "import sys; sys.argv = ['scrinium', 'style', 'list']; from scrinium.cli import main; main()",
                 ],
                 stdout=write_fd,
                 stderr=subprocess.PIPE,
@@ -160,8 +160,8 @@ class TestRecommendUnreadNeighborsDiagnosis:
     def test_empty_vector_index_raises_not_ready(self, tmp_path, monkeypatch):
         papers_dir = _make_papers(tmp_path, {"Paper-A": {"title": "T", "abstract": "a"}})
         monkeypatch.setattr(
-            "scholaraio.vectors.vsearch",
-            _raise(FileNotFoundError("向量索引为空，请先运行 `scholaraio embed`")),
+            "scrinium.vectors.vsearch",
+            _raise(FileNotFoundError("向量索引为空，请先运行 `scrinium embed`")),
         )
         cfg = SimpleNamespace(papers_dir=papers_dir, index_db=tmp_path / "index.db")
 
@@ -171,7 +171,7 @@ class TestRecommendUnreadNeighborsDiagnosis:
     def test_embedding_failure_raises_backend_unavailable(self, tmp_path, monkeypatch):
         papers_dir = _make_papers(tmp_path, {"Paper-A": {"title": "T", "abstract": "a"}})
         monkeypatch.setattr(
-            "scholaraio.vectors.vsearch",
+            "scrinium.vectors.vsearch",
             _raise(RuntimeError("Hugging Face is unreachable and no local embedding model was found")),
         )
         cfg = SimpleNamespace(papers_dir=papers_dir, index_db=tmp_path / "index.db")
@@ -183,7 +183,7 @@ class TestRecommendUnreadNeighborsDiagnosis:
 
     def test_import_error_still_propagates(self, tmp_path, monkeypatch):
         papers_dir = _make_papers(tmp_path, {"Paper-A": {"title": "T", "abstract": "a"}})
-        monkeypatch.setattr("scholaraio.vectors.vsearch", _raise(ImportError("No module named 'faiss'")))
+        monkeypatch.setattr("scrinium.vectors.vsearch", _raise(ImportError("No module named 'faiss'")))
         cfg = SimpleNamespace(papers_dir=papers_dir, index_db=tmp_path / "index.db")
 
         with pytest.raises(ImportError):
@@ -192,7 +192,7 @@ class TestRecommendUnreadNeighborsDiagnosis:
     def test_no_unread_neighbors_returns_empty(self, tmp_path, monkeypatch):
         papers_dir = _make_papers(tmp_path, {"Paper-A": {"title": "T", "abstract": "a"}})
         monkeypatch.setattr(
-            "scholaraio.vectors.vsearch",
+            "scrinium.vectors.vsearch",
             lambda *a, **k: [{"dir_name": "Paper-A", "score": 0.9}],  # already read -> filtered
         )
         cfg = SimpleNamespace(papers_dir=papers_dir, index_db=tmp_path / "index.db")
@@ -216,7 +216,7 @@ class TestRecommendUnreadNeighborsDiagnosis:
                 raise RuntimeError("transient embedding failure")
             return [{"dir_name": "Paper-C", "score": 0.8}]
 
-        monkeypatch.setattr("scholaraio.vectors.vsearch", fake_vsearch)
+        monkeypatch.setattr("scrinium.vectors.vsearch", fake_vsearch)
         cfg = SimpleNamespace(papers_dir=papers_dir, index_db=tmp_path / "index.db")
 
         recommendations = insights.recommend_unread_neighbors(_FakeStore(["Paper-A", "Paper-B"]), cfg)
@@ -233,7 +233,7 @@ def _run_cmd_insights(tmp_path: Path, monkeypatch, vsearch_impl) -> list[str]:
 
     messages: list[str] = []
     monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))
-    monkeypatch.setattr("scholaraio.vectors.vsearch", vsearch_impl)
+    monkeypatch.setattr("scrinium.vectors.vsearch", vsearch_impl)
 
     cfg = SimpleNamespace(_root=tmp_path, papers_dir=papers_dir, index_db=tmp_path / "index.db")
     try:
@@ -256,10 +256,10 @@ class TestInsightsNeighborMessage:
         messages = _run_cmd_insights(
             tmp_path,
             monkeypatch,
-            _raise(FileNotFoundError("向量索引为空，请先运行 `scholaraio embed`")),
+            _raise(FileNotFoundError("向量索引为空，请先运行 `scrinium embed`")),
         )
 
         joined = "\n".join(messages)
         assert "向量索引为空" in joined
-        assert "scholaraio embed" in joined
+        assert "scrinium embed" in joined
         assert "嵌入模型未下载或不可用" not in joined

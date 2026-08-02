@@ -2,7 +2,7 @@
 name: translate
 description: Translate paper markdown to a target language (default Chinese). Preserves LaTeX formulas, code blocks, and images. Supports single paper or batch translation. Use when the user wants to read papers in their native language or translate non-Chinese documents.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "papers", "translation", "multilingual"]
 ---
@@ -37,25 +37,25 @@ translate:
 ### 单篇翻译
 
 ```bash
-scholaraio translate "<paper-id>" [--lang zh] [--force] [--portable]
+scrinium translate "<paper-id>" [--lang zh] [--force] [--portable]
 ```
 
 ### 批量翻译
 
 ```bash
-scholaraio translate --all [--lang zh] [--force] [--portable]
+scrinium translate --all [--lang zh] [--force] [--portable]
 ```
 
 ### 查看翻译
 
 ```bash
-scholaraio show "<paper-id>" --layer 4 --lang zh
+scrinium show "<paper-id>" --layer 4 --lang zh
 ```
 
 ### 作为 pipeline 步骤
 
 ```bash
-scholaraio pipeline --steps toc,l3,translate
+scrinium pipeline --steps toc,l3,translate
 ```
 
 > **注意**：`translate` 默认不在预设（`full`/`ingest`/`enrich`/`reindex`）中；可通过 `--steps` 显式指定。若 `config.translate.auto_translate=true` 且 pipeline 包含 inbox 步骤，`translate` 会在 papers 阶段自动注入。
@@ -86,7 +86,7 @@ scholaraio pipeline --steps toc,l3,translate
 如果中途中断：
 
 ```bash
-scholaraio translate "<paper-id>" --lang zh
+scrinium translate "<paper-id>" --lang zh
 ```
 
 会自动检测论文目录下的临时翻译工作目录（如 `.translate_zh/`），并从未完成或失败的块继续。
@@ -94,7 +94,7 @@ scholaraio translate "<paper-id>" --lang zh
 如果想忽略已有部分结果并重新开始：
 
 ```bash
-scholaraio translate "<paper-id>" --lang zh --force
+scrinium translate "<paper-id>" --lang zh --force
 ```
 
 会删除旧的临时翻译目录和旧的 `paper_zh.md`，从头重新翻译。
@@ -102,19 +102,19 @@ scholaraio translate "<paper-id>" --lang zh --force
 ## 示例
 
 用户说："把这篇英文论文翻译成中文"
--> 执行 `scholaraio translate "<paper-id>" --lang zh`
+-> 执行 `scrinium translate "<paper-id>" --lang zh`
 
 用户说："把所有论文翻译成中文"
--> 执行 `scholaraio translate --all --lang zh`
+-> 执行 `scrinium translate --all --lang zh`
 
 用户说："看这篇论文的中文版"
--> 执行 `scholaraio show "<paper-id>" --layer 4 --lang zh`
+-> 执行 `scrinium show "<paper-id>" --layer 4 --lang zh`
 
 用户说："重新翻译这篇论文"
--> 执行 `scholaraio translate "<paper-id>" --force`
+-> 执行 `scrinium translate "<paper-id>" --force`
 
 用户说："上次翻译到一半断了，继续翻"
--> 直接执行 `scholaraio translate "<paper-id>" --lang zh`
+-> 直接执行 `scrinium translate "<paper-id>" --lang zh`
 
 用户说："给我一份可以单独发给别人的译文，别丢图"
--> 执行 `scholaraio translate "<paper-id>" --lang zh --portable`
+-> 执行 `scrinium translate "<paper-id>" --lang zh --portable`

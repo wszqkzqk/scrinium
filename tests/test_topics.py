@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from scholaraio import cli
-from scholaraio.cli import misc as cli_misc
-from scholaraio.index import build_index
-from scholaraio.topics import get_outliers, get_topic_overview, get_topic_papers
+from scrinium import cli
+from scrinium.cli import misc as cli_misc
+from scrinium.index import build_index
+from scrinium.topics import get_outliers, get_topic_overview, get_topic_papers
 
 
 class _FakeTopicModel:
@@ -94,7 +94,7 @@ def _overview_messages(tmp_papers, tmp_db, tmp_path, monkeypatch, model_paper_id
     model = _FakeTopicModel()
     model._paper_ids = model_paper_ids
 
-    monkeypatch.setattr("scholaraio.topics.load_model", lambda path: model)
+    monkeypatch.setattr("scrinium.topics.load_model", lambda path: model)
 
     messages: list[str] = []
     monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))

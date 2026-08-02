@@ -2,7 +2,7 @@
 name: arxiv
 description: Use when the user wants to browse arXiv preprints, search arXiv directly, fetch a PDF by arXiv ID or URL, or send a preprint straight into the ingest pipeline.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "papers", "arxiv", "preprint"]
 ---
@@ -46,30 +46,30 @@ tags: ["academic", "papers", "arxiv", "preprint"]
 直接检索 arXiv：
 
 ```bash
-scholaraio arxiv search "<query>"
-scholaraio arxiv search "<query>" --category physics.flu-dyn
-scholaraio arxiv search --category cs.LG --sort recent
+scrinium arxiv search "<query>"
+scrinium arxiv search "<query>" --category physics.flu-dyn
+scrinium arxiv search --category cs.LG --sort recent
 ```
 
 需要 arXiv 补充本地库时，用联邦搜索：
 
 ```bash
-scholaraio fsearch "<query>" --scope main,arxiv
-scholaraio fsearch "<query>" --scope arxiv
+scrinium fsearch "<query>" --scope main,arxiv
+scrinium fsearch "<query>" --scope arxiv
 ```
 
 只下载 PDF：
 
 ```bash
-scholaraio arxiv fetch 2603.25200
-scholaraio arxiv fetch arXiv:2603.25200v1
-scholaraio arxiv fetch https://arxiv.org/abs/2603.25200v1
+scrinium arxiv fetch 2603.25200
+scrinium arxiv fetch arXiv:2603.25200v1
+scrinium arxiv fetch https://arxiv.org/abs/2603.25200v1
 ```
 
 下载并立即入库：
 
 ```bash
-scholaraio arxiv fetch 2603.25200 --ingest
+scrinium arxiv fetch 2603.25200 --ingest
 ```
 
 ### 3. 保持来源语义清晰

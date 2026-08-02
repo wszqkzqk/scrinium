@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-08-02
+
+### Changed
+
+- **Hard fork: ScholarAIO renamed to Scrinium**: This project is a hard fork of [ScholarAIO](https://github.com/ZimoLiao/scholaraio) 1.3.0 (MIT). The Python package, CLI command, and distribution name are now `scrinium`; there is no `scholaraio` import alias. All `SCHOLARAIO_*` environment variables are renamed to `SCRINIUM_*` (`SCRINIUM_CONFIG`, `SCRINIUM_LLM_API_KEY`, `SCRINIUM_EMBED_PROVIDER` / `SCRINIUM_EMBED_SOURCE` / `SCRINIUM_EMBED_MODEL` / `SCRINIUM_EMBED_CACHE_DIR` / `SCRINIUM_EMBED_API_BASE` / `SCRINIUM_EMBED_API_KEY`, `SCRINIUM_HF_ENDPOINT`); each new name falls back to its deprecated old name with a warning. The global config directory is now `~/.scrinium/` (falls back to an existing `~/.scholaraio/config.yaml` with a migration warning), and the GPU profile cache moves to `~/.cache/scrinium/` (reads fall back to `~/.cache/scholaraio/`)
+
 ### Added
 
 - **OpenAI-compatible embedding backend support**: Added `embed.provider` config with `local` / `openai-compat` / `none` options; cloud API supports configurable `api_base`, `api_key`, `api_timeout`, `batch_size`, and `max_retries`; `provider=none` disables embeddings gracefully and falls back to keyword-only search
-- **Central LLM prompt registry**: All 12 embedded LLM prompts now live in `scholaraio/prompts.py` as named, versioned templates with a unified `parse_llm_json()` response parser (fence stripping + bare-JSON extraction + LaTeX backslash repair); DOI hallucination guards now apply to all extractor modes; golden tests lock the parsing contract
-- **`scholaraio pending` command**: Lists items blocked in `data/pending/` and `data/duplicates/` grouped by issue (`no_doi` / `no_pub_num` / `duplicate`) with titles, `duplicate_of` targets, and actionable resolution hints; ingest summary points to it
+- **Central LLM prompt registry**: All 12 embedded LLM prompts now live in `scrinium/prompts.py` as named, versioned templates with a unified `parse_llm_json()` response parser (fence stripping + bare-JSON extraction + LaTeX backslash repair); DOI hallucination guards now apply to all extractor modes; golden tests lock the parsing contract
+- **`scrinium pending` command**: Lists items blocked in `data/pending/` and `data/duplicates/` grouped by issue (`no_doi` / `no_pub_num` / `duplicate`) with titles, `duplicate_of` targets, and actionable resolution hints; ingest summary points to it
 - **Structured output and CLI robustness**: `--json` on `search` / `usearch` / `show` / `ws show` / `top-cited`; `--version` flag; one-line errors instead of tracebacks for invalid arguments; clean exit when output is piped to `head`; `show` header prints the canonical directory name; `export` accepts dir name / UUID / DOI like `show` does; pre-notice before the first ~1.2GB embedding model download; `topics` reports model staleness against the current library size
-- **Shared search stack**: New `scholaraio/search_common.py` holds the single FTS5 query sanitizer, RRF fusion (k=60), and FTS table DDL used by both the main library and explore databases
+- **Shared search stack**: New `scrinium/search_common.py` holds the single FTS5 query sanitizer, RRF fusion (k=60), and FTS table DDL used by both the main library and explore databases
 
 ### Changed
 
@@ -21,11 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Ingest pipeline hardening**: untyped `opts` dict replaced by a frozen `PipelineOptions` dataclass across the pipeline; library-level `sys.exit` in the pipeline now raises `PipelineError` handled at the CLI boundary; dedup meta.json read failures are counted and surfaced instead of silently skipped
 - **Insights diagnosis accuracy**: semantic-neighbor recommendations now distinguish "vector index not built" from "embedding model unavailable" instead of misattributing the cause
 - **Explore query behavior aligned**: explore keyword search uses the same FTS5 query sanitization as the main library (hand-written FTS5 syntax is no longer interpreted, consistent with the main library)
-- **CLI package split**: `scholaraio/cli.py` (3900 lines) split into the `scholaraio/cli/` package by domain (`common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`); coverage `omit` removed so the CLI layer is measured
+- **CLI package split**: `scrinium/cli.py` (3900 lines) split into the `scrinium/cli/` package by domain (`common` / `search` / `ingest` / `explore` / `ws` / `transfer` / `misc`); coverage `omit` removed so the CLI layer is measured
 - **Skill governance**: unified frontmatter and routing across all 34 skills, intent-to-skill routing table in AGENTS.md/CLAUDE.md, discipline checklists for citation-check and audit, document skill slimmed with API references moved to `reference.md`, skill bodies unified to Chinese
 - **Instruction files slimmed**: AGENTS.md / CLAUDE.md / AGENTS_CN.md reduced from ~540 to ~180 lines, keeping only always-needed behavioral instructions and conventions; architecture, data layouts, module overview, configuration details, and plugin packaging moved to `docs/` (progressive disclosure, loaded on demand)
 - **CLAUDE.md became an import stub**: Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so `CLAUDE.md` is now a 4-line stub importing `AGENTS.md` via Claude Code's `@`-import mechanism; `AGENTS.md` is the single source of truth and content drift between the two is impossible by construction
-- **Agent-curated tag system ("tags as topics")**: new `scholaraio/tags.py` with a controlled vocabulary in `data/tags.yaml` (aliases, descriptions) and per-paper tags in `meta.json`; `scholaraio tag` / `tags` commands; tags are indexed in FTS (schema v1 migration) and filterable via `--tag` on search/usearch/ws search; `audit` reports untagged papers; new `curate` skill drives batch curation via subagents. Designed for embedding-free deployments (`embed.provider: none`) where curated labels replace semantic discovery
+- **Agent-curated tag system ("tags as topics")**: new `scrinium/tags.py` with a controlled vocabulary in `data/tags.yaml` (aliases, descriptions) and per-paper tags in `meta.json`; `scrinium tag` / `tags` commands; tags are indexed in FTS (schema v1 migration) and filterable via `--tag` on search/usearch/ws search; `audit` reports untagged papers; new `curate` skill drives batch curation via subagents. Designed for embedding-free deployments (`embed.provider: none`) where curated labels replace semantic discovery
 
 ### Removed
 

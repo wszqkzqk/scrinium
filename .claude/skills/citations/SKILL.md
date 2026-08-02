@@ -2,7 +2,7 @@
 name: citations
 description: View top-cited papers ranking and refetch citation counts from APIs. Use when the user asks about highly cited papers, citation rankings, or wants to update citation data.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "citations", "bibliometrics", "impact"]
 ---
@@ -15,23 +15,23 @@ tags: ["academic", "citations", "bibliometrics", "impact"]
 ### 查看高引论文排行
 
 ```bash
-scholaraio top-cited [--top N] [--year RANGE] [--journal NAME] [--type TYPE]
+scrinium top-cited [--top N] [--year RANGE] [--journal NAME] [--type TYPE]
 ```
 
 ### 补查引用量
 
 ```bash
 # 补查所有缺失引用量的论文
-scholaraio refetch --all
+scrinium refetch --all
 
 # 强制重查所有
-scholaraio refetch --all --force
+scrinium refetch --all --force
 
 # 加速并发（默认 5）
-scholaraio refetch --all -j 10
+scrinium refetch --all -j 10
 
 # 补查单篇
-scholaraio refetch "<paper-id>"
+scrinium refetch "<paper-id>"
 ```
 
 ## 示例

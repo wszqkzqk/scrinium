@@ -2,7 +2,7 @@
 name: paper-writing
 description: Assist with writing sections of a research paper (Introduction, Related Work, Method, Results, Discussion, Conclusion). Leverages workspace papers for citations and evidence. Use when the user wants help drafting or revising specific paper sections.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "writing", "research", "sections"]
 ---
@@ -13,7 +13,7 @@ tags: ["academic", "writing", "research", "sections"]
 ## 前提
 
 用户必须指定一个**工作区名称**。如果用户未指定：
-1. 运行 `scholaraio ws list` 列出已有工作区
+1. 运行 `scrinium ws list` 列出已有工作区
 2. 让用户选择或创建一个
 
 输出写入 `workspace/<name>/` 目录。
@@ -31,11 +31,11 @@ tags: ["academic", "writing", "research", "sections"]
 
 ### 2. 论文分析笔记复用
 
-用 `scholaraio show` 阅读工作区论文时，已有的 `notes.md` 历史笔记会自动展示。有则优先复用，无需重复阅读全文。
+用 `scrinium show` 阅读工作区论文时，已有的 `notes.md` 历史笔记会自动展示。有则优先复用，无需重复阅读全文。
 
 分析完成后，**必须**通过 CLI 将新的关键发现写入笔记：
 ```bash
-scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-writing
+scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-writing
 - 关键发现"
 ```
 
@@ -45,8 +45,8 @@ scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper
 1. 从宏观背景切入，逐步聚焦到具体问题
 2. 引用工作区论文建立研究脉络：
    ```bash
-   scholaraio ws search <name> "<背景关键词>"
-   scholaraio show <paper-id> --layer 2      # 摘要
+   scrinium ws search <name> "<背景关键词>"
+   scrinium show <paper-id> --layer 2      # 摘要
    ```
 3. 明确指出现有工作的不足（research gap）
 4. 阐述本文贡献
@@ -60,8 +60,8 @@ scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper
 1. 用户描述方法，你协助组织成清晰的叙述
 2. 从工作区论文中找到可对比的方法：
    ```bash
-   scholaraio ws search <name> "<方法关键词>"
-   scholaraio show <paper-id> --layer 4      # 读全文了解方法细节
+   scrinium ws search <name> "<方法关键词>"
+   scrinium show <paper-id> --layer 4      # 读全文了解方法细节
    ```
 3. 确保符号定义一致、公式推导完整
 4. **公式与图表**：读取参考论文中的数学推导（LaTeX）和方法示意图（`images/`），对比本文方法的异同，确保描述准确
@@ -70,8 +70,8 @@ scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper
 1. 用户提供实验数据/图表
 2. 从工作区中检索可对比的基线结果：
    ```bash
-   scholaraio ws search <name> "<实验条件>"
-   scholaraio show <paper-id> --layer 3      # 结论
+   scrinium ws search <name> "<实验条件>"
+   scrinium show <paper-id> --layer 3      # 结论
    ```
 3. **读图对比**：读取参考论文中的结果图表（`data/papers/<dir>/images/`），与用户的实验结果做定性/定量对比
 4. **编写代码验证**：用 Python 做数据分析、统计检验、可视化——用计算结果支撑 Discussion 中的论点
@@ -93,12 +93,12 @@ scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper
 - **所有引用必须来自工作区中的真实论文**，绝不编造引用
 - 如发现工作区缺少需要引用的论文，提醒用户补充：
   ```bash
-  scholaraio usearch "<关键词>"              # 全库搜索候选
-  scholaraio ws add <name> <paper-id>        # 添加到工作区
+  scrinium usearch "<关键词>"              # 全库搜索候选
+  scrinium ws add <name> <paper-id>        # 添加到工作区
   ```
 - 最终导出：
   ```bash
-  scholaraio ws export <name> -o workspace/<name>/references.bib
+  scrinium ws export <name> -o workspace/<name>/references.bib
   ```
 
 ### 5. 输出

@@ -2,7 +2,7 @@
 name: enrich
 description: Enrich paper metadata using LLM extraction. Extract table of contents (TOC), conclusions (L3), and backfill abstracts. Use when the user wants to extract conclusions, build TOC, or backfill missing abstracts. For citation count updates, see the /citations skill.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "papers", "metadata", "enrichment", "llm"]
 ---
@@ -12,7 +12,7 @@ tags: ["academic", "papers", "metadata", "enrichment", "llm"]
 
 > **注意**：`import-endnote` / `import-zotero` 导入时默认自动执行 toc + l3 + abstract backfill。以下命令用于**选择性富化**（如重新提取、补充特定论文、或处理全库）。
 >
-> **引用量补查**：使用 `/citations` skill 中的 `scholaraio refetch` 命令。
+> **引用量补查**：使用 `/citations` skill 中的 `scrinium refetch` 命令。
 
 ## 执行逻辑
 
@@ -35,17 +35,17 @@ tags: ["academic", "papers", "metadata", "enrichment", "llm"]
 
 **提取目录：**
 ```bash
-scholaraio enrich-toc [<paper-id> | --all] [--force] [--inspect]
+scrinium enrich-toc [<paper-id> | --all] [--force] [--inspect]
 ```
 
 **提取结论：**
 ```bash
-scholaraio enrich-l3 [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
+scrinium enrich-l3 [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
 ```
 
 **补全摘要：**
 ```bash
-scholaraio backfill-abstract [--dry-run] [--doi-fetch]
+scrinium backfill-abstract [--dry-run] [--doi-fetch]
 ```
 
 参数说明：

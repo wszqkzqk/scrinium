@@ -2,7 +2,7 @@
 name: quantum-espresso
 description: Use when working on first-principles materials calculations with Quantum ESPRESSO, especially SCF, band structures, DOS, phonons, electron-phonon coupling, Fermi surfaces, or charge-density analysis.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["scientific-computing", "quantum-espresso", "dft", "first-principles"]
 ---
@@ -14,7 +14,7 @@ tags: ["scientific-computing", "quantum-espresso", "dft", "first-principles"]
 本 skill **故意保持轻量**：
 - 它负责告诉 agent 什么时候该用 QE、标准计算链路是什么、哪些物理与数值规范不能忽略
 - 它**不**承担输入文件字段和程序参数手册的职责
-- 具体输入变量、namelist 字段、程序差异统一去查 `scholaraio toolref`
+- 具体输入变量、namelist 字段、程序差异统一去查 `scrinium toolref`
 
 本 skill 应与 `scientific-runtime` 一起理解：
 - `quantum-espresso` skill 负责 QE 路由、工作流和科学规范
@@ -26,7 +26,7 @@ tags: ["scientific-computing", "quantum-espresso", "dft", "first-principles"]
 对 QE 问题，agent 默认按这个顺序工作：
 
 1. 先判断任务属于哪个程序：`pw.x`、`ph.x`、`matdyn.x`、`q2r.x`、`dos.x`、`projwfc.x`
-2. 写输入文件或解释参数前，先用 `scholaraio toolref show qe ...` 查关键变量
+2. 写输入文件或解释参数前，先用 `scrinium toolref show qe ...` 查关键变量
 3. 不确定变量归属时，先 `search` 再 `show`
 4. 如果 `toolref` 已能回答，就不要把 skill 当第二份参数手册
 5. 如果 `toolref` 缺页或命中不好，先继续完成用户任务，再回报这是 `toolref` 覆盖缺口，而不是把补文档工作甩给用户
@@ -67,11 +67,11 @@ conda install -c conda-forge qe
 常用查法：
 
 ```bash
-scholaraio toolref search qe "wavefunction cutoff"
-scholaraio toolref show qe pw ecutwfc
-scholaraio toolref show qe pw occupations
-scholaraio toolref show qe ph tr2_ph
-scholaraio toolref show qe matdyn asr
+scrinium toolref search qe "wavefunction cutoff"
+scrinium toolref show qe pw ecutwfc
+scrinium toolref show qe pw occupations
+scrinium toolref show qe ph tr2_ph
+scrinium toolref show qe matdyn asr
 ```
 
 推荐习惯：
@@ -88,7 +88,7 @@ scholaraio toolref show qe matdyn asr
 
 ### 知识库协作模式
 
-1. 用 `scholaraio usearch "<材料名称> DFT"` 检索相关论文
+1. 用 `scrinium usearch "<材料名称> DFT"` 检索相关论文
 2. 从论文提取：晶体结构、交换关联泛函、k 网格、截断能、实验基准值
 3. 在输入文件注释中标注参数来源
 4. 计算完成后与实验数据（晶格常数、能带间隙、声子频率）对比

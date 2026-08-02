@@ -2,7 +2,7 @@
 name: show
 description: View paper content at different detail levels. L1 (metadata), L2 (abstract), L3 (conclusion), L4 (full text). Use when the user wants to read a paper, see its abstract, conclusion, or full content.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "papers", "reading", "content"]
 ---
@@ -21,8 +21,8 @@ tags: ["academic", "papers", "reading", "content"]
 3. 执行查看命令：
 
 ```bash
-scholaraio show "<paper-id>" --layer <N>
-scholaraio show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_name/notes 字段），需要程序化解析时使用
+scrinium show "<paper-id>" --layer <N>
+scrinium show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_name/notes 字段），需要程序化解析时使用
 ```
 
 4. 将内容格式化后展示给用户。对于 L4 全文，如果内容过长，先展示摘要并询问用户是否需要完整内容。
@@ -58,7 +58,7 @@ scholaraio show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_na
 **写入规则**：
 - 当 agent（或 subagent）通过 `show` 阅读论文并进行了分析，**必须**将值得跨会话保留的发现写入 `notes.md`：
 ```bash
-scholaraio show "<paper-id>" --append-notes "## 2025-03-25 | ghia-cavity | 参数提取
+scrinium show "<paper-id>" --append-notes "## 2025-03-25 | ghia-cavity | 参数提取
 - 收敛判据：RMS 残差 < 1e-4
 - Re=400 用 257x257 网格
 - dt=inf for Re<=3200, dt=0.1 for Re=10000"

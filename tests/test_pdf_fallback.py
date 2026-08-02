@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scholaraio.ingest import pdf_fallback
+from scrinium.ingest import pdf_fallback
 
 
 def test_convert_pdf_with_fallback_uses_first_success(tmp_path, monkeypatch):

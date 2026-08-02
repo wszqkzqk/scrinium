@@ -1,4 +1,4 @@
-"""Unit tests for the shared FTS5/RRF helpers (scholaraio.search_common).
+"""Unit tests for the shared FTS5/RRF helpers (scrinium.search_common).
 
 Also pins the delegation wiring: index.py and explore.py route query
 sanitization, FTS schema generation, and RRF merging through search_common.
@@ -12,9 +12,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from scholaraio.explore import build_explore_fts, explore_search, explore_unified_search
-from scholaraio.index import _safe_query, build_index, search
-from scholaraio.search_common import RRF_K, fts_create_sql, rrf_merge, sanitize_fts_query
+from scrinium.explore import build_explore_fts, explore_search, explore_unified_search
+from scrinium.index import _safe_query, build_index, search
+from scrinium.search_common import RRF_K, fts_create_sql, rrf_merge, sanitize_fts_query
 
 
 class TestSanitizeFtsQuery:
@@ -169,7 +169,7 @@ class TestExploreDelegation:
         def _no_vectors(*_args, **_kwargs):
             raise FileNotFoundError("no vectors")
 
-        monkeypatch.setattr("scholaraio.explore.explore_vsearch", _no_vectors)
+        monkeypatch.setattr("scrinium.explore.explore_vsearch", _no_vectors)
         results = explore_unified_search("demo", "turbulence", cfg=cfg)
         assert len(results) == 1
         assert results[0]["match"] == "fts"
@@ -179,7 +179,7 @@ class TestExploreDelegation:
         cfg = _make_explore_cfg(tmp_path)
         build_explore_fts("demo", cfg=cfg)
         monkeypatch.setattr(
-            "scholaraio.explore.explore_vsearch",
+            "scrinium.explore.explore_vsearch",
             lambda *_a, **_k: [{"doi": "10.1/a", "title": "Turbulence in boundary layers", "score": 0.9}],
         )
         results = explore_unified_search("demo", "turbulence", cfg=cfg)

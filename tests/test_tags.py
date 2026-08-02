@@ -16,11 +16,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from scholaraio import cli
-from scholaraio.audit import audit_papers
-from scholaraio.index import build_index, paper_ids_for_tags, search, unified_search
-from scholaraio.search_common import fts_create_sql
-from scholaraio.tags import (
+from scrinium import cli
+from scrinium.audit import audit_papers
+from scrinium.index import build_index, paper_ids_for_tags, search, unified_search
+from scrinium.search_common import fts_create_sql
+from scrinium.tags import (
     all_tags_with_counts,
     load_taxonomy,
     normalize_tag,
@@ -29,7 +29,7 @@ from scholaraio.tags import (
     resolve_tag,
     set_paper_tags,
 )
-from scholaraio.workspace import add, create
+from scrinium.workspace import add, create
 
 _SMITH = "Smith-2023-Turbulence"
 _WANG = "Wang-2024-DeepLearning"
@@ -145,7 +145,7 @@ class TestCliTag:
     def test_add_tags_auto_registers(self, tmp_path, tmp_papers, caplog):
         cfg = _cfg(tmp_path, tmp_papers)
         args = Namespace(paper_id=_SMITH, tags=["Force Field", "MD"], remove=False, json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tag(args, cfg)
 
         out = caplog.text
@@ -169,14 +169,14 @@ class TestCliTag:
         cfg = _cfg(tmp_path, tmp_papers)
         set_paper_tags(tmp_papers / _SMITH, ["md"])
         args = Namespace(paper_id=_SMITH, tags=[], remove=False, json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tag(args, cfg)
         assert "md" in caplog.text
 
     def test_show_empty_tags(self, tmp_path, tmp_papers, caplog):
         cfg = _cfg(tmp_path, tmp_papers)
         args = Namespace(paper_id=_WANG, tags=[], remove=False, json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tag(args, cfg)
         assert "暂无标签" in caplog.text
 
@@ -185,7 +185,7 @@ class TestCliTag:
         register_tag(cfg, "force-field", aliases=["FF"])
         set_paper_tags(tmp_papers / _SMITH, ["force-field", "md"])
         args = Namespace(paper_id=_SMITH, tags=["ff"], remove=True, json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tag(args, cfg)
 
         assert "已移除标签: force-field" in caplog.text
@@ -213,7 +213,7 @@ class TestCliTags:
         set_paper_tags(tmp_papers / _WANG, ["md"])
 
         args = Namespace(json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tags(args, cfg)
 
         out = caplog.text
@@ -239,7 +239,7 @@ class TestCliTags:
     def test_empty_taxonomy(self, tmp_path, tmp_papers, caplog):
         cfg = _cfg(tmp_path, tmp_papers)
         args = Namespace(json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tags(args, cfg)
         assert "标签词表为空" in caplog.text
 
@@ -305,7 +305,7 @@ class TestTagSearchFilter:
             paper_type=None,
             tags=["force-field"],
         )
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_ws(args, tagged_index)
 
         out = caplog.text
@@ -355,7 +355,7 @@ class TestShowHeader:
         set_paper_tags(tmp_papers / _SMITH, ["force-field", "md"])
         cfg = _cfg(tmp_path, tmp_papers)
         args = Namespace(paper_id=_SMITH, layer=1, json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_show(args, cfg)
 
         assert "标签     : force-field, md" in caplog.text
@@ -363,7 +363,7 @@ class TestShowHeader:
     def test_l1_header_omits_tags_when_empty(self, tmp_path, tmp_papers, caplog):
         cfg = _cfg(tmp_path, tmp_papers)
         args = Namespace(paper_id=_SMITH, layer=1, json=False)
-        with caplog.at_level(logging.INFO, logger="scholaraio.ui"):
+        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_show(args, cfg)
         assert "标签" not in caplog.text
 
@@ -374,7 +374,7 @@ class TestAuditUntagged:
         untagged = [i for i in issues if i.rule == "untagged"]
         assert {i.paper_id for i in untagged} == {_SMITH, _WANG}
         assert all(i.severity == "info" for i in untagged)
-        assert all("scholaraio tag" in i.message for i in untagged)
+        assert all("scrinium tag" in i.message for i in untagged)
 
     def test_tagged_paper_not_reported(self, tmp_papers):
         set_paper_tags(tmp_papers / _SMITH, ["md"])

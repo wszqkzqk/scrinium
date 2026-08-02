@@ -3,9 +3,9 @@ requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "scholaraio"
-version = "1.3.0"
-description = "Scholar All-In-One — A research infrastructure for AI agents"
+name = "scrinium"
+version = "2.0.0"
+description = "Scrinium — a research infrastructure for AI agents (hard fork of ScholarAIO)"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.10"
 license = "MIT"
@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/zimoliao/scholaraio"
-Repository = "https://github.com/zimoliao/scholaraio"
-Issues = "https://github.com/zimoliao/scholaraio/issues"
+Homepage = "https://github.com/wszqkzqk/scrinium"
+Repository = "https://github.com/wszqkzqk/scrinium"
+Issues = "https://github.com/wszqkzqk/scrinium/issues"
 
 [project.optional-dependencies]
 embed = [
@@ -43,7 +43,7 @@ embed = [
     "faiss-cpu>=1.7",
 ]
 topics = [
-    "scholaraio[embed]",
+    "scrinium[embed]",
     "bertopic>=0.16",
     "pandas>=2.0",
 ]
@@ -66,12 +66,12 @@ draw = [
     "mermaid-py>=0.3",
 ]
 full = [
-    "scholaraio[embed]",
-    "scholaraio[topics]",
-    "scholaraio[import]",
-    "scholaraio[pdf]",
-    "scholaraio[office]",
-    "scholaraio[draw]",
+    "scrinium[embed]",
+    "scrinium[topics]",
+    "scrinium[import]",
+    "scrinium[pdf]",
+    "scrinium[office]",
+    "scrinium[draw]",
     "modelscope>=1.10",
     "curl-cffi>=0.5",
 ]
@@ -89,11 +89,11 @@ dev = [
 ]
 
 [project.scripts]
-scholaraio = "scholaraio.cli:main"
+scrinium = "scrinium.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["scholaraio*"]
+include = ["scrinium*"]
 namespaces = false
 
 # ---------- ruff ----------
@@ -125,13 +125,13 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Optional-import heavy modules: BERTopic/numpy imported at runtime
-"scholaraio/topics.py" = ["F821"]
+"scrinium/topics.py" = ["F821"]
 # Existing modules: suppress style nits that don't affect correctness
-"scholaraio/*.py" = ["SIM105", "SIM102", "SIM115", "E402", "F841", "RUF059", "B904"]
-"scholaraio/**/*.py" = ["SIM105", "SIM102", "SIM115", "E402", "F841", "RUF059", "B904"]
+"scrinium/*.py" = ["SIM105", "SIM102", "SIM115", "E402", "F841", "RUF059", "B904"]
+"scrinium/**/*.py" = ["SIM105", "SIM102", "SIM115", "E402", "F841", "RUF059", "B904"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["scholaraio"]
+known-first-party = ["scrinium"]
 
 # ---------- mypy ----------
 [tool.mypy]
@@ -152,13 +152,13 @@ check_untyped_defs = true
 # Lenient for modules with heavy optional imports and dynamic typing
 [[tool.mypy.overrides]]
 module = [
-    "scholaraio.topics",
-    "scholaraio.vectors",
-    "scholaraio.cli",
-    "scholaraio.cli.*",
+    "scrinium.topics",
+    "scrinium.vectors",
+    "scrinium.cli",
+    "scrinium.cli.*",
 
-    "scholaraio.explore",
-    "scholaraio.ingest.*",
+    "scrinium.explore",
+    "scrinium.ingest.*",
 ]
 ignore_errors = true
 
@@ -172,7 +172,7 @@ markers = [
 
 # ---------- coverage ----------
 [tool.coverage.run]
-source = ["scholaraio"]
+source = ["scrinium"]
 
 [tool.coverage.report]
 show_missing = true

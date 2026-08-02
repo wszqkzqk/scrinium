@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-from scholaraio.toolref import (
+from scrinium.toolref import (
     TOOL_REGISTRY,
     toolref_fetch,
     toolref_list,
@@ -23,13 +23,13 @@ from scholaraio.toolref import (
     toolref_use,
     validate_tool_name,
 )
-from scholaraio.toolref import fetch as fetch_mod
-from scholaraio.toolref import indexing as indexing_mod
-from scholaraio.toolref import manifest as manifest_mod
-from scholaraio.toolref import parsers as parsers_mod
-from scholaraio.toolref import paths as paths_mod
-from scholaraio.toolref import search as search_mod
-from scholaraio.toolref import storage as storage_mod
+from scrinium.toolref import fetch as fetch_mod
+from scrinium.toolref import indexing as indexing_mod
+from scrinium.toolref import manifest as manifest_mod
+from scrinium.toolref import parsers as parsers_mod
+from scrinium.toolref import paths as paths_mod
+from scrinium.toolref import search as search_mod
+from scrinium.toolref import storage as storage_mod
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ def _write_manifest_page(pages_dir: Path, stem: str, page_name: str, html: str =
 
 
 def test_package_public_api_surface():
-    import scholaraio.toolref as pkg
+    import scrinium.toolref as pkg
 
     assert set(pkg.__all__) == {
         "TOOL_REGISTRY",

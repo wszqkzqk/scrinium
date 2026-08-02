@@ -31,7 +31,7 @@ doc = Document()
 
 # ── 文档属性 ──
 doc.core_properties.title = "研究简报"
-doc.core_properties.author = "ScholarAIO"
+doc.core_properties.author = "Scrinium"
 
 # ── 页面设置（A4，适当边距）──
 section = doc.sections[0]
@@ -46,7 +46,7 @@ section.right_margin = Cm(3)
 header = section.header
 header.is_linked_to_previous = False
 hp = header.paragraphs[0]
-hp.text = "ScholarAIO Research Brief"
+hp.text = "Scrinium Research Brief"
 hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
 # ── 页脚（页码）──
@@ -83,7 +83,7 @@ img = Path("workspace/figures/pipeline.png")
 if img.exists():
     doc.add_picture(str(img), width=Inches(5))
     # 图片标题
-    cap = doc.add_paragraph("图 1：ScholarAIO 数据流水线")
+    cap = doc.add_paragraph("图 1：Scrinium 数据流水线")
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cap.runs[0].italic = True
 
@@ -193,7 +193,7 @@ prs = Presentation()
 # ── 标题页 ──
 slide = prs.slides.add_slide(prs.slide_layouts[0])  # Title Slide
 slide.shapes.title.text = "研究进展报告"
-slide.placeholders[1].text = "ScholarAIO 自动生成\n2026-03-15"
+slide.placeholders[1].text = "Scrinium 自动生成\n2026-03-15"
 
 # ── 内容页（标题 + 正文）──
 slide = prs.slides.add_slide(prs.slide_layouts[1])  # Title and Content

@@ -4,12 +4,12 @@ import os
 import sqlite3
 from types import SimpleNamespace
 
-from scholaraio import vectors
-from scholaraio.config import _build_config
+from scrinium import vectors
+from scrinium.config import _build_config
 
 
 def test_load_model_sets_hf_endpoint_before_sentence_transformers_import(tmp_path, monkeypatch):
-    monkeypatch.delenv("SCHOLARAIO_HF_ENDPOINT", raising=False)
+    monkeypatch.delenv("SCRINIUM_HF_ENDPOINT", raising=False)
     monkeypatch.delenv("HF_ENDPOINT", raising=False)
 
     cfg = _build_config(
@@ -252,3 +252,23 @@ def test_resolve_model_path_no_download_notice_when_model_cached(tmp_path, monke
 
     assert path == str(tmp_path / "model")
     assert not messages
+
+
+def test_gpu_profile_read_path_prefers_new_with_legacy_fallback(tmp_path, monkeypatch):
+    new_file = tmp_path / "new" / "gpu_profile.json"
+    legacy_file = tmp_path / "legacy" / "gpu_profile.json"
+    monkeypatch.setattr(vectors, "_GPU_PROFILE_FILE", new_file)
+    monkeypatch.setattr(vectors, "_LEGACY_GPU_PROFILE_FILE", legacy_file)
+
+    # Neither exists: default to the new location
+    assert vectors._gpu_profile_read_path() == new_file
+
+    # Only legacy exists: read from the legacy pre-fork location
+    legacy_file.parent.mkdir(parents=True)
+    legacy_file.write_text("{}", encoding="utf-8")
+    assert vectors._gpu_profile_read_path() == legacy_file
+
+    # Both exist: the new location wins
+    new_file.parent.mkdir(parents=True)
+    new_file.write_text("{}", encoding="utf-8")
+    assert vectors._gpu_profile_read_path() == new_file

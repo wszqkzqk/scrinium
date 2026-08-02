@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scholaraio.translate import (
+from scrinium.translate import (
     SKIP_ALL_CHUNKS_FAILED,
     _build_translate_prompt,
     _split_into_chunks,
@@ -200,9 +200,9 @@ class TestTranslatePaper:
             llm=SimpleNamespace(model="test-model"),
         )
 
-        monkeypatch.setattr("scholaraio.translate.detect_language", lambda text: "en")
+        monkeypatch.setattr("scrinium.translate.detect_language", lambda text: "en")
         monkeypatch.setattr(
-            "scholaraio.translate._split_into_chunks", lambda text, chunk_size: ["chunk-1", "chunk-2", "chunk-3"]
+            "scrinium.translate._split_into_chunks", lambda text, chunk_size: ["chunk-1", "chunk-2", "chunk-3"]
         )
 
         state = {"in_flight": 0, "max_in_flight": 0}
@@ -219,7 +219,7 @@ class TestTranslatePaper:
                 state["in_flight"] -= 1
             return outputs[chunk]
 
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", fake_translate)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", fake_translate)
 
         result = translate_paper(paper_dir, cfg, target_lang="zh", force=True)
 
@@ -242,11 +242,11 @@ class TestTranslatePaper:
             workspace_dir=tmp_path / "workspace",
         )
 
-        monkeypatch.setattr("scholaraio.translate.detect_language", lambda text: "en")
+        monkeypatch.setattr("scrinium.translate.detect_language", lambda text: "en")
         monkeypatch.setattr(
-            "scholaraio.translate._split_into_chunks", lambda text, chunk_size: ["# 标题\n\n![](images/fig1.png)\n"]
+            "scrinium.translate._split_into_chunks", lambda text, chunk_size: ["# 标题\n\n![](images/fig1.png)\n"]
         )
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", lambda chunk, lang, config: chunk)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", lambda chunk, lang, config: chunk)
 
         result = translate_paper(paper_dir, cfg, target_lang="zh", force=True, portable=True)
 
@@ -274,9 +274,9 @@ class TestTranslatePaper:
             workspace_dir=tmp_path / "workspace",
         )
 
-        monkeypatch.setattr("scholaraio.translate.detect_language", lambda text: "en")
+        monkeypatch.setattr("scrinium.translate.detect_language", lambda text: "en")
         monkeypatch.setattr(
-            "scholaraio.translate._translate_chunk",
+            "scrinium.translate._translate_chunk",
             lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("should not call llm")),
         )
 
@@ -301,7 +301,7 @@ class TestTranslatePaper:
         )
 
         monkeypatch.setattr(
-            "scholaraio.translate._translate_chunk",
+            "scrinium.translate._translate_chunk",
             lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("llm unavailable")),
         )
 
@@ -326,8 +326,8 @@ class TestTranslatePaper:
                 raise TimeoutError("network jitter")
             return "译文"
 
-        monkeypatch.setattr("scholaraio.translate.time.sleep", fake_sleep)
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", flaky_translate)
+        monkeypatch.setattr("scrinium.translate.time.sleep", fake_sleep)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", flaky_translate)
 
         translated, used_attempts = _translate_chunk_with_retry("chunk", "zh", cfg)
 
@@ -347,8 +347,8 @@ class TestTranslatePaper:
             attempts["count"] += 1
             raise TimeoutError("still failing")
 
-        monkeypatch.setattr("scholaraio.translate.time.sleep", fake_sleep)
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", always_fail)
+        monkeypatch.setattr("scrinium.translate.time.sleep", fake_sleep)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", always_fail)
 
         with pytest.raises(TimeoutError):
             _translate_chunk_with_retry("chunk", "zh", cfg)
@@ -370,9 +370,9 @@ class TestTranslatePaper:
         workdir = _translation_workdir(paper_dir, "zh")
         progress_messages: list[str] = []
 
-        monkeypatch.setattr("scholaraio.translate.detect_language", lambda text: "en")
+        monkeypatch.setattr("scrinium.translate.detect_language", lambda text: "en")
         monkeypatch.setattr(
-            "scholaraio.translate._split_into_chunks", lambda text, chunk_size: ["chunk-1", "chunk-2", "chunk-3"]
+            "scrinium.translate._split_into_chunks", lambda text, chunk_size: ["chunk-1", "chunk-2", "chunk-3"]
         )
 
         first_run_calls: list[str] = []
@@ -383,7 +383,7 @@ class TestTranslatePaper:
                 return "译文-1"
             raise TimeoutError("chunk timeout")
 
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", first_run_translate)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", first_run_translate)
 
         first = translate_paper(
             paper_dir, cfg, target_lang="zh", force=True, progress_callback=progress_messages.append
@@ -413,7 +413,7 @@ class TestTranslatePaper:
             second_run_calls.append(chunk)
             return {"chunk-2": "译文-2", "chunk-3": "译文-3"}[chunk]
 
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", second_run_translate)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", second_run_translate)
 
         second = translate_paper(
             paper_dir,
@@ -446,9 +446,9 @@ class TestTranslatePaper:
         out_path = paper_dir / "paper_zh.md"
         workdir = _translation_workdir(paper_dir, "zh")
 
-        monkeypatch.setattr("scholaraio.translate.detect_language", lambda text: "en")
+        monkeypatch.setattr("scrinium.translate.detect_language", lambda text: "en")
         monkeypatch.setattr(
-            "scholaraio.translate._split_into_chunks", lambda text, chunk_size: ["chunk-1", "chunk-2", "chunk-3"]
+            "scrinium.translate._split_into_chunks", lambda text, chunk_size: ["chunk-1", "chunk-2", "chunk-3"]
         )
 
         def first_run_translate(chunk, lang, config):
@@ -456,7 +456,7 @@ class TestTranslatePaper:
                 raise TimeoutError("middle chunk timeout")
             return {"chunk-1": "译文-1", "chunk-3": "译文-3"}[chunk]
 
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", first_run_translate)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", first_run_translate)
 
         first = translate_paper(paper_dir, cfg, target_lang="zh", force=True)
 
@@ -473,7 +473,7 @@ class TestTranslatePaper:
             second_run_calls.append(chunk)
             return {"chunk-2": "译文-2"}[chunk]
 
-        monkeypatch.setattr("scholaraio.translate._translate_chunk", second_run_translate)
+        monkeypatch.setattr("scrinium.translate._translate_chunk", second_run_translate)
 
         second = translate_paper(paper_dir, cfg, target_lang="zh", force=False)
 
@@ -503,7 +503,7 @@ class TestBatchTranslate:
             received_chunk_workers.append(kwargs.get("chunk_workers"))
             return SimpleNamespace(ok=True, partial=False, skip_reason="")
 
-        monkeypatch.setattr("scholaraio.translate.translate_paper", fake_translate_paper)
+        monkeypatch.setattr("scrinium.translate.translate_paper", fake_translate_paper)
 
         stats = batch_translate(papers_dir, cfg, target_lang="zh", force=True)
 

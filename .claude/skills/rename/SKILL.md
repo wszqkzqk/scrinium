@@ -2,7 +2,7 @@
 name: rename
 description: Rename paper directories to standardized Author-Year-Title format based on JSON metadata. Use when the user wants to normalize filenames after metadata corrections.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "papers", "metadata", "filenames"]
 ---
@@ -21,22 +21,22 @@ tags: ["academic", "papers", "metadata", "filenames"]
 
 **预览全部重命名：**
 ```bash
-scholaraio rename --all --dry-run
+scrinium rename --all --dry-run
 ```
 
 **执行全部重命名：**
 ```bash
-scholaraio rename --all
+scrinium rename --all
 ```
 
 **重命名单篇论文：**
 ```bash
-scholaraio rename <paper-id>
+scrinium rename <paper-id>
 ```
 
 3. 重命名后建议重建索引：
 ```bash
-scholaraio pipeline reindex
+scrinium pipeline reindex
 ```
 
 ## 示例

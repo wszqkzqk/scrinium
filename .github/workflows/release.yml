@@ -31,7 +31,7 @@ jobs:
           tag_version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
           pyproject_version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
 
-          init_text = (root / "scholaraio" / "__init__.py").read_text()
+          init_text = (root / "scrinium" / "__init__.py").read_text()
           init_match = re.search(r'__version__\s*=\s*"([^"]+)"', init_text)
           runtime_version = init_match.group(1) if init_match else None
 

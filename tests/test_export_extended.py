@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from scholaraio.export import export_markdown_refs, export_ris, meta_to_ris
+from scrinium.export import export_markdown_refs, export_ris, meta_to_ris
 
 # ============================================================================
 #  RIS export
@@ -116,8 +116,8 @@ class TestCitationStyles:
     """Citation style discovery, loading, and validation."""
 
     def test_list_styles_includes_builtins(self, tmp_papers):
-        from scholaraio.citation_styles import BUILTIN_STYLES, list_styles
-        from scholaraio.config import Config
+        from scrinium.citation_styles import BUILTIN_STYLES, list_styles
+        from scrinium.config import Config
 
         cfg = Config()
         cfg._root = tmp_papers.parent
@@ -126,8 +126,8 @@ class TestCitationStyles:
         assert builtin_names == set(BUILTIN_STYLES)
 
     def test_get_formatter_builtin(self):
-        from scholaraio.citation_styles import get_formatter
-        from scholaraio.config import Config
+        from scrinium.citation_styles import get_formatter
+        from scrinium.config import Config
 
         cfg = Config()
         fmt = get_formatter("apa", cfg)
@@ -135,8 +135,8 @@ class TestCitationStyles:
         assert result.startswith("1. ")
 
     def test_get_formatter_missing_raises(self, tmp_path):
-        from scholaraio.citation_styles import get_formatter
-        from scholaraio.config import Config
+        from scrinium.citation_styles import get_formatter
+        from scrinium.config import Config
 
         cfg = Config()
         cfg._root = tmp_path
@@ -145,8 +145,8 @@ class TestCitationStyles:
             get_formatter("nonexistent-style", cfg)
 
     def test_custom_style_loaded_from_file(self, tmp_path):
-        from scholaraio.citation_styles import get_formatter, list_styles
-        from scholaraio.config import Config
+        from scrinium.citation_styles import get_formatter, list_styles
+        from scrinium.config import Config
 
         cfg = Config()
         cfg._root = tmp_path
@@ -173,16 +173,16 @@ class TestCitationStyles:
         assert "CUSTOM: Hello" in result
 
     def test_path_traversal_rejected(self):
-        from scholaraio.citation_styles import get_formatter
-        from scholaraio.config import Config
+        from scrinium.citation_styles import get_formatter
+        from scrinium.config import Config
 
         cfg = Config()
         with pytest.raises(ValueError, match="引用格式名称无效"):
             get_formatter("../../../etc/passwd", cfg)
 
     def test_path_traversal_dots_rejected(self):
-        from scholaraio.citation_styles import get_formatter
-        from scholaraio.config import Config
+        from scrinium.citation_styles import get_formatter
+        from scrinium.config import Config
 
         cfg = Config()
         with pytest.raises(ValueError, match="引用格式名称无效"):
@@ -201,7 +201,7 @@ class TestExportDocx:
     """DOCX generation from Markdown content."""
 
     def test_basic_export(self, tmp_path):
-        from scholaraio.export import export_docx
+        from scrinium.export import export_docx
 
         out = tmp_path / "test.docx"
         export_docx("# Hello\n\nWorld", out, title="Test Doc")
@@ -209,14 +209,14 @@ class TestExportDocx:
         assert out.stat().st_size > 0
 
     def test_export_without_title(self, tmp_path):
-        from scholaraio.export import export_docx
+        from scrinium.export import export_docx
 
         out = tmp_path / "notitle.docx"
         export_docx("Just a paragraph.", out)
         assert out.exists()
 
     def test_export_with_table(self, tmp_path):
-        from scholaraio.export import export_docx
+        from scrinium.export import export_docx
 
         md = "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |"
         out = tmp_path / "table.docx"

@@ -1,13 +1,13 @@
 {
-  "name": "scholaraio",
+  "name": "scrinium",
   "description": "A research infrastructure for AI agents. Search, read, and analyze papers from your local knowledge base while coding. Includes arXiv discovery, layered reading, ingestion, topic modeling, citation graphs, insights analytics, Office document inspection, scientific tool docs, and academic writing workflows. Requires Python 3.10+ and pip install.",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "author": {
     "name": "ZimoLiao",
     "email": "zimoliao@mail.ustc.edu.cn"
   },
-  "homepage": "https://github.com/ZimoLiao/scholaraio",
-  "repository": "https://github.com/ZimoLiao/scholaraio",
+  "homepage": "https://github.com/wszqkzqk/scrinium",
+  "repository": "https://github.com/wszqkzqk/scrinium",
   "license": "MIT",
   "keywords": [
     "academic",

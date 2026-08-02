@@ -13,10 +13,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from scholaraio import cli
-from scholaraio.cli import ws as cli_ws
-from scholaraio.index import build_index
-from scholaraio.workspace import add, create, list_workspaces, read_paper_ids, remove, rename, validate_workspace_name
+from scrinium import cli
+from scrinium.cli import ws as cli_ws
+from scrinium.index import build_index
+from scrinium.workspace import add, create, list_workspaces, read_paper_ids, remove, rename, validate_workspace_name
 
 
 class TestWorkspaceCreate:
@@ -98,7 +98,7 @@ class TestRemove:
         ]
         (ws_dir / "papers.json").write_text(json.dumps(entries), encoding="utf-8")
 
-        monkeypatch.setattr("scholaraio.index.lookup_paper", lambda db_path, ref: None)
+        monkeypatch.setattr("scrinium.index.lookup_paper", lambda db_path, ref: None)
 
         removed = remove(ws_dir, ["Smith-2023-Test"], tmp_path / "index.db")
 
@@ -114,7 +114,7 @@ class TestRemove:
         ]
         (ws_dir / "papers.json").write_text(json.dumps(entries), encoding="utf-8")
 
-        monkeypatch.setattr("scholaraio.index.lookup_paper", lambda db_path, ref: None)
+        monkeypatch.setattr("scrinium.index.lookup_paper", lambda db_path, ref: None)
 
         removed = remove(ws_dir, ["SharedRef"], tmp_path / "index.db")
 
@@ -133,7 +133,7 @@ class TestRemove:
         def fail_lookup(db_path, ref):
             raise sqlite3.OperationalError("database is locked")
 
-        monkeypatch.setattr("scholaraio.index.lookup_paper", fail_lookup)
+        monkeypatch.setattr("scrinium.index.lookup_paper", fail_lookup)
 
         removed = remove(ws_dir, ["Smith-2023-Test"], tmp_path / "index.db")
 
@@ -256,7 +256,7 @@ class TestCmdWsMissingWorkspace:
             cli.cmd_ws(_ws_args(name="typo-ws", paper_refs=["some-ref"]), _ws_cfg(tmp_path))
 
         msg = str(exc_info.value)
-        assert "scholaraio ws init typo-ws" in msg
+        assert "scrinium ws init typo-ws" in msg
         assert "alpha" in msg
         assert not (ws_root / "typo-ws").exists()
 
@@ -264,7 +264,7 @@ class TestCmdWsMissingWorkspace:
         with pytest.raises(ValueError, match="工作区不存在: ws") as exc_info:
             cli.cmd_ws(_ws_args(paper_refs=["some-ref"]), _ws_cfg(tmp_path))
 
-        assert "scholaraio ws init ws" in str(exc_info.value)
+        assert "scrinium ws init ws" in str(exc_info.value)
 
     def test_show_missing_workspace_raises(self, tmp_path):
         create(tmp_path / "workspace" / "alpha")
@@ -313,7 +313,7 @@ class TestCmdWsAddUnresolvedRefs:
     def test_add_collects_unresolved_via_out_param(self, tmp_path, monkeypatch):
         ws_dir = tmp_path / "ws"
         create(ws_dir)
-        monkeypatch.setattr("scholaraio.index.lookup_paper", lambda db_path, ref: None)
+        monkeypatch.setattr("scrinium.index.lookup_paper", lambda db_path, ref: None)
 
         unresolved: list[str] = []
         added = add(ws_dir, ["ghost"], tmp_path / "index.db", unresolved=unresolved)

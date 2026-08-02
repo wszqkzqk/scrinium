@@ -11,9 +11,9 @@ import json
 from argparse import Namespace
 from types import SimpleNamespace
 
-from scholaraio import cli
-from scholaraio.index import build_index
-from scholaraio.workspace import add, create
+from scrinium import cli
+from scrinium.index import build_index
+from scrinium.workspace import add, create
 
 
 class TestSearchJson:

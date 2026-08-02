@@ -13,8 +13,8 @@ repos:
         additional_dependencies: []
         args: [--config-file=pyproject.toml]
         pass_filenames: false
-        # Only check scholaraio/ package, not tests or scripts
-        entry: mypy scholaraio/
+        # Only check scrinium/ package, not tests or scripts
+        entry: mypy scrinium/
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

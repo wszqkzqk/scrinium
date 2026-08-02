@@ -2,7 +2,7 @@
 name: review-response
 description: Draft point-by-point responses to peer review comments. Locates supporting evidence from workspace papers and the original manuscript. Use when the user receives reviewer feedback and needs to write a rebuttal or revision response letter.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "writing", "peer-review", "rebuttal"]
 ---
@@ -33,17 +33,17 @@ tags: ["academic", "writing", "peer-review", "rebuttal"]
 对每条意见：
 1. 理解审稿人的核心诉求
 2. 在原稿中定位相关段落
-3. 用 `scholaraio show` 查看论文（已有 `notes.md` 笔记会自动展示），复用已有发现
+3. 用 `scrinium show` 查看论文（已有 `notes.md` 笔记会自动展示），复用已有发现
 4. 在工作区文献中搜索支撑证据：
    ```bash
-   scholaraio ws search <name> "<审稿人关注的关键词>"
-   scholaraio show <paper-id> --layer 3      # 读结论找证据
-   scholaraio show <paper-id> --layer 4      # 必要时读全文
+   scrinium ws search <name> "<审稿人关注的关键词>"
+   scrinium show <paper-id> --layer 3      # 读结论找证据
+   scrinium show <paper-id> --layer 4      # 必要时读全文
    ```
 5. 从引用图谱中找额外支撑：
    ```bash
-   scholaraio refs "<id>"                    # 相关论文的参考文献
-   scholaraio usearch "<补充关键词>"          # 全库搜索（工作区外）
+   scrinium refs "<id>"                    # 相关论文的参考文献
+   scrinium usearch "<补充关键词>"          # 全库搜索（工作区外）
    ```
 
 ### 3. 撰写回复
@@ -74,12 +74,12 @@ tags: ["academic", "writing", "peer-review", "rebuttal"]
 - 保存回复信到 `workspace/<name>/response-letter.md`
 - **必须**通过 CLI 将深度分析的论文关键发现写入笔记：
   ```bash
-  scholaraio show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | review-response
+  scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | review-response
   - 关键发现"
   ```
 - 如需补充引用新论文到工作区：
   ```bash
-  scholaraio ws add <name> <paper-id>
+  scrinium ws add <name> <paper-id>
   ```
 
 ## 写作原则

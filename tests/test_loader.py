@@ -11,8 +11,8 @@ import json
 import logging
 from typing import cast
 
-from scholaraio.config import Config
-from scholaraio.loader import L3_SKIP_TYPES, append_notes, enrich_l3, load_l1, load_l2, load_l4, load_notes
+from scrinium.config import Config
+from scrinium.loader import L3_SKIP_TYPES, append_notes, enrich_l3, load_l1, load_l2, load_l4, load_notes
 
 # enrich_l3 requires a Config argument but the skip-by-type branch
 # returns before it is used.  We use a typed sentinel so mypy is happy.
@@ -128,7 +128,7 @@ class TestLoadL4:
 
     def test_invalid_lang_logs_warning_without_traceback(self, tmp_papers, caplog):
         md_path = tmp_papers / "Smith-2023-Turbulence" / "paper.md"
-        with caplog.at_level(logging.WARNING, logger="scholaraio.loader"):
+        with caplog.at_level(logging.WARNING, logger="scrinium.loader"):
             result = load_l4(md_path, lang="../bad")
         assert "Turbulence modeling" in result
         records = [r for r in caplog.records if "invalid lang code" in r.getMessage()]

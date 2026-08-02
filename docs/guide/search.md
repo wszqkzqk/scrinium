@@ -1,13 +1,13 @@
 # Search & Browse
 
-ScholarAIO provides multiple search modes to find papers in your knowledge base.
+Scrinium provides multiple search modes to find papers in your knowledge base.
 
 ## Search Modes
 
 ### Keyword Search (FTS5)
 
 ```bash
-scholaraio search "turbulent boundary layer"
+scrinium search "turbulent boundary layer"
 ```
 
 Searches title, abstract, and conclusion using SQLite FTS5 full-text search.
@@ -15,7 +15,7 @@ Searches title, abstract, and conclusion using SQLite FTS5 full-text search.
 ### Semantic Search
 
 ```bash
-scholaraio vsearch "methods for predicting flow separation"
+scrinium vsearch "methods for predicting flow separation"
 ```
 
 Uses Qwen3 embeddings + FAISS for meaning-based retrieval.
@@ -23,7 +23,7 @@ Uses Qwen3 embeddings + FAISS for meaning-based retrieval.
 ### Unified Search (Fusion)
 
 ```bash
-scholaraio usearch "Reynolds stress modeling"
+scrinium usearch "Reynolds stress modeling"
 ```
 
 Combines keyword and semantic results using Reciprocal Rank Fusion (RRF).
@@ -31,7 +31,7 @@ Combines keyword and semantic results using Reciprocal Rank Fusion (RRF).
 ### Federated Search
 
 ```bash
-scholaraio fsearch "wall turbulence" --scope main,proceedings,explore:*,arxiv
+scrinium fsearch "wall turbulence" --scope main,proceedings,explore:*,arxiv
 ```
 
 Searches across the main library, proceedings, one or more `explore` silos, and arXiv in one command.
@@ -39,7 +39,7 @@ Searches across the main library, proceedings, one or more `explore` silos, and 
 ### Author Search
 
 ```bash
-scholaraio search-author "Smith"
+scrinium search-author "Smith"
 ```
 
 ## Viewing Papers
@@ -47,10 +47,10 @@ scholaraio search-author "Smith"
 Load paper content at different detail levels:
 
 ```bash
-scholaraio show <paper-id> --layer 1  # metadata
-scholaraio show <paper-id> --layer 2  # + abstract
-scholaraio show <paper-id> --layer 3  # + conclusion
-scholaraio show <paper-id> --layer 4  # full text
+scrinium show <paper-id> --layer 1  # metadata
+scrinium show <paper-id> --layer 2  # + abstract
+scrinium show <paper-id> --layer 3  # + conclusion
+scrinium show <paper-id> --layer 4  # full text
 ```
 
 ## Filtering
@@ -58,20 +58,20 @@ scholaraio show <paper-id> --layer 4  # full text
 All search commands support filters:
 
 ```bash
-scholaraio search "turbulence" --year 2020-2024 --journal "JFM" --type review
+scrinium search "turbulence" --year 2020-2024 --journal "JFM" --type review
 ```
 
 ## Top-Cited Papers
 
 ```bash
-scholaraio top-cited --top 20 --year 2020-
+scrinium top-cited --top 20 --year 2020-
 ```
 
 ## arXiv Search and Fetch
 
 ```bash
-scholaraio arxiv search "compliant wall turbulence" --category physics.flu-dyn
-scholaraio arxiv fetch 2604.00484 --ingest
+scrinium arxiv search "compliant wall turbulence" --category physics.flu-dyn
+scrinium arxiv fetch 2604.00484 --ingest
 ```
 
 Use `arxiv search` to discover preprints and `arxiv fetch` to download a PDF or send it directly into the ingest pipeline.
@@ -79,8 +79,8 @@ Use `arxiv search` to discover preprints and `arxiv fetch` to download a PDF or 
 ## Scientific Tool Documentation
 
 ```bash
-scholaraio toolref search openfoam "y plus"
-scholaraio toolref show qe pw conv_thr
+scrinium toolref search openfoam "y plus"
+scrinium toolref show qe pw conv_thr
 ```
 
 Use `toolref` when you need authoritative parameter or command documentation for supported scientific tools.

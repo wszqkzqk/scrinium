@@ -2,7 +2,7 @@
 name: workspace
 description: Manage workspace paper subsets — create workspaces, add/remove papers, search within a workspace, and export BibTeX. Workspaces are thin layers that reference papers in the main library by UUID. Use when the user wants to organize papers into groups for writing, review, or focused analysis.
 version: 1.0.0
-author: ZimoLiao/scholaraio
+author: wszqkzqk/scrinium
 license: MIT
 tags: ["academic", "papers", "workspace", "organization"]
 ---
@@ -15,7 +15,7 @@ tags: ["academic", "papers", "workspace", "organization"]
 ### 创建工作区
 
 ```bash
-scholaraio ws init <名称>
+scrinium ws init <名称>
 ```
 
 ### 添加论文
@@ -24,16 +24,16 @@ scholaraio ws init <名称>
 
 逐个添加：
 ```bash
-scholaraio ws add <名称> <论文标识...>
+scrinium ws add <名称> <论文标识...>
 ```
 
 论文标识可以是：DOI、目录名、UUID。需要按关键词批量添加时，请使用 `--search`。
 
 批量添加：
 ```bash
-scholaraio ws add <名称> --search "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型]
-scholaraio ws add <名称> --topic <主题ID>
-scholaraio ws add <名称> --all
+scrinium ws add <名称> --search "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型]
+scrinium ws add <名称> --topic <主题ID>
+scrinium ws add <名称> --all
 ```
 
 - `--search`：按融合检索结果批量添加，支持 `--top`/`--year`/`--journal`/`--type` 过滤
@@ -45,31 +45,31 @@ scholaraio ws add <名称> --all
 ### 移除论文
 
 ```bash
-scholaraio ws remove <名称> <论文标识...>
+scrinium ws remove <名称> <论文标识...>
 ```
 
 ### 列出所有工作区
 
 ```bash
-scholaraio ws list
+scrinium ws list
 ```
 
 ### 查看工作区论文
 
 ```bash
-scholaraio ws show <名称>
+scrinium ws show <名称>
 ```
 
 ### 重命名工作区
 
 ```bash
-scholaraio ws rename <旧名称> <新名称>
+scrinium ws rename <旧名称> <新名称>
 ```
 
 ### 在工作区内搜索
 
 ```bash
-scholaraio ws search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--mode unified|keyword|semantic] [--tag 标签]
+scrinium ws search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--mode unified|keyword|semantic] [--tag 标签]
 ```
 
 搜索模式：
@@ -82,7 +82,7 @@ scholaraio ws search <名称> "<查询词>" [--top N] [--year YYYY] [--journal �
 ### 导出工作区 BibTeX
 
 ```bash
-scholaraio ws export <名称> [-o 输出文件] [--year YYYY] [--journal 期刊名] [--type 类型]
+scrinium ws export <名称> [-o 输出文件] [--year YYYY] [--journal 期刊名] [--type 类型]
 ```
 
 ## Context 管理
