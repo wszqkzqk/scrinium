@@ -1,8 +1,9 @@
 """Contract tests for the CLI naming ergonomics refactor.
 
-Covers the unified ``search`` entry point (``--mode`` / ``--scope`` dispatch),
-the grouped ``enrich`` command, full-word aliases (``workspace`` / ``ingest`` /
-``references`` / ``cited-by`` / ``shared-references``), the hidden legacy
+Covers the unified ``search`` entry point (``--mode`` / ``--scope`` dispatch,
+``hybrid`` ≡ ``unified``), the grouped ``enrich`` and ``import`` commands,
+full-word aliases (``workspace`` / ``ingest`` / ``references`` / ``cited-by`` /
+``shared-references`` / ``refresh`` / ``citation-styles``), the hidden legacy
 aliases, and the top-level ``--help`` listing.
 """
 
@@ -47,6 +48,16 @@ class TestSearchModeDispatch:
         seen = []
         monkeypatch.setattr(cli_search, "cmd_usearch", lambda args, cfg: seen.append(args))
         args = _search_ns(mode="unified")
+
+        cli.cmd_search(args, SimpleNamespace())
+
+        assert seen == [args]
+
+    def test_mode_hybrid_delegates_to_usearch(self, monkeypatch):
+        # `hybrid` is the primary term; `unified` is its accepted alias.
+        seen = []
+        monkeypatch.setattr(cli_search, "cmd_usearch", lambda args, cfg: seen.append(args))
+        args = _search_ns(mode="hybrid")
 
         cli.cmd_search(args, SimpleNamespace())
 
@@ -121,6 +132,7 @@ class TestSearchParserShape:
         args = parser.parse_args(["search", "q"])
         assert args.mode == "keyword"
         assert args.scope is None
+        assert parser.parse_args(["search", "q", "--mode", "hybrid"]).mode == "hybrid"
         assert parser.parse_args(["search", "q", "--mode", "unified"]).mode == "unified"
         assert parser.parse_args(["search", "q", "--mode", "semantic"]).mode == "semantic"
 
@@ -362,8 +374,19 @@ class TestFullWordAliases:
 class TestHiddenAliasesHelp:
     """Legacy aliases work but stay out of the top-level --help listing."""
 
-    _HIDDEN = ("usearch", "vsearch", "fsearch", "enrich-toc", "enrich-l3", "backfill-abstract", "shared-refs")
-    _HIDDEN_WORDS = ("ws", "refs", "citing")
+    _HIDDEN = (
+        "usearch",
+        "vsearch",
+        "fsearch",
+        "enrich-toc",
+        "enrich-l3",
+        "backfill-abstract",
+        "shared-refs",
+        "import-endnote",
+        "import-zotero",
+        "refetch",
+    )
+    _HIDDEN_WORDS = ("ws", "refs", "citing", "style")
 
     def test_hidden_aliases_absent_from_top_level_help(self):
         help_text = cli._build_parser().format_help()
@@ -377,7 +400,18 @@ class TestHiddenAliasesHelp:
     def test_primary_names_present_in_top_level_help(self):
         help_text = cli._build_parser().format_help()
 
-        for name in ["search", "enrich", "ingest", "workspace", "references", "cited-by", "shared-references"]:
+        for name in [
+            "search",
+            "enrich",
+            "ingest",
+            "import",
+            "refresh",
+            "workspace",
+            "references",
+            "cited-by",
+            "shared-references",
+            "citation-styles",
+        ]:
             assert re.search(rf"(?<![\w-]){name}(?![\w-])", help_text)
 
     def test_hidden_alias_own_help_still_available(self):
@@ -385,3 +419,147 @@ class TestHiddenAliasesHelp:
         fsearch_parser = parser._subparsers._group_actions[0].choices["fsearch"]
 
         assert "proceedings" in fsearch_parser.format_help()
+
+
+class TestHybridModeEquivalence:
+    """`--mode hybrid` is the primary term and behaves exactly like `unified`."""
+
+    def test_search_hybrid_output_matches_unified(self, tmp_papers, tmp_db, capsys):
+        build_index(tmp_papers, tmp_db)
+        cfg = SimpleNamespace(index_db=tmp_db, search=SimpleNamespace(top_k=10))
+
+        cli.cmd_search(_search_ns(mode="unified", json=True), cfg)
+        unified_out = capsys.readouterr().out
+        cli.cmd_search(_search_ns(mode="hybrid", json=True), cfg)
+        hybrid_out = capsys.readouterr().out
+
+        assert json.loads(hybrid_out) == json.loads(unified_out)
+
+    def test_ws_search_mode_choices_and_default(self):
+        parser = cli._build_parser()
+        for argv, expected in (
+            (["workspace", "search", "w", "q"], "hybrid"),
+            (["workspace", "search", "w", "q", "--mode", "unified"], "unified"),
+            (["workspace", "search", "w", "q", "--mode", "hybrid"], "hybrid"),
+            (["ws", "search", "w", "q"], "hybrid"),
+        ):
+            assert parser.parse_args(argv).mode == expected, argv
+
+    def test_ws_search_hybrid_runs_unified_path(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
+        build_index(tmp_papers, tmp_db)
+        ws_dir = tmp_path / "workspace" / "w"
+        create(ws_dir)
+        add(ws_dir, ["aaaa-1111"], tmp_db)
+        messages = []
+        # cmd_ws prints the header via cli_ws.ui; result lines go through
+        # cli_search.ui (_print_search_result lives in the search module).
+        monkeypatch.setattr(cli_ws, "ui", lambda msg="": messages.append(msg))
+        monkeypatch.setattr(cli_search, "ui", lambda msg="": messages.append(msg))
+        cfg = SimpleNamespace(_root=tmp_path, index_db=tmp_db, search=SimpleNamespace(top_k=10))
+        args = cli._build_parser().parse_args(["workspace", "search", "w", "turbulence", "--mode", "hybrid"])
+
+        args.func(args, cfg)
+
+        assert any("Smith-2023-Turbulence" in m for m in messages)
+
+    def test_explore_search_accepts_hybrid(self):
+        args = cli._build_parser().parse_args(["explore", "search", "--name", "lib", "q", "--mode", "hybrid"])
+        assert args.mode == "hybrid"
+        args = cli._build_parser().parse_args(["explore", "search", "--name", "lib", "q", "--mode", "unified"])
+        assert args.mode == "unified"
+
+
+class TestImportGroup:
+    @pytest.fixture()
+    def parser(self):
+        return cli._build_parser()
+
+    def test_endnote_subcommand(self, parser):
+        args = parser.parse_args(["import", "endnote", "lib.xml", "--dry-run"])
+        assert args.func is cli.cmd_import_endnote
+        assert args.files == ["lib.xml"]
+        assert args.dry_run is True
+
+    def test_zotero_subcommand(self, parser):
+        args = parser.parse_args(["import", "zotero", "--local", "zotero.sqlite", "--no-pdf"])
+        assert args.func is cli.cmd_import_zotero
+        assert args.local == "zotero.sqlite"
+        assert args.no_pdf is True
+
+    def test_legacy_aliases_parse_to_same_handlers(self, parser):
+        args = parser.parse_args(["import-endnote", "lib.xml"])
+        assert args.func is cli.cmd_import_endnote
+        args = parser.parse_args(["import-zotero", "--list-collections"])
+        assert args.func is cli.cmd_import_zotero
+
+    def test_import_requires_subcommand(self, parser):
+        with pytest.raises(SystemExit):
+            parser.parse_args(["import"])
+
+    def test_endnote_subcommand_runs(self, tmp_path, monkeypatch):
+        src = tmp_path / "library.xml"
+        src.write_text("<xml />", encoding="utf-8")
+        monkeypatch.setattr(
+            "scrinium.sources.endnote._load_endnote_core",
+            lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'endnote_utils'", name="endnote_utils")),
+        )
+        monkeypatch.setattr(cli._log, "error", lambda *_a, **_k: None)
+        args = cli._build_parser().parse_args(["import", "endnote", str(src), "--dry-run"])
+
+        with pytest.raises(SystemExit) as exc_info:
+            args.func(args, SimpleNamespace())
+
+        assert exc_info.value.code == 1
+
+
+class TestRefreshAlias:
+    def test_refresh_parses_like_refetch(self):
+        parser = cli._build_parser()
+        for argv in (["refresh", "x"], ["refetch", "x"]):
+            args = parser.parse_args(argv)
+            assert args.func is cli.cmd_refetch
+            assert args.paper_id == "x"
+
+    def test_refresh_passthrough_options(self):
+        args = cli._build_parser().parse_args(["refresh", "--all", "--force", "-j", "3"])
+        assert (args.all, args.force, args.jobs) == (True, True, 3)
+
+    def test_refresh_runs(self, tmp_papers, tmp_db, monkeypatch):
+        build_index(tmp_papers, tmp_db)
+        seen = []
+        monkeypatch.setattr("scrinium.ingest.metadata.refetch_metadata", lambda jp: seen.append(jp) or True)
+        monkeypatch.setattr(cli_ingest, "ui", lambda *_a, **_k: None)
+        args = cli._build_parser().parse_args(["refresh", "aaaa-1111"])
+
+        args.func(args, SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_db))
+
+        assert seen == [tmp_papers / "Smith-2023-Turbulence" / "meta.json"]
+
+
+class TestCitationStylesAlias:
+    def test_citation_styles_parses_like_style(self):
+        parser = cli._build_parser()
+        for argv in (["citation-styles", "list"], ["style", "list"]):
+            args = parser.parse_args(argv)
+            assert args.func is cli.cmd_style
+            assert args.style_sub == "list"
+        for argv in (["citation-styles", "show", "apa"], ["style", "show", "apa"]):
+            args = parser.parse_args(argv)
+            assert args.func is cli.cmd_style
+            assert args.style_sub == "show"
+            assert args.name == "apa"
+
+    def test_citation_styles_requires_subcommand(self):
+        with pytest.raises(SystemExit):
+            cli._build_parser().parse_args(["citation-styles"])
+
+    def test_citation_styles_list_runs(self, monkeypatch, capsys):
+        monkeypatch.setattr(
+            "scrinium.citation_styles.list_styles",
+            lambda cfg: [{"name": "apa", "source": "builtin", "description": "APA"}],
+        )
+        args = cli._build_parser().parse_args(["citation-styles", "list"])
+
+        args.func(args, SimpleNamespace())
+
+        assert "apa" in capsys.readouterr().out

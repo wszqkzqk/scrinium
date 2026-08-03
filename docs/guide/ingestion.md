@@ -35,7 +35,7 @@ Proceedings are only routed from the dedicated `data/inbox-proceedings/` path. R
 Proceedings child papers are not included in default main-library search. Use federated search when you want them:
 
 ```bash
-scrinium fsearch granular damping --scope proceedings
+scrinium search granular damping --scope proceedings
 ```
 
 Scrinium prefers MinerU when available, but the live ingest path does not depend on MinerU alone. If MinerU is unavailable or fails, the fallback parser chain is `Docling -> PyMuPDF`.
@@ -52,10 +52,10 @@ Papers without DOI (that aren't theses) go to `data/pending/` for manual review.
 
 ```bash
 # From Endnote
-scrinium import-endnote library.xml
+scrinium import endnote library.xml
 
 # From Zotero
-scrinium import-zotero --api-key KEY --library-id ID
+scrinium import zotero --api-key KEY --library-id ID
 ```
 
 ## Metadata Maintenance
@@ -64,13 +64,13 @@ After papers are already in `data/papers/`, the metadata subpackage also powers 
 
 ```bash
 # Backfill missing abstracts from paper.md, with optional DOI-page fetch
-scrinium backfill-abstract
-scrinium backfill-abstract --doi-fetch
+scrinium enrich abstract
+scrinium enrich abstract --doi-fetch
 
-# Re-fetch citation counts and bibliographic details from APIs
-scrinium refetch --all
-scrinium refetch "<paper-id>"
+# Refresh citation counts and bibliographic details from APIs
+scrinium refresh --all
+scrinium refresh "<paper-id>"
 ```
 
-- `backfill-abstract` fills missing abstracts from local Markdown, and can prefer official publisher abstracts when `--doi-fetch` is enabled.
-- `refetch` re-runs Crossref / Semantic Scholar / OpenAlex enrichment for already ingested papers.
+- `enrich abstract` fills missing abstracts from local Markdown, and can prefer official publisher abstracts when `--doi-fetch` is enabled.
+- `refresh` re-runs Crossref / Semantic Scholar / OpenAlex enrichment for already ingested papers.

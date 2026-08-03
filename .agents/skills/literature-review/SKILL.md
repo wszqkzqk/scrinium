@@ -15,7 +15,7 @@ tags: ["academic", "writing", "literature-review", "survey"]
 ## 前提
 
 用户必须指定一个**工作区名称**。如果用户未指定：
-1. 运行 `scrinium ws list` 列出已有工作区
+1. 运行 `scrinium workspace list` 列出已有工作区
 2. 让用户选择或创建一个
 
 综述输出写入 `workspace/<name>/` 目录。
@@ -34,8 +34,8 @@ tags: ["academic", "writing", "literature-review", "survey"]
 ### 2. 摸底文献范围
 
 ```bash
-scrinium ws show <name>                    # 查看工作区论文列表
-scrinium ws search <name> "<主题>"          # 范围内搜索
+scrinium workspace show <name>               # 查看工作区论文列表
+scrinium workspace search <name> "<主题>"     # 范围内搜索
 scrinium topics                             # 主题聚类概览（如已建模）
 ```
 
@@ -80,9 +80,9 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | literat
 
 引用图谱辅助发现关联：
 ```bash
-scrinium shared-refs "<id1>" "<id2>"        # 共同引用分析
-scrinium refs "<id>"                        # 参考文献
-scrinium citing "<id>"                      # 被引论文
+scrinium shared-references "<id1>" "<id2>"   # 共同引用分析
+scrinium references "<id>"                   # 参考文献
+scrinium cited-by "<id>"                     # 被引论文
 ```
 
 ### 5. 撰写综述
@@ -102,7 +102,7 @@ scrinium citing "<id>"                      # 被引论文
 - 撰写综述开头（研究背景 + 综述范围 + 组织方式）和结尾（现状总结 + 研究空白 + 未来方向）
 - 导出参考文献：
 ```bash
-scrinium ws export <name> -o workspace/<name>/references.bib
+scrinium workspace export <name> -o workspace/<name>/references.bib
 ```
 - 定稿前用 `/citation-check` 检查正文中的 author-year 引用，避免幻觉引用和年份/作者错配
 - 将综述正文保存到 `workspace/<name>/literature-review.md`（或用户指定的文件名）
@@ -117,7 +117,7 @@ scrinium ws export <name> -o workspace/<name>/references.bib
 ## 示例
 
 用户说："帮我写一篇关于湍流减阻的文献综述，基于 drag-review 工作区"
-→ 查看 `ws show drag-review`，扫描论文，提出大纲，逐节撰写
+→ 查看 `workspace show drag-review`，扫描论文，提出大纲，逐节撰写
 
 用户说："我有一段范文，帮我按这个风格写"
 → 分析范文的结构和叙述特征，然后仿照该风格组织语言

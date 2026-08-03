@@ -63,10 +63,10 @@ scrinium snowball "<paper-id>" ["<paper-id>" ...] [--depth 1] [--top N] [--ws NA
 
 参考文献数据来自 Semantic Scholar，需先通过以下方式获取：
 - 入库时自动拉取
-- 已有论文运行 `refetch --all --force` 补拉
+- 已有论文运行 `refresh --all --force` 补拉
 - 之后运行 `index --rebuild` 重建索引以更新 citations 表
 
-> **空结果排查**：如果 `references`/`cited-by`/`snowball` 返回空结果，说明该论文的引用数据尚未获取。先运行 `refetch "<paper-id>"` 补拉，再 `index --rebuild` 更新 citations 表。
+> **空结果排查**：如果 `references`/`cited-by`/`snowball` 返回空结果，说明该论文的引用数据尚未获取。先运行 `refresh "<paper-id>"` 补拉，再 `index --rebuild` 更新 citations 表。（`refetch` 是 `refresh` 的隐藏别名）
 
 ## 示例
 

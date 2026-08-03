@@ -143,7 +143,7 @@ def cmd_explore(args: argparse.Namespace, cfg) -> None:
             from scrinium.explore import explore_search
 
             results = explore_search(args.name, query, top_k=top_k, cfg=cfg)
-        elif mode == "unified":
+        elif mode in ("hybrid", "unified"):
             try:
                 from scrinium.explore import explore_unified_search
             except ImportError as e:
@@ -304,7 +304,10 @@ def register(sub) -> None:
     p_es.add_argument("query", nargs="+", help="查询文本")
     p_es.add_argument("--top", type=int, default=None, help="返回条数")
     p_es.add_argument(
-        "--mode", choices=["semantic", "keyword", "unified"], default="semantic", help="搜索模式（默认 semantic）"
+        "--mode",
+        choices=["semantic", "keyword", "hybrid", "unified"],
+        default="semantic",
+        help="搜索模式：semantic（默认）/ keyword / hybrid（关键词+语义融合，unified 为其等价别名）",
     )
 
     p_ev = p_explore_sub.add_parser("viz", help="生成全部可视化（HTML）")

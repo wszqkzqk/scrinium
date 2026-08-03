@@ -39,7 +39,7 @@ def cmd_index(args: argparse.Namespace, cfg) -> None:
     ui(f"{action}: {papers_dir} -> {db_path}")
     count = build_index(papers_dir, db_path, rebuild=args.rebuild)
     ui(f"完成：已索引 {count} 篇论文。")
-    ui("下一步：运行 `scrinium search <关键词>` 或 `scrinium search <关键词> --mode unified` 开始检索。")
+    ui("下一步：运行 `scrinium search <关键词>` 或 `scrinium search <关键词> --mode hybrid` 开始检索。")
 
 
 def cmd_search_author(args: argparse.Namespace, cfg) -> None:
@@ -77,7 +77,7 @@ def cmd_search(args: argparse.Namespace, cfg) -> None:
         cmd_fsearch(args, cfg)
         return
     mode = getattr(args, "mode", "keyword") or "keyword"
-    if mode == "unified":
+    if mode in ("hybrid", "unified"):
         cmd_usearch(args, cfg)
         return
     if mode == "semantic":
@@ -303,9 +303,7 @@ def cmd_embed(args: argparse.Namespace, cfg) -> None:
         return
     label = "总计" if args.rebuild else "新增"
     ui(f"完成：{label} {count} 条向量。")
-    ui(
-        "下一步：运行 `scrinium search <问题> --mode semantic` 或 `scrinium search <问题> --mode unified` 试试检索效果。"
-    )
+    ui("下一步：运行 `scrinium search <问题> --mode semantic` 或 `scrinium search <问题> --mode hybrid` 试试检索效果。")
 
 
 def cmd_vsearch(args: argparse.Namespace, cfg) -> None:
@@ -686,9 +684,9 @@ def register(sub) -> None:
     p_search.add_argument("query", nargs="+", help="检索词")
     p_search.add_argument(
         "--mode",
-        choices=["keyword", "unified", "semantic"],
+        choices=["hybrid", "keyword", "semantic", "unified"],
         default="keyword",
-        help="检索模式：keyword=FTS5 关键词（默认）/ unified=关键词+语义融合 / semantic=语义向量",
+        help="检索模式：hybrid=关键词+语义融合（unified 为其等价别名）/ keyword=FTS5 关键词（默认）/ semantic=语义向量",
     )
     p_search.add_argument(
         "--scope",

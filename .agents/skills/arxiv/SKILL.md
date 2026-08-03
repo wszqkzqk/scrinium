@@ -37,7 +37,7 @@ tags: ["academic", "papers", "arxiv", "preprint"]
 ### 1. 判断是浏览/检索，还是获取/入库
 
 - 如果用户想四处看看、发现预印本、或了解最新动态，先用 `arxiv search`
-- 如果用户想结合本地库做跨来源检索，用 `fsearch --scope main,arxiv`
+- 如果用户想结合本地库做跨来源检索，用 `search --scope main,arxiv`
 - 如果用户已经明确要某篇 arXiv 论文，用 `arxiv fetch`
 - 如果目标是"现在就把这篇预印本放进我的库"，用 `arxiv fetch <id> --ingest`
 
@@ -54,8 +54,8 @@ scrinium arxiv search --category cs.LG --sort recent
 需要 arXiv 补充本地库时，用联邦搜索：
 
 ```bash
-scrinium fsearch "<query>" --scope main,arxiv
-scrinium fsearch "<query>" --scope arxiv
+scrinium search "<query>" --scope main,arxiv
+scrinium search "<query>" --scope arxiv
 ```
 
 只下载 PDF：
@@ -80,7 +80,7 @@ scrinium arxiv fetch 2603.25200 --ingest
 
 ## 实用经验
 
-- 用户说"也搜一下 arXiv"时，优先 `fsearch --scope main,arxiv`
+- 用户说"也搜一下 arXiv"时，优先 `search --scope main,arxiv`
 - 用户说"看看最近有什么预印本"时，优先 `arxiv search --sort recent`
 - 用户给出 arXiv ID 或 URL 时，不要先做宽泛检索；直接 `arxiv fetch`
 - 用户明显在为后续阅读或写作收集论文时，优先 `--ingest`

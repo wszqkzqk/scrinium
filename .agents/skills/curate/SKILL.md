@@ -30,7 +30,7 @@ tags: ["academic", "papers", "curation", "tags"]
 | `scrinium tag "<paper-id>" <标签...>` | 加标签（别名自动归一为 canonical） |
 | `scrinium tag "<paper-id>" <标签...> --remove` | 移除标签 |
 | `scrinium show "<paper-id>" --layer 2` | 打标依据：L1 头部有"标签:"行，L2 有摘要 |
-| `scrinium search "<查询词>" --tag <标签>` | 按标签过滤（多个 --tag 为 AND）；`usearch` 同 |
+| `scrinium search "<查询词>" --tag <标签>` | 按标签过滤（多个 --tag 为 AND）；`--mode hybrid` 同 |
 | `scrinium audit` | 报告 untagged（未打标）论文 |
 
 词表持久化在 `data/tags.yaml`，结构：

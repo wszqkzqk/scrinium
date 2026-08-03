@@ -13,7 +13,7 @@ tags: ["academic", "writing", "research", "sections"]
 ## 前提
 
 用户必须指定一个**工作区名称**。如果用户未指定：
-1. 运行 `scrinium ws list` 列出已有工作区
+1. 运行 `scrinium workspace list` 列出已有工作区
 2. 让用户选择或创建一个
 
 输出写入 `workspace/<name>/` 目录。
@@ -45,7 +45,7 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-w
 1. 从宏观背景切入，逐步聚焦到具体问题
 2. 引用工作区论文建立研究脉络：
    ```bash
-   scrinium ws search <name> "<背景关键词>"
+   scrinium workspace search <name> "<背景关键词>"
    scrinium show <paper-id> --layer 2      # 摘要
    ```
 3. 明确指出现有工作的不足（research gap）
@@ -60,7 +60,7 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-w
 1. 用户描述方法，你协助组织成清晰的叙述
 2. 从工作区论文中找到可对比的方法：
    ```bash
-   scrinium ws search <name> "<方法关键词>"
+   scrinium workspace search <name> "<方法关键词>"
    scrinium show <paper-id> --layer 4      # 读全文了解方法细节
    ```
 3. 确保符号定义一致、公式推导完整
@@ -70,7 +70,7 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-w
 1. 用户提供实验数据/图表
 2. 从工作区中检索可对比的基线结果：
    ```bash
-   scrinium ws search <name> "<实验条件>"
+   scrinium workspace search <name> "<实验条件>"
    scrinium show <paper-id> --layer 3      # 结论
    ```
 3. **读图对比**：读取参考论文中的结果图表（`data/papers/<dir>/images/`），与用户的实验结果做定性/定量对比
@@ -93,12 +93,12 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-w
 - **所有引用必须来自工作区中的真实论文**，绝不编造引用
 - 如发现工作区缺少需要引用的论文，提醒用户补充：
   ```bash
-  scrinium usearch "<关键词>"              # 全库搜索候选
-  scrinium ws add <name> <paper-id>        # 添加到工作区
+  scrinium search "<关键词>" --mode hybrid  # 全库搜索候选
+  scrinium workspace add <name> <paper-id>  # 添加到工作区
   ```
 - 最终导出：
   ```bash
-  scrinium ws export <name> -o workspace/<name>/references.bib
+  scrinium workspace export <name> -o workspace/<name>/references.bib
   ```
 
 ### 5. 输出
@@ -128,7 +128,7 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-w
 ## 示例
 
 用户说："帮我写 Introduction，工作区是 my-paper"
-→ 扫描 `ws show my-paper`，了解论文方向，询问研究问题，起草 Introduction
+→ 扫描 `workspace show my-paper`，了解论文方向，询问研究问题，起草 Introduction
 
 用户说："帮我按这篇 JFM 论文的风格写 Related Work"
 → 分析用户提供的范文风格，按该风格组织 Related Work

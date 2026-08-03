@@ -36,14 +36,14 @@ tags: ["academic", "writing", "peer-review", "rebuttal"]
 3. 用 `scrinium show` 查看论文（已有 `notes.md` 笔记会自动展示），复用已有发现
 4. 在工作区文献中搜索支撑证据：
    ```bash
-   scrinium ws search <name> "<审稿人关注的关键词>"
+   scrinium workspace search <name> "<审稿人关注的关键词>"
    scrinium show <paper-id> --layer 3      # 读结论找证据
    scrinium show <paper-id> --layer 4      # 必要时读全文
    ```
 5. 从引用图谱中找额外支撑：
    ```bash
-   scrinium refs "<id>"                    # 相关论文的参考文献
-   scrinium usearch "<补充关键词>"          # 全库搜索（工作区外）
+   scrinium references "<id>"               # 相关论文的参考文献
+   scrinium search "<补充关键词>" --mode hybrid  # 全库搜索（工作区外）
    ```
 
 ### 3. 撰写回复
@@ -79,7 +79,7 @@ tags: ["academic", "writing", "peer-review", "rebuttal"]
   ```
 - 如需补充引用新论文到工作区：
   ```bash
-  scrinium ws add <name> <paper-id>
+  scrinium workspace add <name> <paper-id>
   ```
 
 ## 写作原则

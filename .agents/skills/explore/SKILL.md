@@ -14,7 +14,7 @@ tags: ["academic", "research", "literature", "discovery", "openalex"]
 
 explore 库的语义能力依赖嵌入后端（`embed.provider: local` 或 `openai-compat`）。若配置为 `embed.provider: none`，或探索库尚未执行 `explore embed`：
 
-- **不可用**：`explore embed`；`explore search` 的默认 semantic 模式与 `--mode unified`（会明确报错提示缺少嵌入后端）；`explore topics --build` / `--rebuild`
+- **不可用**：`explore embed`；`explore search` 的默认 semantic 模式与 `--mode hybrid`（会明确报错提示缺少嵌入后端）；`explore topics --build` / `--rebuild`
 - **不受影响**：`explore fetch` 拉取、`explore search --mode keyword`（FTS5 关键词搜索）；`explore topics` 浏览已有主题模型
 - 无嵌入时，搜索必须显式加 `--mode keyword`
 
@@ -94,7 +94,7 @@ scrinium explore search --name <名称> "<查询词>" [--top N]
 scrinium explore search --name <名称> "<查询词>" --mode keyword
 
 # 融合搜索（语义 + 关键词 RRF 排序）
-scrinium explore search --name <名称> "<查询词>" --mode unified
+scrinium explore search --name <名称> "<查询词>" --mode hybrid
 ```
 
 ### 生成可视化

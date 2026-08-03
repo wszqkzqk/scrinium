@@ -910,6 +910,15 @@ def _add_pipeline_args(p: argparse.ArgumentParser, *, preset_default: str | None
     p.add_argument("--papers", help="papers 目录（默认配置值）")
 
 
+def _add_refetch_args(p: argparse.ArgumentParser) -> None:
+    """Arguments shared by ``refresh`` and its legacy alias ``refetch``."""
+    p.set_defaults(func=cmd_refetch)
+    p.add_argument("paper_id", nargs="?", help="论文 ID（目录名 / UUID / DOI；省略则需 --all）")
+    p.add_argument("--all", action="store_true", help="补查所有缺失引用量的论文")
+    p.add_argument("--force", action="store_true", help="强制重新查询（包括已有引用量的论文）")
+    p.add_argument("--jobs", "-j", type=int, default=5, help="并发数（默认 5）")
+
+
 def register(sub) -> None:
     """Register ingest-domain subcommands."""
     # --- enrich (grouped entry point) ---
@@ -931,13 +940,11 @@ def register(sub) -> None:
         preset_default="ingest",
     )
 
-    # --- refetch ---
-    p_refetch = sub.add_parser("refetch", help="重新查询 API 补全引用量等字段")
-    p_refetch.set_defaults(func=cmd_refetch)
-    p_refetch.add_argument("paper_id", nargs="?", help="论文 ID（目录名 / UUID / DOI；省略则需 --all）")
-    p_refetch.add_argument("--all", action="store_true", help="补查所有缺失引用量的论文")
-    p_refetch.add_argument("--force", action="store_true", help="强制重新查询（包括已有引用量的论文）")
-    p_refetch.add_argument("--jobs", "-j", type=int, default=5, help="并发数（默认 5）")
+    # --- refresh (primary name; `refetch` kept as a hidden legacy alias) ---
+    _add_refetch_args(sub.add_parser("refresh", help="从 API 刷新论文元数据、引用量与参考文献"))
+
+    # --- refetch (legacy alias of `refresh`; no help => hidden) ---
+    _add_refetch_args(sub.add_parser("refetch"))
 
     # --- backfill-abstract (legacy alias of `enrich abstract`; no help => hidden) ---
     _add_backfill_abstract_args(sub.add_parser("backfill-abstract"))

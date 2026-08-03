@@ -1,6 +1,6 @@
 ---
 name: citations
-description: View top-cited papers ranking and refetch citation counts from APIs. Use when the user asks about highly cited papers, citation rankings, or wants to update citation data.
+description: View top-cited papers ranking and refresh citation counts from APIs. Use when the user asks about highly cited papers, citation rankings, or wants to update citation data.
 version: 1.0.0
 author: wszqkzqk/scrinium
 license: GPL-3.0-or-later
@@ -9,6 +9,8 @@ tags: ["academic", "citations", "bibliometrics", "impact"]
 # 引用量查询
 
 查看高引论文排行，或补查论文引用量数据。
+
+> **别名**：`refetch` 是 `refresh` 的隐藏别名，行为完全一致；新工作请使用 `refresh`。
 
 ## 执行逻辑
 
@@ -22,16 +24,16 @@ scrinium top-cited [--top N] [--year RANGE] [--journal NAME] [--type TYPE]
 
 ```bash
 # 补查所有缺失引用量的论文
-scrinium refetch --all
+scrinium refresh --all
 
 # 强制重查所有
-scrinium refetch --all --force
+scrinium refresh --all --force
 
 # 加速并发（默认 5）
-scrinium refetch --all -j 10
+scrinium refresh --all -j 10
 
 # 补查单篇
-scrinium refetch "<paper-id>"
+scrinium refresh "<paper-id>"
 ```
 
 ## 示例
@@ -43,7 +45,7 @@ scrinium refetch "<paper-id>"
 → 执行 `top-cited --journal "Fluid Mech"`
 
 用户说："帮我补查引用量"
-→ 执行 `refetch --all`
+→ 执行 `refresh --all`
 
 用户说："2020 年以后的综述文章排行"
 → 执行 `top-cited --year 2020- --type review`

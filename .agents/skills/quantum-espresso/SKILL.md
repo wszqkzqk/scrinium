@@ -88,7 +88,7 @@ scrinium toolref show qe matdyn asr
 
 ### 知识库协作模式
 
-1. 用 `scrinium usearch "<材料名称> DFT"` 检索相关论文
+1. 用 `scrinium search "<材料名称> DFT" --mode hybrid` 检索相关论文
 2. 从论文提取：晶体结构、交换关联泛函、k 网格、截断能、实验基准值
 3. 在输入文件注释中标注参数来源
 4. 计算完成后与实验数据（晶格常数、能带间隙、声子频率）对比

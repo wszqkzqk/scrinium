@@ -21,7 +21,7 @@ tags: ["academic", "research", "deep-research", "survey"]
 ## 前提
 
 - 需要一个**调研主题名**（用作 `workspace/<主题>/` 目录和工作区名），用户未指定时你来拟一个简短英文 slug 并确认
-- 本部署为无嵌入（`embed.provider=none`）：`usearch`/`ws search` 自动降级为纯关键词，`vsearch` 不可用，`explore search` 必须显式 `--mode keyword`。发现文献的主路径是 **多查询关键词 + `--tag` 过滤 + 引用图滚雪球**——本 skill 的工作流正是围绕这条路径设计的
+- 本部署为无嵌入（`embed.provider=none`）：`search --mode hybrid`/`workspace search` 自动降级为纯关键词，`--mode semantic` 不可用，`explore search` 必须显式 `--mode keyword`。发现文献的主路径是 **多查询关键词 + `--tag` 过滤 + 引用图滚雪球**——本 skill 的工作流正是围绕这条路径设计的
 - 全程维护一份**研究日志** `workspace/<主题>/research-log.md`：它是跨轮次、跨会话的记忆，中断续跑靠它恢复
 
 ## 工作流
@@ -63,7 +63,7 @@ tags: ["academic", "research", "deep-research", "survey"]
 
 ```bash
 # 主库（无嵌入时自动降级为纯关键词，属预期行为）
-scrinium usearch "<查询词>" --top 20 --json
+scrinium search "<查询词>" --mode hybrid --top 20 --json
 # 可加过滤：--year 2020-  --journal "<期刊名>"  --type review
 
 # explore 外部库（主库覆盖薄的新领域）：先拉取，再关键词检索
@@ -89,8 +89,8 @@ scrinium show "<paper-id>" --layer 2 --json
 入选种子建池：
 
 ```bash
-scrinium ws init <主题>
-scrinium ws add <主题> <paper-id...>
+scrinium workspace init <主题>
+scrinium workspace add <主题> <paper-id...>
 ```
 
 初筛结论（保留数量、排除理由的类别分布）记入研究日志。
@@ -140,7 +140,7 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <主题> | deep-resea
 ```bash
 scrinium tags                                   # 先看词表，优先复用已有标签，防止膨胀
 scrinium tag "<paper-id>" <调研主题标签...>      # 打标
-scrinium usearch "<查询词>" --tag <标签>         # 池内按标签过滤
+scrinium search "<查询词>" --mode hybrid --tag <标签>  # 池内按标签过滤
 ```
 
 批量打标遵循 `/curate` 纪律：克制造新标签，别把词表打爆。
@@ -166,7 +166,7 @@ scrinium usearch "<查询词>" --tag <标签>         # 池内按标签过滤
 收尾：
 
 ```bash
-scrinium ws export <主题> -o workspace/<主题>/references.bib   # 导出参考文献
+scrinium workspace export <主题> -o workspace/<主题>/references.bib   # 导出参考文献
 ```
 
 - 正文中所有 author-year 引用**必须**过 `/citation-check`，避免幻觉引用和年份/作者错配
@@ -185,7 +185,7 @@ scrinium ws export <主题> -o workspace/<主题>/references.bib   # 导出参�
 ## 示例
 
 用户说："帮我调研一下 milestoning 在药物结合/解离动力学预测上做到什么程度了"
-→ 完整流程：分解为「方法变体 / 体系与力场 / 结合解离时间预测精度 / 与 MSM、unbiased MD 的对比」等子问题，建研究日志 → 主库多查询召回 + arXiv 补新 → 初筛入 `ws init milestoning-kinetics` → 对 3-5 篇核心种子 `snowball --top 20 --json` → subagent 分批深读并写 notes → 更新证据矩阵 → 饱和后产出调研报告并过 citation-check
+→ 完整流程：分解为「方法变体 / 体系与力场 / 结合解离时间预测精度 / 与 MSM、unbiased MD 的对比」等子问题，建研究日志 → 主库多查询召回 + arXiv 补新 → 初筛入 `workspace init milestoning-kinetics` → 对 3-5 篇核心种子 `snowball --top 20 --json` → subagent 分批深读并写 notes → 更新证据矩阵 → 饱和后产出调研报告并过 citation-check
 
 用户说："继续上次 milestoning 的调研"
 → 读 `workspace/milestoning-kinetics/research-log.md`：从证据矩阵的空缺子问题和上次未饱和的判断处接着跑（回阶段 2 补检索，或用新入池论文做种子回阶段 4），不从头再来

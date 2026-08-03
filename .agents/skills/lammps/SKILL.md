@@ -94,7 +94,7 @@ scrinium toolref show lammps fix_deform
 
 ### 知识库协作模式
 
-1. 用 `scrinium usearch "<材料/现象>"` 检索相关论文
+1. 用 `scrinium search "<材料/现象>" --mode hybrid` 检索相关论文
 2. 从论文提取：势函数选择、晶格常数、实验基准值（相变压力、弹性常数等）
 3. 在输入脚本注释中标注参数来源
 4. 计算完成后与文献数据定量对比

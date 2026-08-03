@@ -42,7 +42,7 @@ This page is the architecture reference for Scrinium. Core behavioral instructio
 
 ## External Import Flow
 
-`import-endnote` / `import-zotero` as the external import flow:
+`import endnote` / `import zotero` as the external import flow:
 
 - `sources/endnote.py` / `sources/zotero.py` parse metadata and match PDFs
 - Then hand off to `pipeline.import_external()`
@@ -65,7 +65,7 @@ All paths that call `_embed_batch()` (main-library embedding, explore embedding,
 |----|------|------|
 | L1 | title, authors, year, journal, doi, volume, issue, pages, publisher, issn | JSON file |
 | L2 | abstract | JSON field |
-| L3 | conclusion section | JSON field (requires running `enrich-l3` first) |
+| L3 | conclusion section | JSON field (requires running `enrich conclusion` first) |
 | L4 | full Markdown | Read `.md` directly |
 
 ## `data/papers/` Directory Structure

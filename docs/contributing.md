@@ -42,13 +42,13 @@ CLI command reference: `scrinium --help`
 
 Besides skills, the current CLI also provides several important capabilities worth using directly:
 
-- Retrieval-related: `search-author`, `embed`, `vsearch`, `usearch`, `fsearch`, `top-cited`
-- Graph-related: `refs`, `citing`, `shared-refs`
-- Enrichment and repair: `enrich-toc`, `enrich-l3`, `backfill-abstract`, `refetch`, `repair`
+- Retrieval-related: `search` (`--mode keyword|hybrid|semantic`, `--scope`), `search-author`, `embed`, `top-cited`
+- Graph-related: `references`, `cited-by`, `shared-references`
+- Enrichment and repair: `enrich toc`, `enrich conclusion`, `enrich abstract`, `refresh`, `repair`
 - Data maintenance: `attach-pdf`
-- Workspace: `ws` (subcommands such as `init`, `add`, `remove`, `show`, `search`, `export`, and more)
-- Proceedings: `proceedings` (`apply-split`, `build-clean-candidates`, `apply-clean`) and `fsearch --scope proceedings`
-- External and scientific runtime: `arxiv`, `toolref`, `insights`, `style`, `document`
+- Workspace: `workspace` (subcommands such as `init`, `add`, `remove`, `show`, `search`, `export`, and more)
+- Proceedings: `proceedings` (`apply-split`, `build-clean-candidates`, `apply-clean`) and `search --scope proceedings`
+- External and scientific runtime: `arxiv`, `toolref`, `insights`, `citation-styles`, `document`
 
 ## Adding a New Skill
 

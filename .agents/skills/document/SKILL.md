@@ -47,11 +47,11 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 
 1. **判断输出格式**：按上表选型
 2. **收集内容**：调用其他 skill/CLI 获取数据
-   - `scrinium search/usearch` — 搜索论文
+   - `scrinium search`（`--mode hybrid`） — 搜索论文
    - `scrinium show --layer 2/3` — 获取摘要/结论
    - `scrinium top-cited` — 高引论文
    - `scrinium topics --topic N` — 主题论文
-   - `scrinium ws show <name>` — 工作区论文列表
+   - `scrinium workspace show <name>` — 工作区论文列表
 3. **生成图表**（如需要）：用 draw skill 生成 PNG/SVG 到 `workspace/figures/`
 4. **编写 Python 脚本**：参照 [reference.md](reference.md) 中对应库的模板与 API 速查，在一个脚本中完成全部操作
 5. **输出到 `workspace/`**：
@@ -113,7 +113,7 @@ scrinium export docx --input file.md --output file.docx
 → 调用 `top-cited`、`topics`、`insights` 收集数据 → 参照 reference.md 写 python-docx 脚本生成带标题、目录、表格、图片的 DOCX
 
 用户说："把 phd-thesis 工作区的论文做成 PPT 给导师汇报"
-→ 调用 `ws show phd-thesis` 获取论文列表 → 按主题分组 → 参照 reference.md 写 python-pptx 脚本生成幻灯片
+→ 调用 `workspace show phd-thesis` 获取论文列表 → 按主题分组 → 参照 reference.md 写 python-pptx 脚本生成幻灯片
 
 用户说："导出所有论文的统计数据到 Excel"
 → 遍历 `data/papers/*/meta.json` 提取字段 → 参照 reference.md 写 openpyxl 脚本生成带筛选和图表的 XLSX

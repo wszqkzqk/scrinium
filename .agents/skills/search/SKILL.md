@@ -17,7 +17,7 @@ tags: ["academic", "search", "papers", "semantic", "fts5"]
    - 如果用户明确要求"关键词搜索"、"全文搜索"或"FTS"，使用 `search`（默认 `--mode keyword`）
    - 如果用户明确按作者搜索（如"找某某的论文"、"某某发表的"），使用 `search-author`
    - 如果用户要求按引用量排序（如"引用最高的"、"最经典的"、"top cited"），转交 `/citations` skill
-   - **默认使用 `search --mode unified`（融合检索）**——同时执行 FTS5 关键词搜索和 FAISS 语义搜索，合并去重排序。两路都命中的论文排名靠前。向量索引不可用时自动降级为纯关键词。
+   - **默认使用 `search --mode hybrid`（融合检索）**——同时执行 FTS5 关键词搜索和 FAISS 语义搜索，合并去重排序。两路都命中的论文排名靠前。向量索引不可用时自动降级为纯关键词。
    - 如果用户要求跨库搜索（如"也搜一下 arXiv"、"在 explore 库里也找找"、"也搜 proceedings"、"全部来源"、"联邦搜索"），使用 `search --scope`
 
 2. 从用户输入中提取：
@@ -31,7 +31,7 @@ tags: ["academic", "search", "papers", "semantic", "fts5"]
 
 **融合检索（默认）：**
 ```bash
-scrinium search "<查询词>" --mode unified --top <N> [--year <Y>] [--journal <J>] [--type <T>]
+scrinium search "<查询词>" --mode hybrid --top <N> [--year <Y>] [--journal <J>] [--type <T>]
 ```
 
 **关键词搜索：**
@@ -77,7 +77,7 @@ scrinium search "<查询词>" --scope main,proceedings,explore:*,arxiv
 **标签检索（策展标签）：**
 ```bash
 scrinium tags                                                              # 浏览词表（canonical + 别名 + 论文数）
-scrinium search "<查询词>" --mode unified --tag milestoning                 # 单标签过滤
+scrinium search "<查询词>" --mode hybrid --tag milestoning                  # 单标签过滤
 scrinium search "<查询词>" --tag milestoning --tag drug-binding             # 多标签 AND
 scrinium workspace search <名称> "<查询词>" --tag cryo-em                    # 工作区内同样可用
 ```
@@ -101,7 +101,7 @@ ids, toc, l3_conclusion, tags
 
 - **结构化输出**：`search`/`show`/`workspace show`/`top-cited` 支持 `--json`，结果含 `dir_name`、`score`、`match` 等字段；需要程序化解析时用 `--json`，不要正则解析排版文本。
 - **多查询扩展**：单个查询词容易漏召回。对同一问题换 2-4 个角度各搜一轮（同义词、上下位概念、缩写/全称、方法名/体系名），合并去重——agent 的语言能力就是查询扩展层。
-- **无嵌入部署**（`embed.provider=none`）：`--mode semantic` 不可用，`--mode unified`/`workspace search` 自动降级为纯关键词（结果标注"关键词"）。此时发现文献的主路径是：**多查询关键词 + `--tag` 过滤 + 引用图滚雪球**（`references`/`cited-by`/`shared-references`，见 `/graph` skill）。
+- **无嵌入部署**（`embed.provider=none`）：`--mode semantic` 不可用，`--mode hybrid`/`workspace search` 自动降级为纯关键词（结果标注"关键词"）。此时发现文献的主路径是：**多查询关键词 + `--tag` 过滤 + 引用图滚雪球**（`references`/`cited-by`/`shared-references`，见 `/graph` skill）。
 
 ## Legacy 别名
 
@@ -109,14 +109,15 @@ ids, toc, l3_conclusion, tags
 
 | 旧命令 | 等价形式 |
 |---|---|
-| `usearch <q>` | `search <q> --mode unified` |
+| `usearch <q>` | `search <q> --mode hybrid` |
 | `vsearch <q>` | `search <q> --mode semantic` |
 | `fsearch <q> --scope S` | `search <q> --scope S` |
+| `--mode unified` | `--mode hybrid`（accepted alias，行为完全一致） |
 
 ## 示例
 
 用户说："帮我搜一下 turbulent boundary layer 相关的论文"
-→ 执行 `search "turbulent boundary layer" --mode unified`
+→ 执行 `search "turbulent boundary layer" --mode hybrid`
 
 用户说："用语义搜索找 drag reduction 的文献，给我前5篇"
 → 执行 `search "drag reduction" --mode semantic --top 5`
@@ -128,10 +129,10 @@ ids, toc, l3_conclusion, tags
 → 转交 `/citations` skill（使用 `top-cited` 命令）
 
 用户说："2020年以后关于 drag reduction 的论文"
-→ 执行 `search "drag reduction" --mode unified --year 2020-`
+→ 执行 `search "drag reduction" --mode hybrid --year 2020-`
 
 用户说："JFM 上发的湍流论文"
-→ 执行 `search "turbulence" --mode unified --journal "Fluid Mechanics"`
+→ 执行 `search "turbulence" --mode hybrid --journal "Fluid Mechanics"`
 
 用户说："库里引用最高的 review 文章"
 → 转交 `/citations` skill（使用 `top-cited --type review` 命令）
@@ -152,7 +153,7 @@ ids, toc, l3_conclusion, tags
 → 执行 `scrinium tags`
 
 用户说："找库里 milestoning 用在药物动力学上的论文"
-→ 执行 `search "kinetics" --mode unified --tag milestoning --tag drug-binding`
+→ 执行 `search "kinetics" --mode hybrid --tag milestoning --tag drug-binding`
 
 用户说："力场相关的论文有哪些"（标签已进索引，直接搜即可）
-→ 执行 `search "force field" --mode unified`
+→ 执行 `search "force field" --mode hybrid`

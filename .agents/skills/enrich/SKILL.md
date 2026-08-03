@@ -10,9 +10,9 @@ tags: ["academic", "papers", "metadata", "enrichment", "llm"]
 
 通过 LLM 提取论文的目录结构（TOC）或结论段，丰富论文元数据。统一入口是 `scrinium enrich` 命令组。
 
-> **注意**：`import-endnote` / `import-zotero` 导入时默认自动执行 toc + conclusion + abstract backfill。以下命令用于**选择性富化**（如重新提取、补充特定论文、或处理全库）。
+> **注意**：`import endnote` / `import zotero` 导入时默认自动执行 toc + conclusion + abstract backfill。以下命令用于**选择性富化**（如重新提取、补充特定论文、或处理全库）。
 >
-> **引用量补查**：使用 `/citations` skill 中的 `scrinium refetch` 命令。
+> **引用量补查**：使用 `/citations` skill 中的 `scrinium refresh` 命令。
 
 ## 执行逻辑
 
@@ -83,4 +83,4 @@ scrinium enrich abstract [--dry-run] [--doi-fetch]
 → 执行 `enrich abstract`，然后提示 `embed --rebuild`
 
 用户说："补查引用量"
-→ 转交 `/citations` skill（使用 `refetch` 命令）
+→ 转交 `/citations` skill（使用 `refresh` 命令）

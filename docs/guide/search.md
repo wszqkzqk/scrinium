@@ -15,23 +15,23 @@ Searches title, abstract, and conclusion using SQLite FTS5 full-text search.
 ### Semantic Search
 
 ```bash
-scrinium vsearch "methods for predicting flow separation"
+scrinium search "methods for predicting flow separation" --mode semantic
 ```
 
 Uses Qwen3 embeddings + FAISS for meaning-based retrieval.
 
-### Unified Search (Fusion)
+### Hybrid Search (Fusion)
 
 ```bash
-scrinium usearch "Reynolds stress modeling"
+scrinium search "Reynolds stress modeling" --mode hybrid
 ```
 
-Combines keyword and semantic results using Reciprocal Rank Fusion (RRF).
+Combines keyword and semantic results using Reciprocal Rank Fusion (RRF). `--mode unified` is an accepted alias for `hybrid`.
 
 ### Federated Search
 
 ```bash
-scrinium fsearch "wall turbulence" --scope main,proceedings,explore:*,arxiv
+scrinium search "wall turbulence" --scope main,proceedings,explore:*,arxiv
 ```
 
 Searches across the main library, proceedings, one or more `explore` silos, and arXiv in one command.

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **CLI naming ergonomics for LLM agents**: `scrinium search` is now the single retrieval entry point with `--mode keyword|unified|semantic` (default `keyword`, unchanged behavior) and `--scope` for federated search; `scrinium enrich toc|conclusion|abstract` groups the enrichment commands; full-word aliases `workspace`, `ingest` (= `pipeline ingest` preset), `references`, `cited-by`, and `shared-references` are the new primary names. All previous command names (`usearch` / `vsearch` / `fsearch` / `enrich-toc` / `enrich-l3` / `backfill-abstract` / `ws` / `refs` / `citing` / `shared-refs`) keep working as hidden legacy aliases — they no longer appear in the top-level `--help` listing but behave exactly as before, including metrics event names
+- **CLI naming semantic alignment, round 2**: `--mode hybrid` is now the primary term for fused retrieval on `search` / `workspace search` / `explore search` (`unified` remains an accepted alias with identical behavior); `scrinium import endnote|zotero` groups the import commands; `refresh` is the primary name for re-fetching metadata/citations/references from APIs; `citation-styles` is the primary name for citation style management. The old spellings (`import-endnote` / `import-zotero` / `refetch` / `style`) keep working as hidden legacy aliases
 
 ## [2.0.0] — 2026-08-02
 

@@ -85,12 +85,12 @@ scrinium setup check --lang zh
 
 - `Semantic Scholar API key`
   - 用途：用于 Semantic Scholar 认证访问；官方说明是“大多数端点可匿名访问，但部分端点需要 key”
-  - 何时需要：用户会频繁做 citation/refetch，或后续需要依赖认证端点时
+  - 何时需要：用户会频繁做 citation/refresh，或后续需要依赖认证端点时
   - 做法：写入 `ingest.s2_api_key` 或环境变量 `S2_API_KEY`
   - 开销：**按第三方政策**；不要擅自承诺免费或收费
 - `Zotero API key`
   - 用途：走 Zotero Web API 导入
-  - 何时需要：用户明确要用 `import-zotero` 的 Web API 路径，而不是本地 `zotero.sqlite`
+  - 何时需要：用户明确要用 `import zotero` 的 Web API 路径，而不是本地 `zotero.sqlite`
   - 补充说明：Zotero 官方允许对**公开库**做匿名只读访问，但 Scrinium 当前的 Web API 导入路径按“提供 key”设计；如果用户不想配 key，优先建议本地 `zotero.sqlite` 导入
   - 做法：写入 `zotero.api_key` 或环境变量 `ZOTERO_API_KEY`
   - 开销：**按第三方政策**
@@ -182,4 +182,4 @@ setup 过程中，agent 不要只说“需要 key”，必须同时说明：
 
 - 用户也可以直接运行 `scrinium setup` 进入交互式向导（bilingual EN/ZH）
 - `config.local.yaml` 存放敏感信息（API key），不进 git
-- 嵌入模型（~1.2GB）会在首次 embed/vsearch 时自动下载，setup 不触发下载
+- 嵌入模型（~1.2GB）会在首次 embed / `search --mode semantic` 时自动下载，setup 不触发下载

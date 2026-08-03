@@ -33,7 +33,7 @@ scrinium show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_name
 |----|------|------|
 | L1 | 元数据 | title, authors, year, journal, doi, tags（标签） |
 | L2 | 摘要 | abstract |
-| L3 | 结论 | conclusion（需先运行 enrich-l3） |
+| L3 | 结论 | conclusion（需先运行 enrich conclusion） |
 | L4 | 全文 | 完整 markdown |
 
 ## 示例

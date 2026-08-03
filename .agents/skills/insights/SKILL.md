@@ -27,7 +27,7 @@ scrinium insights [--days N]  # 默认分析过去30天
 
 ## 前置条件
 
-需要先累积一定量的使用数据（search、usearch、vsearch 和 show 命令会自动记录事件到 `data/metrics.db`）。
+需要先累积一定量的使用数据（`search`（keyword / hybrid / semantic 各模式）和 `show` 命令会自动记录事件到 `data/metrics.db`）。
 
 ## 示例
 

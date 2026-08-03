@@ -5,7 +5,7 @@ cli/ — scrinium 命令行入口（按域拆分的包）
 命令：
     scrinium index [--rebuild]
     scrinium embed [--rebuild]
-    scrinium search <query> [--mode keyword|unified|semantic] [--top N] [--year Y] [--journal J] [--type T] [--tag T]
+    scrinium search <query> [--mode keyword|hybrid|semantic] [--top N] [--year Y] [--journal J] [--type T] [--tag T]
     scrinium search <query> --scope main,proceedings,explore:*,arxiv [--top N]
     scrinium search-author <query> [--top N] [--year Y] [--journal J] [--type T]
     scrinium show <paper-id> [--layer 1|2|3|4] [--lang LANG] [--json] [--append-notes TEXT]
@@ -17,7 +17,7 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium cited-by <paper-id>
     scrinium shared-references <id1> <id2> ... [--min N]
     scrinium snowball <paper-id>... [--depth 1] [--top N] [--ws NAME] [--json]
-    scrinium refetch [<paper-id> | --all] [--force]
+    scrinium refresh [<paper-id> | --all] [--force]
     scrinium rename [<paper-id> | --all] [--dry-run]
     scrinium audit [--severity error|warning|info]
     scrinium tag <paper-id> [<标签> ...] [--remove] [--json]
@@ -35,21 +35,21 @@ cli/ — scrinium 命令行入口（按域拆分的包）
                               [--name NAME] [--year-range Y] [--incremental] [--limit N]
     scrinium explore embed --name <NAME> [--rebuild]
     scrinium explore topics --name <NAME> [--build] [--rebuild] [--topic ID]
-    scrinium explore search --name <NAME> <query> [--mode semantic|keyword|unified] [--top N]
+    scrinium explore search --name <NAME> <query> [--mode semantic|keyword|hybrid] [--top N]
     scrinium explore viz --name <NAME>
     scrinium explore list
     scrinium explore info [--name NAME]
     scrinium export bibtex|ris|markdown [<paper-id> ...] [--all] [--year Y] [--journal J] [-o FILE]
     scrinium export docx [-i input.md] [-o output.docx] [--title T]
     scrinium translate [<paper-id> | --all] [--lang LANG] [--force]
-    scrinium import-endnote <file.xml|file.ris> [--no-api] [--dry-run] [--no-convert]
-    scrinium import-zotero [--api-key KEY] [--library-id ID] [--local PATH] [--list-collections] ...
+    scrinium import endnote <file.xml|file.ris> [--no-api] [--dry-run] [--no-convert]
+    scrinium import zotero [--api-key KEY] [--library-id ID] [--local PATH] [--list-collections] ...
     scrinium arxiv search [<query> ...] [--category CAT] [--sort relevance|recent] [--top N]
     scrinium arxiv fetch <arxiv-id-or-url> [--ingest] [--force] [--dry-run]
     scrinium attach-pdf <paper-id> <path/to/paper.pdf>
     scrinium citation-check [<file>] [--ws <workspace-name>]
-    scrinium style list
-    scrinium style show <name>
+    scrinium citation-styles list
+    scrinium citation-styles show <name>
     scrinium document inspect <file> [--format docx|pptx|xlsx]
     scrinium toolref fetch <tool> [--version V] [--force]
     scrinium toolref show <tool> <path...>
@@ -64,21 +64,26 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium workspace remove <name> <paper-refs...>
     scrinium workspace list
     scrinium workspace show <name>
-    scrinium workspace search <name> <query> [--top N] [--mode unified|keyword|semantic]
+    scrinium workspace search <name> <query> [--top N] [--mode hybrid|keyword|semantic]
     scrinium workspace rename <old-name> <new-name>
     scrinium workspace export <name> [-o FILE]
 
 Legacy aliases（仍然可用，但从 --help 顶层列表隐藏；新代码请用上方主名）：
-    usearch            -> search --mode unified
+    usearch            -> search --mode hybrid
     vsearch            -> search --mode semantic
     fsearch            -> search --scope ...
     enrich-toc         -> enrich toc
     enrich-l3          -> enrich conclusion
     backfill-abstract  -> enrich abstract
+    import-endnote     -> import endnote
+    import-zotero      -> import zotero
+    refetch            -> refresh
     refs               -> references
     citing             -> cited-by
     shared-refs        -> shared-references
     ws                 -> workspace
+    style              -> citation-styles
+    --mode unified     -> --mode hybrid（search / workspace search / explore search 通用）
 """
 
 from __future__ import annotations

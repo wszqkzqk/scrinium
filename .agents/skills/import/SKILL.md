@@ -10,25 +10,27 @@ tags: ["academic", "papers", "import", "zotero", "endnote"]
 
 支持从 Endnote / Zotero 批量导入，或为已入库论文单独补充 PDF（`attach-pdf`）。
 
+> **别名**：`import-endnote` / `import-zotero` 分别是 `import endnote` / `import zotero` 的隐藏别名，行为完全一致；新工作请使用 `import` 子命令。
+
 ## Endnote 导入
 
 支持 Endnote 导出的 XML 和 RIS 格式文件。
 
 ```bash
 # 完整导入：元数据 + PDF 匹配 + MinerU 批量转换 + enrich (toc/l3/abstract) + embed + index
-scrinium import-endnote <file.xml>
+scrinium import endnote <file.xml>
 
 # 多文件导入
-scrinium import-endnote file1.xml file2.ris
+scrinium import endnote file1.xml file2.ris
 
 # 仅导入元数据和 PDF，跳过 MinerU 转换和 enrich
-scrinium import-endnote <file.xml> --no-convert
+scrinium import endnote <file.xml> --no-convert
 
 # 预览模式
-scrinium import-endnote <file.xml> --dry-run
+scrinium import endnote <file.xml> --dry-run
 
 # 离线模式
-scrinium import-endnote <file.xml> --no-api
+scrinium import endnote <file.xml> --no-api
 ```
 
 ### PDF 自动匹配
@@ -55,22 +57,22 @@ scrinium import-endnote <file.xml> --no-api
 
 ```bash
 # 列出 collections
-scrinium import-zotero --api-key KEY --library-id ID --list-collections
+scrinium import zotero --api-key KEY --library-id ID --list-collections
 
 # 完整导入
-scrinium import-zotero --api-key KEY --library-id ID
+scrinium import zotero --api-key KEY --library-id ID
 
 # 仅导入指定 collection
-scrinium import-zotero --api-key KEY --library-id ID --collection COLLECTION_KEY
+scrinium import zotero --api-key KEY --library-id ID --collection COLLECTION_KEY
 
 # 导入后将 collections 创建为工作区
-scrinium import-zotero --api-key KEY --library-id ID --import-collections
+scrinium import zotero --api-key KEY --library-id ID --import-collections
 ```
 
 ### 本地 SQLite 模式
 
 ```bash
-scrinium import-zotero --local /path/to/zotero.sqlite
+scrinium import zotero --local /path/to/zotero.sqlite
 ```
 
 ### 配置文件（可选）
@@ -108,16 +110,16 @@ stats = batch_convert_pdfs(cfg, enrich=True)
 ## 示例
 
 用户说："我把 Endnote 库导出来了，帮我导入"
-→ 执行 `import-endnote <file.xml>`
+→ 执行 `import endnote <file.xml>`
 
 用户说："从 Zotero 导入我的文献库"
-→ 执行 `import-zotero --local /path/to/zotero.sqlite`（本地模式；有 API 凭据时用 Web API 模式）
+→ 执行 `import zotero --local /path/to/zotero.sqlite`（本地模式；有 API 凭据时用 Web API 模式）
 
 用户说："先看看会导入什么，别真动"
-→ 执行 `import-endnote <file.xml> --dry-run`
+→ 执行 `import endnote <file.xml> --dry-run`
 
 用户说："只导元数据，PDF 先不转"
-→ 执行 `import-endnote <file.xml> --no-convert`
+→ 执行 `import endnote <file.xml> --no-convert`
 
 用户说："这篇论文刚拿到 PDF，帮我补上"
 → 执行 `attach-pdf <paper-id> <path/to/paper.pdf>`

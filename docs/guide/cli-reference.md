@@ -25,7 +25,7 @@ scrinium tags
 scrinium pending
 ```
 
-- `search` is the single retrieval entry point. `--mode keyword` (default) performs FTS5 keyword search, `--mode unified` fuses keyword + semantic retrieval, and `--mode semantic` performs pure vector search (requires an embedding backend).
+- `search` is the single retrieval entry point. `--mode keyword` (default) performs FTS5 keyword search, `--mode hybrid` fuses keyword + semantic retrieval (`unified` is an accepted alias), and `--mode semantic` performs pure vector search (requires an embedding backend).
 - `search --scope main,proceedings,explore:*,arxiv` runs federated search across the main library, proceedings, explore databases, and arXiv.
 - `search-author` searches by author name.
 - `show` supports layered reading from metadata to full text.
@@ -39,7 +39,7 @@ scrinium pending
 scrinium ingest
 scrinium pipeline [preset]
 scrinium enrich toc|conclusion|abstract
-scrinium refetch
+scrinium refresh
 scrinium translate
 scrinium attach-pdf
 ```
@@ -49,6 +49,7 @@ scrinium attach-pdf
 - Current preset values are `full`, `ingest`, `enrich`, and `reindex`.
 - Run `scrinium pipeline --help` for pipeline options such as `--steps`, `--dry-run`, `--no-api`, and `--rebuild`.
 - `enrich toc` extracts the table of contents, `enrich conclusion` extracts the conclusion section (L3), and `enrich abstract` backfills missing abstracts.
+- `refresh` re-fetches metadata, citation counts, and references from the APIs.
 
 ## Graph, Topics, And Explore
 
@@ -67,13 +68,12 @@ scrinium explore
 ## Import, Export, And Workspaces
 
 ```text
-scrinium import-endnote
-scrinium import-zotero
+scrinium import endnote|zotero
 scrinium export
 scrinium workspace
 ```
 
-- `import-endnote` and `import-zotero` bring existing libraries into Scrinium.
+- `import endnote` and `import zotero` bring existing libraries into Scrinium.
 - `export` handles BibTeX, RIS, Markdown, and DOCX export.
 - `workspace` manages paper subsets for focused projects and writing workflows (`init` / `add` / `remove` / `list` / `show` / `search` / `rename` / `export`).
 
@@ -83,14 +83,14 @@ scrinium workspace
 scrinium toolref
 scrinium arxiv
 scrinium document
-scrinium style
+scrinium citation-styles
 ```
 
 - `toolref` provides versioned scientific tool documentation lookup.
 - Current `toolref` subcommands are `fetch`, `show`, `search`, `list`, and `use`.
 - `arxiv` supports arXiv search and PDF fetch.
 - `document` provides Office-document utilities such as inspection.
-- `style` manages citation styles.
+- `citation-styles` manages citation styles (`list` / `show`).
 
 ## Audit, Setup, And Runtime Inspection
 
@@ -117,16 +117,21 @@ Older short names still work but are hidden from the top-level `--help` listing.
 
 | Legacy alias | Primary form |
 |---|---|
-| `usearch <q>` | `search <q> --mode unified` |
+| `usearch <q>` | `search <q> --mode hybrid` |
 | `vsearch <q>` | `search <q> --mode semantic` |
 | `fsearch <q> --scope S` | `search <q> --scope S` |
+| `--mode unified` | `--mode hybrid` (on `search` / `workspace search` / `explore search`) |
 | `enrich-toc` | `enrich toc` |
 | `enrich-l3` | `enrich conclusion` |
 | `backfill-abstract` | `enrich abstract` |
+| `import-endnote` | `import endnote` |
+| `import-zotero` | `import zotero` |
+| `refetch` | `refresh` |
 | `refs` | `references` |
 | `citing` | `cited-by` |
 | `shared-refs` | `shared-references` |
 | `ws` | `workspace` |
+| `style` | `citation-styles` |
 
 ## Recommended Pattern
 

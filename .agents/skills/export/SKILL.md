@@ -90,8 +90,8 @@ scrinium export markdown --all --year 2020-2024 -o workspace/recent_refs.md
 ### 查看可用格式
 
 ```bash
-scrinium style list           # 列出全部格式（内置 + 自定义）
-scrinium style show jcp       # 查看某个自定义格式的代码
+scrinium citation-styles list           # 列出全部格式（内置 + 自定义）
+scrinium citation-styles show jcp       # 查看某个自定义格式的代码
 ```
 
 ---
@@ -118,7 +118,7 @@ def format_ref(meta: dict, idx: int | None = None) -> str:
 
 1. **检查是否已有缓存**
    ```bash
-   scrinium style list
+   scrinium citation-styles list
    ```
    如果已有 `jcp` 或目标格式名，直接跳到第 4 步。
 
@@ -227,10 +227,10 @@ echo "# 标题\n内容..." | scrinium export docx --output workspace/doc.docx
 → 执行 `export markdown --all --style vancouver`
 
 用户说："按 JCP 格式导出，我要投 Journal of Chemical Physics"
-→ 先 `style list` 检查，若无则获取 JCP 格式说明、写 `data/citation_styles/jcp.py`，再 `export markdown --all --style jcp`
+→ 先 `citation-styles list` 检查，若无则获取 JCP 格式说明、写 `data/citation_styles/jcp.py`，再 `export markdown --all --style jcp`
 
 用户说："把这篇文献综述导出成 Word 文件"
 → 执行 `export docx --input workspace/review.md --output workspace/review.docx`
 
 用户说："导出 DNS 相关的论文引用"
-→ 先用 `usearch "DNS"` 搜索，再用结果中的目录名 / DOI / UUID 执行 `export markdown <标识1> <标识2> ...`
+→ 先用 `search "DNS" --mode hybrid` 搜索，再用结果中的目录名 / DOI / UUID 执行 `export markdown <标识1> <标识2> ...`

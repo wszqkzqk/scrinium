@@ -71,11 +71,11 @@ scrinium workspace rename <旧名称> <新名称>
 ### 在工作区内搜索
 
 ```bash
-scrinium workspace search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--mode unified|keyword|semantic] [--tag 标签]
+scrinium workspace search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--mode hybrid|keyword|semantic] [--tag 标签]
 ```
 
 搜索模式：
-- `unified`（默认）：融合检索（关键词 + 语义 RRF 排序；无嵌入后端时自动降级为纯关键词）
+- `hybrid`（默认）：融合检索（关键词 + 语义 RRF 排序；无嵌入后端时自动降级为纯关键词；`unified` 为等价别名）
 - `keyword`：FTS5 关键词检索
 - `semantic`：FAISS 语义向量检索（需嵌入后端，`embed.provider: none` 时不可用）
 

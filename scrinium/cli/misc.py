@@ -773,6 +773,19 @@ def _add_shared_refs_parser(sub, name: str, help_text: str | None = None) -> Non
     p_sr.add_argument("--ws", type=str, default=None, help="限定工作区范围")
 
 
+def _add_style_parser(sub, name: str, help_text: str | None = None) -> None:
+    """Register the citation-styles parser tree under *name* (used for the `style` alias)."""
+    p_style = _add_parser_with_optional_help(sub, name, help_text)
+    p_style.set_defaults(func=cmd_style)
+    p_style_sub = p_style.add_subparsers(dest="style_sub", required=True)
+
+    p_style_list = p_style_sub.add_parser("list", help="列出所有可用引用格式")
+    del p_style_list  # no extra args needed
+
+    p_style_show = p_style_sub.add_parser("show", help="查看引用格式的格式化函数代码")
+    p_style_show.add_argument("name", help="格式名称，如 jcp / apa / vancouver")
+
+
 def register(sub) -> None:
     """Register misc-domain subcommands."""
     # --- references / cited-by / shared-references (legacy aliases hidden) ---
@@ -855,16 +868,9 @@ def register(sub) -> None:
     p_metrics.add_argument("--since", default=None, help="起始时间（ISO 格式，如 2026-03-01）")
     p_metrics.add_argument("--summary", action="store_true", help="仅显示汇总统计")
 
-    # --- style ---
-    p_style = sub.add_parser("style", help="引用格式管理（列出 / 查看自定义格式）")
-    p_style.set_defaults(func=cmd_style)
-    p_style_sub = p_style.add_subparsers(dest="style_sub", required=True)
-
-    p_style_list = p_style_sub.add_parser("list", help="列出所有可用引用格式")
-    del p_style_list  # no extra args needed
-
-    p_style_show = p_style_sub.add_parser("show", help="查看引用格式的格式化函数代码")
-    p_style_show.add_argument("name", help="格式名称，如 jcp / apa / vancouver")
+    # --- citation-styles (primary name; `style` kept as a hidden legacy alias) ---
+    _add_style_parser(sub, "citation-styles", "引用格式管理（列出 / 查看自定义格式）")
+    _add_style_parser(sub, "style", None)
 
     # --- document ---
     p_doc = sub.add_parser("document", help="Office 文档工具（inspect 等）")

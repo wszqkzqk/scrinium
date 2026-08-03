@@ -175,7 +175,7 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
             ui("工作区为空")
             return
         query = " ".join(args.query)
-        mode = getattr(args, "mode", "unified")
+        mode = getattr(args, "mode", "hybrid") or "hybrid"
         top_k = _resolve_top(args, cfg.search.top_k)
         tags = _resolve_tag_filters(args, cfg)
 
@@ -311,7 +311,10 @@ def _add_ws_parser(sub, name: str, help_text: str | None = None) -> None:
     p_ws_search.add_argument("query", nargs="+", help="查询文本")
     p_ws_search.add_argument("--top", type=int, default=None, help="返回条数")
     p_ws_search.add_argument(
-        "--mode", choices=["unified", "keyword", "semantic"], default="unified", help="搜索模式（默认 unified）"
+        "--mode",
+        choices=["hybrid", "unified", "keyword", "semantic"],
+        default="hybrid",
+        help="搜索模式：hybrid=关键词+语义融合（默认，unified 为其等价别名）/ keyword / semantic",
     )
     _add_filter_args(p_ws_search)
     _add_tag_arg(p_ws_search)

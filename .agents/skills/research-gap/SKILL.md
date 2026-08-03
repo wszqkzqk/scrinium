@@ -22,7 +22,7 @@ tags: ["academic", "research", "gap-analysis", "discovery"]
 ### 1. 全局扫描
 
 ```bash
-scrinium ws show <name>                    # 论文列表
+scrinium workspace show <name>               # 论文列表
 scrinium topics                             # 主题聚类（如已建模）
 ```
 
@@ -56,9 +56,9 @@ scrinium show <paper-id> --layer 3          # 结论中通常提及方法
 
 #### 维度 4：引用图谱空洞
 ```bash
-scrinium shared-refs "<id1>" "<id2>"        # 共同引用
-scrinium refs "<id>"                        # 参考文献
-scrinium citing "<id>"                      # 被引论文
+scrinium shared-references "<id1>" "<id2>"   # 共同引用
+scrinium references "<id>"                   # 参考文献
+scrinium cited-by "<id>"                     # 被引论文
 ```
 - 哪些论文互相引用但观点矛盾？（未解决的争议）
 - 哪些论文被大量引用但缺乏后续验证/复现？
@@ -71,7 +71,7 @@ scrinium show <paper-id> --layer 3
 ```
 这些 future work 是否已有人做了？交叉搜索验证：
 ```bash
-scrinium usearch "<future work 关键词>"
+scrinium search "<future work 关键词>" --mode hybrid
 ```
 
 ### 3. 输出报告

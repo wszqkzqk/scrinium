@@ -64,7 +64,7 @@ If you recreate the virtualenv later, drop the symlink afterwards: shebangs insi
 
 ```bash
 scrinium pending        # pending items visible
-scrinium ws list        # workspaces intact
+scrinium workspace list  # workspaces intact
 scrinium tags           # tag vocabulary intact
 ```
 

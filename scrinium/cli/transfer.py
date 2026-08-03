@@ -505,6 +505,32 @@ def _import_zotero_collections_as_workspaces(args, cfg, api_key, library_id, lib
         ui(f"工作区 {name}: {len(uuids)} 篇论文")
 
 
+def _add_import_endnote_args(p: argparse.ArgumentParser) -> None:
+    """Arguments shared by ``import endnote`` and its legacy alias ``import-endnote``."""
+    p.set_defaults(func=cmd_import_endnote)
+    p.add_argument("files", nargs="+", help="Endnote 导出文件（.xml 或 .ris）")
+    p.add_argument("--no-api", action="store_true", help="跳过 API 查询，仅用文件中的元数据")
+    p.add_argument("--dry-run", action="store_true", help="预览，不实际导入")
+    p.add_argument("--no-convert", action="store_true", help="跳过 PDF → paper.md 转换（默认自动转换）")
+
+
+def _add_import_zotero_args(p: argparse.ArgumentParser) -> None:
+    """Arguments shared by ``import zotero`` and its legacy alias ``import-zotero``."""
+    p.set_defaults(func=cmd_import_zotero)
+    p.add_argument("--local", metavar="SQLITE_PATH", help="使用本地 zotero.sqlite")
+    p.add_argument("--api-key", help="Zotero API key")
+    p.add_argument("--library-id", help="Zotero library ID")
+    p.add_argument("--library-type", choices=["user", "group"], help="Library 类型（默认 user）")
+    p.add_argument("--collection", metavar="KEY", help="仅导入指定 collection")
+    p.add_argument("--item-type", nargs="+", help="限定 item 类型（如 journalArticle conferencePaper）")
+    p.add_argument("--list-collections", action="store_true", help="列出所有 collections 后退出")
+    p.add_argument("--no-pdf", action="store_true", help="跳过 PDF 下载/复制")
+    p.add_argument("--no-api", action="store_true", help="跳过学术 API 查询")
+    p.add_argument("--dry-run", action="store_true", help="预览，不实际导入")
+    p.add_argument("--no-convert", action="store_true", help="跳过 PDF → paper.md 转换")
+    p.add_argument("--import-collections", action="store_true", help="将 Zotero collections 创建为工作区")
+
+
 def register(sub) -> None:
     """Register transfer-domain subcommands."""
     # --- export ---
@@ -547,29 +573,17 @@ def register(sub) -> None:
     )
     p_ed.add_argument("--title", type=str, default=None, help="文档标题（可选，插入为一级标题）")
 
-    # --- import-endnote ---
-    p_ie = sub.add_parser("import-endnote", help="从 Endnote XML/RIS 导入论文元数据")
-    p_ie.set_defaults(func=cmd_import_endnote)
-    p_ie.add_argument("files", nargs="+", help="Endnote 导出文件（.xml 或 .ris）")
-    p_ie.add_argument("--no-api", action="store_true", help="跳过 API 查询，仅用文件中的元数据")
-    p_ie.add_argument("--dry-run", action="store_true", help="预览，不实际导入")
-    p_ie.add_argument("--no-convert", action="store_true", help="跳过 PDF → paper.md 转换（默认自动转换）")
+    # --- import (grouped entry point; legacy aliases hidden) ---
+    p_import = sub.add_parser("import", help="从外部文献管理器导入论文（Endnote / Zotero）")
+    p_import_sub = p_import.add_subparsers(dest="import_action", required=True)
+    _add_import_endnote_args(p_import_sub.add_parser("endnote", help="从 Endnote XML/RIS 导入论文元数据"))
+    _add_import_zotero_args(p_import_sub.add_parser("zotero", help="从 Zotero 导入论文元数据和 PDF"))
 
-    # --- import-zotero ---
-    p_iz = sub.add_parser("import-zotero", help="从 Zotero 导入论文元数据和 PDF")
-    p_iz.set_defaults(func=cmd_import_zotero)
-    p_iz.add_argument("--local", metavar="SQLITE_PATH", help="使用本地 zotero.sqlite")
-    p_iz.add_argument("--api-key", help="Zotero API key")
-    p_iz.add_argument("--library-id", help="Zotero library ID")
-    p_iz.add_argument("--library-type", choices=["user", "group"], help="Library 类型（默认 user）")
-    p_iz.add_argument("--collection", metavar="KEY", help="仅导入指定 collection")
-    p_iz.add_argument("--item-type", nargs="+", help="限定 item 类型（如 journalArticle conferencePaper）")
-    p_iz.add_argument("--list-collections", action="store_true", help="列出所有 collections 后退出")
-    p_iz.add_argument("--no-pdf", action="store_true", help="跳过 PDF 下载/复制")
-    p_iz.add_argument("--no-api", action="store_true", help="跳过学术 API 查询")
-    p_iz.add_argument("--dry-run", action="store_true", help="预览，不实际导入")
-    p_iz.add_argument("--no-convert", action="store_true", help="跳过 PDF → paper.md 转换")
-    p_iz.add_argument("--import-collections", action="store_true", help="将 Zotero collections 创建为工作区")
+    # --- import-endnote (legacy alias of `import endnote`; no help => hidden) ---
+    _add_import_endnote_args(sub.add_parser("import-endnote"))
+
+    # --- import-zotero (legacy alias of `import zotero`; no help => hidden) ---
+    _add_import_zotero_args(sub.add_parser("import-zotero"))
 
     # --- arxiv ---
     p_arxiv = sub.add_parser("arxiv", help="arXiv 检索与拉取工具")
