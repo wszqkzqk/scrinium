@@ -863,34 +863,73 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
     step_index(cfg.papers_dir, cfg, PipelineOptions())
 
 
-def register(sub) -> None:
-    """Register ingest-domain subcommands."""
-    # --- enrich-toc ---
-    p_toc = sub.add_parser("enrich-toc", help="LLM 过滤标题噪声，提取论文 TOC 写入 JSON")
-    p_toc.set_defaults(func=cmd_enrich_toc)
-    p_toc.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
-    p_toc.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
-    p_toc.add_argument("--force", action="store_true", help="强制重新提取")
-    p_toc.add_argument("--inspect", action="store_true", help="展示过滤过程")
+def _add_enrich_toc_args(p: argparse.ArgumentParser) -> None:
+    """Arguments shared by ``enrich toc`` and its legacy alias ``enrich-toc``."""
+    p.set_defaults(func=cmd_enrich_toc)
+    p.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
+    p.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
+    p.add_argument("--force", action="store_true", help="强制重新提取")
+    p.add_argument("--inspect", action="store_true", help="展示过滤过程")
 
-    # --- pipeline ---
-    p_pipe = sub.add_parser("pipeline", help="组合步骤流水线（可任意组装）")
-    p_pipe.set_defaults(func=cmd_pipeline)
-    p_pipe.add_argument(
+
+def _add_enrich_l3_args(p: argparse.ArgumentParser) -> None:
+    """Arguments shared by ``enrich conclusion`` and its legacy alias ``enrich-l3``."""
+    p.set_defaults(func=cmd_enrich_l3)
+    p.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
+    p.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
+    p.add_argument("--force", action="store_true", help="强制重新提取（覆盖已有结果）")
+    p.add_argument("--inspect", action="store_true", help="展示提取过程详情")
+    p.add_argument("--max-retries", type=int, default=2, help="最大重试次数（默认 2）")
+
+
+def _add_backfill_abstract_args(p: argparse.ArgumentParser) -> None:
+    """Arguments shared by ``enrich abstract`` and its legacy alias ``backfill-abstract``."""
+    p.set_defaults(func=cmd_backfill_abstract)
+    p.add_argument("--dry-run", action="store_true", help="预览，不写文件")
+    p.add_argument("--doi-fetch", action="store_true", help="从出版商网页抓取官方 abstract（覆盖现有）")
+
+
+def _add_pipeline_args(p: argparse.ArgumentParser, *, preset_default: str | None = None) -> None:
+    """Arguments shared by ``pipeline`` and its ``ingest`` preset alias."""
+    p.set_defaults(func=cmd_pipeline)
+    p.add_argument(
         "preset",
         nargs="?",
-        help="预设名称：full | ingest | enrich | reindex",
+        default=preset_default,
+        help="预设名称：full | ingest | enrich | reindex" + (f"（默认 {preset_default}）" if preset_default else ""),
     )
-    p_pipe.add_argument("--steps", help="自定义步骤序列（逗号分隔），如 toc,l3,index")
-    p_pipe.add_argument("--list", dest="list_steps", action="store_true", help="列出所有步骤和预设")
-    p_pipe.add_argument("--dry-run", action="store_true", help="预览，不写文件")
-    p_pipe.add_argument("--no-api", action="store_true", help="离线模式，跳过外部 API")
-    p_pipe.add_argument("--force", action="store_true", help="强制重新处理（toc/l3）")
-    p_pipe.add_argument("--inspect", action="store_true", help="展示处理详情")
-    p_pipe.add_argument("--max-retries", type=int, default=2, help="l3 最大重试次数（默认 2）")
-    p_pipe.add_argument("--rebuild", action="store_true", help="重建索引（index 步骤）")
-    p_pipe.add_argument("--inbox", help="inbox 目录（默认 data/inbox）")
-    p_pipe.add_argument("--papers", help="papers 目录（默认配置值）")
+    p.add_argument("--steps", help="自定义步骤序列（逗号分隔），如 toc,l3,index")
+    p.add_argument("--list", dest="list_steps", action="store_true", help="列出所有步骤和预设")
+    p.add_argument("--dry-run", action="store_true", help="预览，不写文件")
+    p.add_argument("--no-api", action="store_true", help="离线模式，跳过外部 API")
+    p.add_argument("--force", action="store_true", help="强制重新处理（toc/l3）")
+    p.add_argument("--inspect", action="store_true", help="展示处理详情")
+    p.add_argument("--max-retries", type=int, default=2, help="l3 最大重试次数（默认 2）")
+    p.add_argument("--rebuild", action="store_true", help="重建索引（index 步骤）")
+    p.add_argument("--inbox", help="inbox 目录（默认 data/inbox）")
+    p.add_argument("--papers", help="papers 目录（默认配置值）")
+
+
+def register(sub) -> None:
+    """Register ingest-domain subcommands."""
+    # --- enrich (grouped entry point) ---
+    p_enrich = sub.add_parser("enrich", help="内容富化：提取目录 / 结论 / 补全摘要")
+    p_enrich_sub = p_enrich.add_subparsers(dest="enrich_action", required=True)
+    _add_enrich_toc_args(p_enrich_sub.add_parser("toc", help="LLM 过滤标题噪声，提取论文 TOC 写入 JSON"))
+    _add_enrich_l3_args(p_enrich_sub.add_parser("conclusion", help="LLM 提取结论段写入 JSON"))
+    _add_backfill_abstract_args(p_enrich_sub.add_parser("abstract", help="补全缺失的 abstract（支持 DOI 官方抓取）"))
+
+    # --- enrich-toc (legacy alias of `enrich toc`; no help => hidden) ---
+    _add_enrich_toc_args(sub.add_parser("enrich-toc"))
+
+    # --- pipeline ---
+    _add_pipeline_args(sub.add_parser("pipeline", help="组合步骤流水线（可任意组装）"))
+
+    # --- ingest (alias for the `pipeline ingest` preset) ---
+    _add_pipeline_args(
+        sub.add_parser("ingest", help="入库流水线（等价于 `pipeline ingest`，支持 pipeline 全部选项）"),
+        preset_default="ingest",
+    )
 
     # --- refetch ---
     p_refetch = sub.add_parser("refetch", help="重新查询 API 补全引用量等字段")
@@ -900,11 +939,8 @@ def register(sub) -> None:
     p_refetch.add_argument("--force", action="store_true", help="强制重新查询（包括已有引用量的论文）")
     p_refetch.add_argument("--jobs", "-j", type=int, default=5, help="并发数（默认 5）")
 
-    # --- backfill-abstract ---
-    p_bf = sub.add_parser("backfill-abstract", help="补全缺失的 abstract（支持 DOI 官方抓取）")
-    p_bf.set_defaults(func=cmd_backfill_abstract)
-    p_bf.add_argument("--dry-run", action="store_true", help="预览，不写文件")
-    p_bf.add_argument("--doi-fetch", action="store_true", help="从出版商网页抓取官方 abstract（覆盖现有）")
+    # --- backfill-abstract (legacy alias of `enrich abstract`; no help => hidden) ---
+    _add_backfill_abstract_args(sub.add_parser("backfill-abstract"))
 
     # --- rename ---
     p_rename = sub.add_parser("rename", help="根据 JSON 元数据重命名论文文件")
@@ -953,11 +989,5 @@ def register(sub) -> None:
     p_ap.add_argument("pdf_path", help="PDF 文件路径")
     p_ap.add_argument("--dry-run", action="store_true", help="预览将要执行的操作，不实际运行")
 
-    # --- enrich-l3 ---
-    p_l3 = sub.add_parser("enrich-l3", help="LLM 提取结论段写入 JSON")
-    p_l3.set_defaults(func=cmd_enrich_l3)
-    p_l3.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
-    p_l3.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
-    p_l3.add_argument("--force", action="store_true", help="强制重新提取（覆盖已有结果）")
-    p_l3.add_argument("--inspect", action="store_true", help="展示提取过程详情")
-    p_l3.add_argument("--max-retries", type=int, default=2, help="最大重试次数（默认 2）")
+    # --- enrich-l3 (legacy alias of `enrich conclusion`; no help => hidden) ---
+    _add_enrich_l3_args(sub.add_parser("enrich-l3"))

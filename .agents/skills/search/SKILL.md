@@ -8,17 +8,17 @@ tags: ["academic", "search", "papers", "semantic", "fts5"]
 ---
 # 文献搜索
 
-在本地论文库中搜索文献。默认使用融合检索（关键词 + 语义向量合并排序），也支持单独使用某一种模式。
+在本地论文库中搜索文献。统一入口是 `scrinium search`：用 `--mode` 选择检索模式（默认 keyword），用 `--scope` 做跨库联邦搜索。
 
 ## 执行逻辑
 
 1. 解析用户输入，判断搜索模式：
-   - 如果用户明确要求"语义搜索"、"向量搜索"或"vsearch"，使用 `vsearch`
-   - 如果用户明确要求"关键词搜索"、"全文搜索"或"FTS"，使用 `search`
+   - 如果用户明确要求"语义搜索"、"向量搜索"，使用 `search --mode semantic`
+   - 如果用户明确要求"关键词搜索"、"全文搜索"或"FTS"，使用 `search`（默认 `--mode keyword`）
    - 如果用户明确按作者搜索（如"找某某的论文"、"某某发表的"），使用 `search-author`
    - 如果用户要求按引用量排序（如"引用最高的"、"最经典的"、"top cited"），转交 `/citations` skill
-   - **默认使用 `usearch`（融合检索）**——同时执行 FTS5 关键词搜索和 FAISS 语义搜索，合并去重排序。两路都命中的论文排名靠前。向量索引不可用时自动降级为纯关键词。
-   - 如果用户要求跨库搜索（如"也搜一下 arXiv"、"在 explore 库里也找找"、"也搜 proceedings"、"全部来源"、"联邦搜索"），使用 `fsearch`
+   - **默认使用 `search --mode unified`（融合检索）**——同时执行 FTS5 关键词搜索和 FAISS 语义搜索，合并去重排序。两路都命中的论文排名靠前。向量索引不可用时自动降级为纯关键词。
+   - 如果用户要求跨库搜索（如"也搜一下 arXiv"、"在 explore 库里也找找"、"也搜 proceedings"、"全部来源"、"联邦搜索"），使用 `search --scope`
 
 2. 从用户输入中提取：
    - **查询词**：用户想搜索的内容
@@ -31,7 +31,7 @@ tags: ["academic", "search", "papers", "semantic", "fts5"]
 
 **融合检索（默认）：**
 ```bash
-scrinium usearch "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
+scrinium search "<查询词>" --mode unified --top <N> [--year <Y>] [--journal <J>] [--type <T>]
 ```
 
 **关键词搜索：**
@@ -41,7 +41,7 @@ scrinium search "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>
 
 **语义搜索：**
 ```bash
-scrinium vsearch "<查询词>" --top <N> [--year <Y>] [--journal <J>] [--type <T>]
+scrinium search "<查询词>" --mode semantic --top <N> [--year <Y>] [--journal <J>] [--type <T>]
 ```
 
 **作者搜索：**
@@ -54,32 +54,32 @@ scrinium search-author "<作者名>" --top <N> [--year <Y>] [--journal <J>] [--t
 **联邦搜索（跨库 + arXiv）：**
 ```bash
 # 同时搜主库和 arXiv
-scrinium fsearch "<查询词>" --scope main,arxiv --top <N>
+scrinium search "<查询词>" --scope main,arxiv --top <N>
 
 # 同时搜主库和 proceedings
-scrinium fsearch "<查询词>" --scope main,proceedings
+scrinium search "<查询词>" --scope main,proceedings
 
 # 同时搜主库和所有 explore 库
-scrinium fsearch "<查询词>" --scope main,explore:*
+scrinium search "<查询词>" --scope main,explore:*
 
 # 搜指定 explore 库
-scrinium fsearch "<查询词>" --scope explore:my-survey
+scrinium search "<查询词>" --scope explore:my-survey
 
 # 仅搜 arXiv（在线查询，不需要本地数据）
-scrinium fsearch "<查询词>" --scope arxiv
+scrinium search "<查询词>" --scope arxiv
 
 # 全部来源
-scrinium fsearch "<查询词>" --scope main,proceedings,explore:*,arxiv
+scrinium search "<查询词>" --scope main,proceedings,explore:*,arxiv
 ```
 
-`--scope` 支持逗号分隔组合：`main`（主库融合搜索）、`proceedings`（论文集子论文）、`explore:<名称>` 或 `explore:*`（explore 库）、`arxiv`（在线 arXiv API）。默认 scope 为 `main`。arXiv 结果会标注 `[已入库]` 表示该论文已在本地库中。
+`--scope` 支持逗号分隔组合：`main`（主库融合搜索）、`proceedings`（论文集子论文）、`explore:<名称>` 或 `explore:*`（explore 库）、`arxiv`（在线 arXiv API）。提供 `--scope` 时忽略 `--mode`。arXiv 结果会标注 `[已入库]` 表示该论文已在本地库中。
 
 **标签检索（策展标签）：**
 ```bash
-scrinium tags                                                    # 浏览词表（canonical + 别名 + 论文数）
-scrinium usearch "<查询词>" --tag milestoning                    # 单标签过滤
-scrinium search "<查询词>" --tag milestoning --tag drug-binding  # 多标签 AND
-scrinium ws search <名称> "<查询词>" --tag cryo-em               # 工作区内同样可用
+scrinium tags                                                              # 浏览词表（canonical + 别名 + 论文数）
+scrinium search "<查询词>" --mode unified --tag milestoning                 # 单标签过滤
+scrinium search "<查询词>" --tag milestoning --tag drug-binding             # 多标签 AND
+scrinium workspace search <名称> "<查询词>" --tag cryo-em                    # 工作区内同样可用
 ```
 
 标签来自人工/agent 策展的受控词表（`data/tags.yaml`），别名自动归一。标签本身已进入检索索引（搜 "force field" 能命中打了该标签的论文）。给论文打标签用 `/curate` skill。
@@ -99,17 +99,27 @@ ids, toc, l3_conclusion, tags
 
 ## 检索策略
 
-- **结构化输出**：`search`/`usearch`/`show`/`ws show`/`top-cited` 支持 `--json`，结果含 `dir_name`、`score`、`match` 等字段；需要程序化解析时用 `--json`，不要正则解析排版文本。
+- **结构化输出**：`search`/`show`/`workspace show`/`top-cited` 支持 `--json`，结果含 `dir_name`、`score`、`match` 等字段；需要程序化解析时用 `--json`，不要正则解析排版文本。
 - **多查询扩展**：单个查询词容易漏召回。对同一问题换 2-4 个角度各搜一轮（同义词、上下位概念、缩写/全称、方法名/体系名），合并去重——agent 的语言能力就是查询扩展层。
-- **无嵌入部署**（`embed.provider=none`）：`vsearch` 不可用，`usearch`/`ws search` 自动降级为纯关键词（结果标注"关键词"）。此时发现文献的主路径是：**多查询关键词 + `--tag` 过滤 + 引用图滚雪球**（`refs`/`citing`/`shared-refs`，见 `/graph` skill）。
+- **无嵌入部署**（`embed.provider=none`）：`--mode semantic` 不可用，`--mode unified`/`workspace search` 自动降级为纯关键词（结果标注"关键词"）。此时发现文献的主路径是：**多查询关键词 + `--tag` 过滤 + 引用图滚雪球**（`references`/`cited-by`/`shared-references`，见 `/graph` skill）。
+
+## Legacy 别名
+
+以下旧命令仍可使用（隐藏别名，行为完全一致），但新工作请统一用 `search`：
+
+| 旧命令 | 等价形式 |
+|---|---|
+| `usearch <q>` | `search <q> --mode unified` |
+| `vsearch <q>` | `search <q> --mode semantic` |
+| `fsearch <q> --scope S` | `search <q> --scope S` |
 
 ## 示例
 
 用户说："帮我搜一下 turbulent boundary layer 相关的论文"
-→ 执行 `usearch "turbulent boundary layer"`
+→ 执行 `search "turbulent boundary layer" --mode unified`
 
 用户说："用语义搜索找 drag reduction 的文献，给我前5篇"
-→ 执行 `vsearch "drag reduction" --top 5`
+→ 执行 `search "drag reduction" --mode semantic --top 5`
 
 用户说："找 Liao Z-M 的论文"
 → 执行 `search-author "Liao"`
@@ -118,31 +128,31 @@ ids, toc, l3_conclusion, tags
 → 转交 `/citations` skill（使用 `top-cited` 命令）
 
 用户说："2020年以后关于 drag reduction 的论文"
-→ 执行 `usearch "drag reduction" --year 2020-`
+→ 执行 `search "drag reduction" --mode unified --year 2020-`
 
 用户说："JFM 上发的湍流论文"
-→ 执行 `usearch "turbulence" --journal "Fluid Mechanics"`
+→ 执行 `search "turbulence" --mode unified --journal "Fluid Mechanics"`
 
 用户说："库里引用最高的 review 文章"
 → 转交 `/citations` skill（使用 `top-cited --type review` 命令）
 
 用户说："帮我在 arXiv 上也搜一下 physics-informed neural network"
-→ 执行 `fsearch "physics-informed neural network" --scope main,arxiv`
+→ 执行 `search "physics-informed neural network" --scope main,arxiv`
 
 用户说："所有来源都搜一下 drag reduction，包括 explore 库"
-→ 执行 `fsearch "drag reduction" --scope main,proceedings,explore:*,arxiv`
+→ 执行 `search "drag reduction" --scope main,proceedings,explore:*,arxiv`
 
 用户说："在我之前建的 wall-bounded-turbulence explore 库里搜 channel flow"
-→ 执行 `fsearch "channel flow" --scope explore:wall-bounded-turbulence`
+→ 执行 `search "channel flow" --scope explore:wall-bounded-turbulence`
 
 用户说："连 proceedings 一起搜 granular damping"
-→ 执行 `fsearch "granular damping" --scope main,proceedings`
+→ 执行 `search "granular damping" --scope main,proceedings`
 
 用户说："库里都有哪些主题标签"
 → 执行 `scrinium tags`
 
 用户说："找库里 milestoning 用在药物动力学上的论文"
-→ 执行 `usearch "kinetics" --tag milestoning --tag drug-binding`
+→ 执行 `search "kinetics" --mode unified --tag milestoning --tag drug-binding`
 
 用户说："力场相关的论文有哪些"（标签已进索引，直接搜即可）
-→ 执行 `usearch "force field"`
+→ 执行 `search "force field" --mode unified`

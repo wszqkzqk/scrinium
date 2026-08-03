@@ -746,26 +746,42 @@ def cmd_citation_check(args: argparse.Namespace, cfg) -> None:
     )
 
 
-def register(sub) -> None:
-    """Register misc-domain subcommands."""
-    # --- refs ---
-    p_refs = sub.add_parser("refs", help="查看论文的参考文献列表")
+def _add_parser_with_optional_help(sub, name: str, help_text: str | None):
+    """add_parser where ``help_text=None`` hides the entry from ``--help``."""
+    return sub.add_parser(name, **({"help": help_text} if help_text else {}))
+
+
+def _add_refs_parser(sub, name: str, help_text: str | None = None) -> None:
+    p_refs = _add_parser_with_optional_help(sub, name, help_text)
     p_refs.set_defaults(func=cmd_refs)
     p_refs.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
     p_refs.add_argument("--ws", type=str, default=None, help="限定工作区范围")
 
-    # --- citing ---
-    p_citing = sub.add_parser("citing", help="查看哪些本地论文引用了此论文")
+
+def _add_citing_parser(sub, name: str, help_text: str | None = None) -> None:
+    p_citing = _add_parser_with_optional_help(sub, name, help_text)
     p_citing.set_defaults(func=cmd_citing)
     p_citing.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
     p_citing.add_argument("--ws", type=str, default=None, help="限定工作区范围")
 
-    # --- shared-refs ---
-    p_sr = sub.add_parser("shared-refs", help="共同参考文献分析")
+
+def _add_shared_refs_parser(sub, name: str, help_text: str | None = None) -> None:
+    p_sr = _add_parser_with_optional_help(sub, name, help_text)
     p_sr.set_defaults(func=cmd_shared_refs)
     p_sr.add_argument("paper_ids", nargs="+", help="论文 ID（至少 2 个）")
     p_sr.add_argument("--min", type=int, default=None, help="最少共引次数（默认 2）")
     p_sr.add_argument("--ws", type=str, default=None, help="限定工作区范围")
+
+
+def register(sub) -> None:
+    """Register misc-domain subcommands."""
+    # --- references / cited-by / shared-references (legacy aliases hidden) ---
+    _add_refs_parser(sub, "references", "查看论文的参考文献列表")
+    _add_refs_parser(sub, "refs", None)
+    _add_citing_parser(sub, "cited-by", "查看哪些本地论文引用了此论文")
+    _add_citing_parser(sub, "citing", None)
+    _add_shared_refs_parser(sub, "shared-references", "共同参考文献分析")
+    _add_shared_refs_parser(sub, "shared-refs", None)
 
     # --- snowball ---
     p_sb = sub.add_parser("snowball", help="引用滚雪球：从种子论文沿引用扩张并排序")

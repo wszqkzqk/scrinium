@@ -273,10 +273,13 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
         ui(f"工作区已重命名: {args.old_name} → {args.new_name}")
 
 
-def register(sub) -> None:
-    """Register workspace subcommands."""
-    # --- ws (workspace) ---
-    p_ws = sub.add_parser("ws", help="工作区论文子集管理")
+def _add_ws_parser(sub, name: str, help_text: str | None = None) -> None:
+    """Register the workspace parser tree under *name* (used for the `ws` alias).
+
+    A ``None`` help means the parser is registered without a help entry,
+    which keeps it out of the top-level ``--help`` listing.
+    """
+    p_ws = sub.add_parser(name, **({"help": help_text} if help_text else {}))
     p_ws.set_defaults(func=cmd_ws)
     p_ws_sub = p_ws.add_subparsers(dest="ws_action", required=True)
 
@@ -321,3 +324,9 @@ def register(sub) -> None:
     p_ws_export.add_argument("name", help="工作区名称")
     p_ws_export.add_argument("-o", "--output", type=str, default=None, help="输出文件路径")
     _add_filter_args(p_ws_export)
+
+
+def register(sub) -> None:
+    """Register workspace subcommands (`ws` kept as a hidden legacy alias)."""
+    _add_ws_parser(sub, "workspace", "工作区论文子集管理")
+    _add_ws_parser(sub, "ws", None)

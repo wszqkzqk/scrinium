@@ -39,7 +39,7 @@ def cmd_index(args: argparse.Namespace, cfg) -> None:
     ui(f"{action}: {papers_dir} -> {db_path}")
     count = build_index(papers_dir, db_path, rebuild=args.rebuild)
     ui(f"完成：已索引 {count} 篇论文。")
-    ui("下一步：运行 `scrinium search <关键词>` 或 `scrinium usearch <关键词>` 开始检索。")
+    ui("下一步：运行 `scrinium search <关键词>` 或 `scrinium search <关键词> --mode unified` 开始检索。")
 
 
 def cmd_search_author(args: argparse.Namespace, cfg) -> None:
@@ -70,6 +70,20 @@ def cmd_search_author(args: argparse.Namespace, cfg) -> None:
 
 
 def cmd_search(args: argparse.Namespace, cfg) -> None:
+    # Unified entry point: --scope delegates to federated search, --mode picks
+    # the retrieval engine. Delegating to the existing cmd_* functions keeps
+    # behavior and metrics event names identical to the legacy commands.
+    if getattr(args, "scope", None):
+        cmd_fsearch(args, cfg)
+        return
+    mode = getattr(args, "mode", "keyword") or "keyword"
+    if mode == "unified":
+        cmd_usearch(args, cfg)
+        return
+    if mode == "semantic":
+        cmd_vsearch(args, cfg)
+        return
+
     import time
 
     from scrinium.index import search
@@ -134,7 +148,7 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
     elif args.layer == 3:
         conclusion = load_l3(json_path)
         if conclusion is None:
-            _log.error("尚未提取结论。请先运行：scrinium enrich-l3 %s", args.paper_id)
+            _log.error("尚未提取结论。请先运行：scrinium enrich conclusion %s", args.paper_id)
             sys.exit(1)
         payload["conclusion"] = conclusion
     elif args.layer == 4:
@@ -236,7 +250,7 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
     if args.layer == 3:
         conclusion = load_l3(json_path)
         if conclusion is None:
-            _log.error("尚未提取结论。请先运行：scrinium enrich-l3 %s", args.paper_id)
+            _log.error("尚未提取结论。请先运行：scrinium enrich conclusion %s", args.paper_id)
             sys.exit(1)
         ui("\n--- 结论 ---\n")
         ui(conclusion)
@@ -289,7 +303,9 @@ def cmd_embed(args: argparse.Namespace, cfg) -> None:
         return
     label = "总计" if args.rebuild else "新增"
     ui(f"完成：{label} {count} 条向量。")
-    ui("下一步：运行 `scrinium vsearch <问题>` 或 `scrinium usearch <问题>` 试试检索效果。")
+    ui(
+        "下一步：运行 `scrinium search <问题> --mode semantic` 或 `scrinium search <问题> --mode unified` 试试检索效果。"
+    )
 
 
 def cmd_vsearch(args: argparse.Namespace, cfg) -> None:
@@ -610,7 +626,7 @@ def _print_search_result(idx: int, r: dict, extra: str = "") -> None:
 def _print_search_next_steps(include_ws_add: bool = True) -> None:
     ui("下一步：可以运行 `scrinium show <paper-id> --layer 2/3/4` 查看摘要、结论或全文。")
     if include_ws_add:
-        ui("也可以运行 `scrinium ws add <工作区名> <paper-id>` 把感兴趣的论文加入工作区。")
+        ui("也可以运行 `scrinium workspace add <工作区名> <paper-id>` 把感兴趣的论文加入工作区。")
 
 
 def _format_citations(cc: dict) -> str:
@@ -662,9 +678,24 @@ def register(sub) -> None:
     p_index.add_argument("--rebuild", action="store_true", help="清空后重建")
 
     # --- search ---
-    p_search = sub.add_parser("search", help="关键词检索")
+    p_search = sub.add_parser(
+        "search",
+        help="检索论文（--mode 选检索模式，--scope 跨库联邦搜索）",
+    )
     p_search.set_defaults(func=cmd_search)
     p_search.add_argument("query", nargs="+", help="检索词")
+    p_search.add_argument(
+        "--mode",
+        choices=["keyword", "unified", "semantic"],
+        default="keyword",
+        help="检索模式：keyword=FTS5 关键词（默认）/ unified=关键词+语义融合 / semantic=语义向量",
+    )
+    p_search.add_argument(
+        "--scope",
+        type=str,
+        default=None,
+        help="提供时执行联邦搜索（逗号分隔）：main / proceedings / explore:NAME / explore:* / arxiv",
+    )
     p_search.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
     p_search.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
     _add_filter_args(p_search)
@@ -703,15 +734,15 @@ def register(sub) -> None:
     p_embed.set_defaults(func=cmd_embed)
     p_embed.add_argument("--rebuild", action="store_true", help="清空后重建")
 
-    # --- vsearch ---
-    p_vsearch = sub.add_parser("vsearch", help="语义向量检索")
+    # --- vsearch (legacy alias of `search --mode semantic`; no help => hidden) ---
+    p_vsearch = sub.add_parser("vsearch")
     p_vsearch.set_defaults(func=cmd_vsearch)
     p_vsearch.add_argument("query", nargs="+", help="检索词")
     p_vsearch.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config embed.top_k）")
     _add_filter_args(p_vsearch)
 
-    # --- usearch (unified) ---
-    p_usearch = sub.add_parser("usearch", help="融合检索（关键词 + 语义向量）")
+    # --- usearch (legacy alias of `search --mode unified`; no help => hidden) ---
+    p_usearch = sub.add_parser("usearch")
     p_usearch.set_defaults(func=cmd_usearch)
     p_usearch.add_argument("query", nargs="+", help="检索词")
     p_usearch.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
@@ -726,8 +757,8 @@ def register(sub) -> None:
     p_tc.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
     _add_filter_args(p_tc)
 
-    # --- fsearch ---
-    p_fsearch = sub.add_parser("fsearch", help="联邦搜索：同时搜索主库、proceedings、explore 库和 arXiv")
+    # --- fsearch (legacy alias of `search --scope`; no help => hidden) ---
+    p_fsearch = sub.add_parser("fsearch")
     p_fsearch.set_defaults(func=cmd_fsearch)
     p_fsearch.add_argument("query", nargs="+", help="检索词")
     p_fsearch.add_argument(

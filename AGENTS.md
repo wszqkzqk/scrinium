@@ -65,7 +65,7 @@ The right mental model is to treat skills as "reusable workflows": when the user
 | Use a specific scientific tool (QE / LAMMPS / GROMACS / OpenFOAM / bioinformatics) | The tool-specific skill, with `scientific-runtime` as the companion protocol | `scientific-runtime` alone (it contains no tool-specific knowledge) |
 | Export BibTeX / RIS / Markdown reference lists, or simple Markdown → DOCX | `export` | `document` (meant for finely typeset Office generation) |
 | Generate or inspect finely typeset Word / PowerPoint / Excel | `document` | `export` (only a simple Markdown converter) |
-| Expand from seed papers along the citation graph to discover core literature (snowballing) | `graph` (snowball command) | `shared-refs` (manual multi-paper overlap query; no automatic expansion or ranking) |
+| Expand from seed papers along the citation graph to discover core literature (snowballing) | `graph` (snowball command) | `shared-references` (manual multi-paper overlap query; no automatic expansion or ranking) |
 
 **Workflow for adding a new skill:**
 

@@ -5,18 +5,17 @@ cli/ — scrinium 命令行入口（按域拆分的包）
 命令：
     scrinium index [--rebuild]
     scrinium embed [--rebuild]
-    scrinium search <query> [--top N] [--year Y] [--journal J] [--type T] [--tag T]
+    scrinium search <query> [--mode keyword|unified|semantic] [--top N] [--year Y] [--journal J] [--type T] [--tag T]
+    scrinium search <query> --scope main,proceedings,explore:*,arxiv [--top N]
     scrinium search-author <query> [--top N] [--year Y] [--journal J] [--type T]
-    scrinium vsearch <query> [--top N] [--year Y] [--journal J] [--type T]
-    scrinium usearch <query> [--top N] [--year Y] [--journal J] [--type T] [--tag T]
-    scrinium fsearch <query> [--scope main,proceedings,explore:*,arxiv] [--top N]
     scrinium show <paper-id> [--layer 1|2|3|4] [--lang LANG] [--json] [--append-notes TEXT]
-    scrinium enrich-toc [<paper-id> | --all] [--force] [--inspect]
-    scrinium enrich-l3 [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
+    scrinium enrich toc [<paper-id> | --all] [--force] [--inspect]
+    scrinium enrich conclusion [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
+    scrinium enrich abstract [--dry-run] [--doi-fetch]
     scrinium top-cited [--top N] [--year Y] [--journal J] [--type T]
-    scrinium refs <paper-id>
-    scrinium citing <paper-id>
-    scrinium shared-refs <id1> <id2> ... [--min N]
+    scrinium references <paper-id>
+    scrinium cited-by <paper-id>
+    scrinium shared-references <id1> <id2> ... [--min N]
     scrinium snowball <paper-id>... [--depth 1] [--top N] [--ws NAME] [--json]
     scrinium refetch [<paper-id> | --all] [--force]
     scrinium rename [<paper-id> | --all] [--dry-run]
@@ -25,8 +24,8 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium tags [--json]
     scrinium pending
     scrinium repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]
-    scrinium backfill-abstract [--dry-run]
     scrinium topics [--build] [--rebuild] [--viz] [--topic ID]
+    scrinium ingest [--dry-run] [--no-api] [--force] [--inspect] ...   (= pipeline 的 ingest 预设)
     scrinium pipeline <preset> | --steps <s1,s2,...> [--list] [--dry-run] ...
     scrinium metrics [--summary] [--last N] [--category CAT] [--since DATE]
     scrinium insights [--days N]
@@ -60,14 +59,26 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium proceedings apply-split <proceeding_dir> <split_plan.json>
     scrinium proceedings build-clean-candidates <proceeding_dir>
     scrinium proceedings apply-clean <proceeding_dir> <clean_plan.json>
-    scrinium ws init <name>
-    scrinium ws add <name> <paper-refs...> [--search Q] [--topic ID] [--all]
-    scrinium ws remove <name> <paper-refs...>
-    scrinium ws list
-    scrinium ws show <name>
-    scrinium ws search <name> <query> [--top N] [--mode unified|keyword|semantic]
-    scrinium ws rename <old-name> <new-name>
-    scrinium ws export <name> [-o FILE]
+    scrinium workspace init <name>
+    scrinium workspace add <name> <paper-refs...> [--search Q] [--topic ID] [--all]
+    scrinium workspace remove <name> <paper-refs...>
+    scrinium workspace list
+    scrinium workspace show <name>
+    scrinium workspace search <name> <query> [--top N] [--mode unified|keyword|semantic]
+    scrinium workspace rename <old-name> <new-name>
+    scrinium workspace export <name> [-o FILE]
+
+Legacy aliases（仍然可用，但从 --help 顶层列表隐藏；新代码请用上方主名）：
+    usearch            -> search --mode unified
+    vsearch            -> search --mode semantic
+    fsearch            -> search --scope ...
+    enrich-toc         -> enrich toc
+    enrich-l3          -> enrich conclusion
+    backfill-abstract  -> enrich abstract
+    refs               -> references
+    citing             -> cited-by
+    shared-refs        -> shared-references
+    ws                 -> workspace
 """
 
 from __future__ import annotations
@@ -268,7 +279,8 @@ def _build_parser() -> argparse.ArgumentParser:
         description="面向 AI coding agent 的研究终端",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    sub = parser.add_subparsers(dest="command", required=True)
+    # Explicit metavar keeps hidden legacy aliases out of the usage line.
+    sub = parser.add_subparsers(dest="command", required=True, metavar="command")
 
     search.register(sub)
     ingest.register(sub)

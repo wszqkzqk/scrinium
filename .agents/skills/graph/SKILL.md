@@ -10,24 +10,26 @@ tags: ["academic", "citations", "graph", "references"]
 
 查看论文的参考文献、谁引用了此论文、多篇论文的共同参考文献，以及从种子论文出发的引用滚雪球发现。
 
+> **别名**：`refs` / `citing` / `shared-refs` 分别是 `references` / `cited-by` / `shared-references` 的隐藏别名，行为完全一致；新工作请使用完整单词主名。
+
 ## 执行逻辑
 
 ### 查看论文的参考文献
 
 ```bash
-scrinium refs "<paper-id>" [--ws NAME]
+scrinium references "<paper-id>" [--ws NAME]
 ```
 
 ### 查看谁引用了此论文
 
 ```bash
-scrinium citing "<paper-id>" [--ws NAME]
+scrinium cited-by "<paper-id>" [--ws NAME]
 ```
 
 ### 共同参考文献分析
 
 ```bash
-scrinium shared-refs "<id1>" "<id2>" [--min N] [--ws NAME]
+scrinium shared-references "<id1>" "<id2>" [--min N] [--ws NAME]
 ```
 
 参数说明：
@@ -55,7 +57,7 @@ scrinium snowball "<paper-id>" ["<paper-id>" ...] [--depth 1] [--top N] [--ws NA
 
 **何时用**：进入一个新领域、手里只有一两篇种子论文时，快速定位该领域的核心文献。
 
-**与 `shared-refs` 的区别**：`snowball` 自动完成扩张 + 打分排序；`shared-refs` 是手工的多点共引查询，不扩张也不排序。
+**与 `shared-references` 的区别**：`snowball` 自动完成扩张 + 打分排序；`shared-references` 是手工的多点共引查询，不扩张也不排序。
 
 ## 前提条件
 
@@ -64,18 +66,18 @@ scrinium snowball "<paper-id>" ["<paper-id>" ...] [--depth 1] [--top N] [--ws NA
 - 已有论文运行 `refetch --all --force` 补拉
 - 之后运行 `index --rebuild` 重建索引以更新 citations 表
 
-> **空结果排查**：如果 `refs`/`citing`/`snowball` 返回空结果，说明该论文的引用数据尚未获取。先运行 `refetch "<paper-id>"` 补拉，再 `index --rebuild` 更新 citations 表。
+> **空结果排查**：如果 `references`/`cited-by`/`snowball` 返回空结果，说明该论文的引用数据尚未获取。先运行 `refetch "<paper-id>"` 补拉，再 `index --rebuild` 更新 citations 表。
 
 ## 示例
 
 用户说："这篇论文引了哪些文献"
-→ 执行 `refs "<paper-id>"`
+→ 执行 `references "<paper-id>"`
 
 用户说："哪些论文引用了这篇"
-→ 执行 `citing "<paper-id>"`
+→ 执行 `cited-by "<paper-id>"`
 
 用户说："这两篇论文有什么共同引用"
-→ 执行 `shared-refs "<id1>" "<id2>"`
+→ 执行 `shared-references "<id1>" "<id2>"`
 
 用户说："从这篇综述出发，帮我找这个领域的核心文献"
 → 执行 `snowball "<paper-id>" --top 20`

@@ -35,6 +35,12 @@ tags: ["academic", "papers", "patent", "pipeline", "pdf", "docx", "office"]
 2. 执行流水线命令：
 
 ```bash
+scrinium ingest [--dry-run] [--no-api] [--force] [--inspect]
+```
+
+`scrinium ingest` 是 `scrinium pipeline ingest` 的直名别名（无参数时等价，且支持 pipeline 的全部选项）。需要其他预设时用完整形式：
+
+```bash
 scrinium pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
 ```
 
@@ -63,7 +69,7 @@ scrinium pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
    - 如果用户问“为什么标题 / 作者 / DOI 提取不准”，先检查这里的模式配置
 
 5. 论文集（proceedings）采用半自动两阶段流程：
-   - 第一阶段：`scrinium pipeline ingest` 只负责把 PDF/MD 转成 `data/proceedings/<Volume>/proceeding.md`，并生成 `split_candidates.json`
+   - 第一阶段：`scrinium ingest` 只负责把 PDF/MD 转成 `data/proceedings/<Volume>/proceeding.md`，并生成 `split_candidates.json`
    - 此时不会自动拆成子论文；CLI 会显式提示等待 agent 审阅 `split_candidates.json` 并生成 `split_plan.json`
    - 第二阶段：由 agent/人工审阅结构后，执行
 
@@ -127,22 +133,22 @@ scrinium proceedings apply-clean <proceeding_dir> <clean_plan.json>
 ## 示例
 
 用户说："我放了几篇新论文到 inbox，帮我入库"
-→ 执行 `pipeline ingest`
+→ 执行 `scrinium ingest`
 
 用户说："把新论文全部处理完，包括提取目录和结论"
 → 执行 `pipeline full`
 
 用户说："我有几份技术报告放在 inbox-doc 里了"
-→ 执行 `pipeline ingest`（pipeline 自动处理五个 inbox 目录）
+→ 执行 `scrinium ingest`（pipeline 自动处理五个 inbox 目录）
 
 用户说："我把一个 Word 文档放进 inbox-doc 了"
-→ 执行 `pipeline ingest`（自动用 MarkItDown 转换 DOCX）
+→ 执行 `scrinium ingest`（自动用 MarkItDown 转换 DOCX）
 
 用户说："我有几篇专利放在 inbox-patent 了"
-→ 执行 `pipeline ingest`（自动处理五个 inbox 目录，专利按公开号去重）
+→ 执行 `scrinium ingest`（自动处理五个 inbox 目录，专利按公开号去重）
 
 用户说："我有一本文集放在 inbox-proceedings 里"
-→ 先执行 `pipeline ingest`，等生成 `split_candidates.json` 后由 agent 审阅，再执行 `scrinium proceedings apply-split ...`
+→ 先执行 `scrinium ingest`，等生成 `split_candidates.json` 后由 agent 审阅，再执行 `scrinium proceedings apply-split ...`
 
 用户说："重新建索引"
 → 执行 `pipeline reindex`

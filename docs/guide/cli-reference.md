@@ -19,51 +19,48 @@ scrinium search
 scrinium search-author
 scrinium show
 scrinium embed
-scrinium vsearch
-scrinium usearch
-scrinium fsearch
 scrinium top-cited
 scrinium tag
 scrinium tags
 scrinium pending
 ```
 
-- `search` performs keyword search.
-- `vsearch` performs semantic vector search (requires an embedding backend).
-- `usearch` performs fused keyword + semantic retrieval.
-- `fsearch` searches across the main library, proceedings, explore databases, and arXiv.
+- `search` is the single retrieval entry point. `--mode keyword` (default) performs FTS5 keyword search, `--mode unified` fuses keyword + semantic retrieval, and `--mode semantic` performs pure vector search (requires an embedding backend).
+- `search --scope main,proceedings,explore:*,arxiv` runs federated search across the main library, proceedings, explore databases, and arXiv.
+- `search-author` searches by author name.
 - `show` supports layered reading from metadata to full text.
-- `tag` / `tags` manage agent-curated paper tags and the controlled vocabulary (`data/tags.yaml`); `search` / `usearch` / `ws search` accept `--tag` filters.
+- `tag` / `tags` manage agent-curated paper tags and the controlled vocabulary (`data/tags.yaml`); `search` / `workspace search` accept `--tag` filters.
 - `pending` lists items blocked in `data/pending/` and `data/duplicates/` with resolution hints.
-- Read-oriented commands (`search` / `usearch` / `show` / `ws show` / `top-cited`) accept `--json` for structured output.
+- Read-oriented commands (`search` / `show` / `workspace show` / `top-cited`) accept `--json` for structured output.
 
 ## Ingest And Enrich
 
 ```text
+scrinium ingest
 scrinium pipeline [preset]
-scrinium enrich-toc
-scrinium enrich-l3
-scrinium backfill-abstract
+scrinium enrich toc|conclusion|abstract
 scrinium refetch
 scrinium translate
 scrinium attach-pdf
 ```
 
+- `ingest` runs the inbox ingest preset; it is an alias for `pipeline ingest` and accepts all pipeline options.
 - `pipeline` is the main composable ingest entrypoint.
 - Current preset values are `full`, `ingest`, `enrich`, and `reindex`.
 - Run `scrinium pipeline --help` for pipeline options such as `--steps`, `--dry-run`, `--no-api`, and `--rebuild`.
+- `enrich toc` extracts the table of contents, `enrich conclusion` extracts the conclusion section (L3), and `enrich abstract` backfills missing abstracts.
 
 ## Graph, Topics, And Explore
 
 ```text
-scrinium refs
-scrinium citing
-scrinium shared-refs
+scrinium references
+scrinium cited-by
+scrinium shared-references
 scrinium topics
 scrinium explore
 ```
 
-- Use `refs`, `citing`, and `shared-refs` for citation-graph analysis.
+- Use `references`, `cited-by`, and `shared-references` for citation-graph analysis.
 - Use `topics` for BERTopic-based topic modeling and exploration.
 - Use `explore` for OpenAlex-backed literature exploration outside the main library.
 
@@ -73,12 +70,12 @@ scrinium explore
 scrinium import-endnote
 scrinium import-zotero
 scrinium export
-scrinium ws
+scrinium workspace
 ```
 
 - `import-endnote` and `import-zotero` bring existing libraries into Scrinium.
 - `export` handles BibTeX, RIS, Markdown, and DOCX export.
-- `ws` manages paper subsets for focused projects and writing workflows.
+- `workspace` manages paper subsets for focused projects and writing workflows (`init` / `add` / `remove` / `list` / `show` / `search` / `rename` / `export`).
 
 ## Scientific Runtime And Documents
 
@@ -113,6 +110,23 @@ scrinium citation-check
 - `metrics` shows LLM token and runtime usage.
 - `proceedings` provides dedicated proceedings helpers.
 - `citation-check` verifies whether citations in text are backed by the local library.
+
+## Legacy Aliases
+
+Older short names still work but are hidden from the top-level `--help` listing. Prefer the primary names in new scripts and prompts:
+
+| Legacy alias | Primary form |
+|---|---|
+| `usearch <q>` | `search <q> --mode unified` |
+| `vsearch <q>` | `search <q> --mode semantic` |
+| `fsearch <q> --scope S` | `search <q> --scope S` |
+| `enrich-toc` | `enrich toc` |
+| `enrich-l3` | `enrich conclusion` |
+| `backfill-abstract` | `enrich abstract` |
+| `refs` | `references` |
+| `citing` | `cited-by` |
+| `shared-refs` | `shared-references` |
+| `ws` | `workspace` |
 
 ## Recommended Pattern
 
