@@ -103,12 +103,8 @@ class StepResult(Enum):
 #  corresponding skill workflow (ingest pending review, audit repair, ...).
 # ============================================================================
 
-HINT_LOW_CONFIDENCE = (
-    "元数据置信度低（缺 title/authors）；建议派 subagent 读原文核对后用 scrinium repair 修正"
-)
-HINT_NO_DOI = (
-    "建议派 subagent 读原文判定类型并核对元数据，然后 scrinium repair 修正或放回 data/inbox/ 重新入库"
-)
+HINT_LOW_CONFIDENCE = "元数据置信度低（缺 title/authors）；建议派 subagent 读原文核对后用 scrinium repair 修正"
+HINT_NO_DOI = "建议派 subagent 读原文判定类型并核对元数据，然后 scrinium repair 修正或放回 data/inbox/ 重新入库"
 HINT_NO_PUB_NUM = "建议派 subagent 确认公开号后 scrinium repair 修正，或放回 data/inbox-patent/ 重新入库"
 HINT_DUPLICATE = "建议派 subagent 对比两篇论文后决定去留"
 HINT_ABSTRACT_MISS = "建议 agent 阅读原文后直接写 meta.json 的 abstract 字段"

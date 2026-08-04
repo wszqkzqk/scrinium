@@ -247,7 +247,7 @@ def topic_overview(cfg: Config) -> dict:
         if not tags:
             untagged += 1
     topics = []
-    for name in sorted(set(tax) | set(counts)):
+    for name in sorted(set(tax) | set(counts), key=lambda n: (-counts.get(n, 0), n)):
         entry = tax.get(name) or {}
         count = counts.get(name, 0)
         topics.append(
@@ -259,5 +259,4 @@ def topic_overview(cfg: Config) -> dict:
                 "share": (count / total) if total else 0.0,
             }
         )
-    topics.sort(key=lambda t: (-t["count"], t["tag"]))
     return {"total_papers": total, "untagged_papers": untagged, "topics": topics}

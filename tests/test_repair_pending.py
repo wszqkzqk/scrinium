@@ -115,9 +115,7 @@ class TestRepairPendingDedupGuard:
         # Nothing new ingested
         assert not (tmp_papers / "Doe-2021-A-Brand-New-Paper").exists()
 
-    def test_same_arxiv_id_in_library_refused(
-        self, tmp_path: Path, tmp_papers: Path, messages, monkeypatch
-    ):
+    def test_same_arxiv_id_in_library_refused(self, tmp_path: Path, tmp_papers: Path, messages, monkeypatch):
         # Give library paper A an arXiv id (versioned, as stored in ids)
         meta_path = tmp_papers / "Smith-2023-Turbulence" / "meta.json"
         data = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -158,9 +156,7 @@ class TestRepairPendingDedupGuard:
         cfg = _cfg(tmp_path, tmp_papers)
 
         with pytest.raises(SystemExit) as exc:
-            cli_ingest.cmd_repair(
-                _args("stuck-paper", doi="10.1234/jfm.2023.001", dry_run=True), cfg
-            )
+            cli_ingest.cmd_repair(_args("stuck-paper", doi="10.1234/jfm.2023.001", dry_run=True), cfg)
 
         assert exc.value.code == 1
         assert "Smith-2023-Turbulence" in "\n".join(messages)

@@ -173,7 +173,9 @@ def cmd_topics(args: argparse.Namespace, cfg) -> None:
             raise ValueError(unknown_tag_message(cfg, tag))
         ui(f"主题 {canonical} 下没有论文")
         return
-    papers = [{"dir_name": pdir.name, "title": meta.get("title") or "", "year": meta.get("year")} for pdir, meta in tagged]
+    papers = [
+        {"dir_name": pdir.name, "title": meta.get("title") or "", "year": meta.get("year")} for pdir, meta in tagged
+    ]
     # Newest first; stable sort keeps dir-name order within the same year
     papers.sort(key=lambda p: str(p["year"] or ""), reverse=True)
     name = canonical or normalize_tag(tag)
@@ -974,7 +976,9 @@ def register(sub) -> None:
     p_enrich = sub.add_parser("enrich", help="内容富化：提取目录 / 补全摘要")
     p_enrich_sub = p_enrich.add_subparsers(dest="enrich_action", required=True)
     _add_enrich_toc_args(p_enrich_sub.add_parser("toc", help="纯规则提取论文 TOC 写入 JSON"))
-    _add_backfill_abstract_args(p_enrich_sub.add_parser("abstract", help="补全缺失的 abstract（纯正则，支持 DOI 官方抓取）"))
+    _add_backfill_abstract_args(
+        p_enrich_sub.add_parser("abstract", help="补全缺失的 abstract（纯正则，支持 DOI 官方抓取）")
+    )
 
     # --- enrich-toc (legacy alias of `enrich toc`; no help => hidden) ---
     _add_enrich_toc_args(sub.add_parser("enrich-toc"))

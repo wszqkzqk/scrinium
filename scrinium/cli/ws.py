@@ -250,7 +250,9 @@ def _add_ws_parser(sub, name: str, help_text: str | None = None) -> None:
     p_ws_add.add_argument("paper_refs", nargs="*", help="论文引用（UUID / 目录名 / DOI）")
     p_ws_add_batch = p_ws_add.add_mutually_exclusive_group()
     p_ws_add_batch.add_argument("--search", dest="add_search", type=str, default=None, help="按搜索结果批量添加")
-    p_ws_add_batch.add_argument("--tag", dest="add_tag", type=str, default=None, help="按策展标签（主题）批量添加，支持别名")
+    p_ws_add_batch.add_argument(
+        "--tag", dest="add_tag", type=str, default=None, help="按策展标签（主题）批量添加，支持别名"
+    )
     p_ws_add_batch.add_argument("--all", dest="add_all", action="store_true", default=False, help="添加全库论文")
     p_ws_add.add_argument("--top", type=int, default=None, help="限制 --search 返回条数")
     _add_filter_args(p_ws_add)

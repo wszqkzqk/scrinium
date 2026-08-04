@@ -91,9 +91,7 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
 
         # -- arXiv id backfill check (preprint dedup relies on it) --
         if "10.48550/arxiv." in doi and not (data.get("arxiv_id") or (data.get("ids") or {}).get("arxiv")):
-            issues.append(
-                Issue(pid, "warning", "arxiv_id_missing", "有 arXiv DOI 但缺 arxiv_id，预印本去重不会命中")
-            )
+            issues.append(Issue(pid, "warning", "arxiv_id_missing", "有 arXiv DOI 但缺 arxiv_id，预印本去重不会命中"))
 
     # DOI duplicates
     for doi, pids in doi_map.items():
@@ -248,7 +246,9 @@ def format_report(issues: list[Issue]) -> str:
                 lines.append(f"    hint: {hint}")
 
     lines.append("")
-    lines.append("hint: 以上问题建议派 subagent 读原文核对后直接修改 meta.json（audit 修复工作流），必要时运行 scrinium repair / scrinium rename")
+    lines.append(
+        "hint: 以上问题建议派 subagent 读原文核对后直接修改 meta.json（audit 修复工作流），必要时运行 scrinium repair / scrinium rename"
+    )
     return "\n".join(lines)
 
 

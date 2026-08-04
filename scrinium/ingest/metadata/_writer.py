@@ -25,6 +25,7 @@ def _arxiv_id_from_doi(doi: str) -> str:
     m = _ARXIV_DOI_RE.match((doi or "").strip())
     return m.group(1) if m else ""
 
+
 # ============================================================================
 #  JSON Serialization
 # ============================================================================
