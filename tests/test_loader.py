@@ -58,7 +58,7 @@ class TestLoadL2:
 
 
 class TestValidateLang:
-    """validate_lang lives in scrinium.loader after translate.py was removed."""
+    """validate_lang guards show --lang against path traversal and malformed codes."""
 
     def test_accepts_iso_codes(self):
         assert validate_lang("zh") == "zh"
@@ -159,7 +159,7 @@ class TestEnrichToc:
 
         from scrinium.loader import enrich_toc
 
-        assert enrich_toc(d / "meta.json", d / "paper.md", config=None) is True
+        assert enrich_toc(d / "meta.json", d / "paper.md") is True
         data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
         titles = [e["title"] for e in data["toc"]]
         assert any("Introduction" in t for t in titles)
@@ -174,7 +174,7 @@ class TestEnrichToc:
 
         from scrinium.loader import enrich_toc
 
-        assert enrich_toc(d / "meta.json", d / "paper.md", config=None, force=False) is True
+        assert enrich_toc(d / "meta.json", d / "paper.md", force=False) is True
         data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
         assert data["toc"] == [{"line": 1, "level": 1, "title": "Keep Me"}]
 
@@ -186,7 +186,7 @@ class TestEnrichToc:
 
         from scrinium.loader import enrich_toc
 
-        assert enrich_toc(d / "meta.json", d / "paper.md", config=None, force=True) is True
+        assert enrich_toc(d / "meta.json", d / "paper.md", force=True) is True
         data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
         assert [e["title"] for e in data["toc"]] != ["Stale"]
 
@@ -195,6 +195,6 @@ class TestEnrichToc:
 
         from scrinium.loader import enrich_toc
 
-        assert enrich_toc(d / "meta.json", d / "paper.md", config=None) is False
+        assert enrich_toc(d / "meta.json", d / "paper.md") is False
         data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
         assert "toc" not in data

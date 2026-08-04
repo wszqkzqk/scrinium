@@ -225,20 +225,18 @@ class TestWorkspaceAddTag:
         assert read_paper_ids(ws_dir) == {"aaaa-1111"}
         assert "主题 force-field: 找到 1 篇论文" in caplog.text
 
-    def test_add_unknown_tag_reports_and_does_not_add(self, tagged_lib, tmp_path, tmp_db, caplog):
+    def test_add_unknown_tag_raises_and_does_not_add(self, tagged_lib, tmp_path, tmp_db):
         build_index(tagged_lib.papers_dir, tmp_db)
         cfg = _cfg(tmp_path, tagged_lib.papers_dir, tmp_db)
         ws_dir = tmp_path / "workspace" / "ws"
         create(ws_dir)
 
         args = self._ws_args("nope")
-        with caplog.at_level(logging.INFO, logger="scrinium.ui"):
+        with pytest.raises(ValueError, match="未知标签: nope") as exc_info:
             cli.cmd_ws(args, cfg)
 
         assert read_paper_ids(ws_dir) == set()
-        out = caplog.text
-        assert "未知标签: nope" in out
-        assert "force-field" in out  # taxonomy hint lists known tags
+        assert "force-field" in str(exc_info.value)  # taxonomy hint lists known tags
 
     def test_parser_accepts_add_tag(self):
         args = cli._build_parser().parse_args(["workspace", "add", "ws", "--tag", "md"])

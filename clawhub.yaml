@@ -23,7 +23,7 @@ skills:
 
   - name: scrinium/ingest
     path: .claude/skills/ingest
-    description: "Ingest papers from inbox into the knowledge base via MinerU PDF pipeline"
+    description: "Ingest papers, patents, theses, and documents from inbox into the knowledge base via the MinerU pipeline, and resolve pending items held for review"
 
   - name: scrinium/enrich
     path: .claude/skills/enrich

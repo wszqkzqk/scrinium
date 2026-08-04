@@ -20,7 +20,6 @@ _log = logging.getLogger(__name__)
 
 def extract_document_metadata(
     md_path: Path,
-    cfg=None,
     *,
     existing_meta: PaperMetadata | None = None,
 ) -> PaperMetadata:
@@ -33,7 +32,6 @@ def extract_document_metadata(
 
     Args:
         md_path: Markdown file path.
-        cfg: Unused; kept for call-site compatibility.
         existing_meta: Pre-existing metadata (if any).
 
     Returns:

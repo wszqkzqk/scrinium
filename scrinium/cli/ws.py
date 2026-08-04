@@ -84,17 +84,14 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
                 ui(f"  + {e['dir_name']}")
             return
         elif args.add_tag is not None:
-            from scrinium.tags import load_taxonomy, papers_with_tag, resolve_tag
+            from scrinium.tags import papers_with_tag, resolve_tag, unknown_tag_message
 
             canonical = resolve_tag(cfg, args.add_tag)
             tagged = papers_with_tag(cfg, args.add_tag)
             if not tagged:
                 if canonical is None:
-                    known = sorted((load_taxonomy(cfg).get("tags") or {}).keys())
-                    hint = f"；当前词表: {', '.join(known)}" if known else "（词表为空，可先用 scrinium tag 打标）"
-                    ui(f"未知标签: {args.add_tag}{hint}")
-                else:
-                    ui(f"主题 {canonical} 下没有论文")
+                    raise ValueError(unknown_tag_message(cfg, args.add_tag))
+                ui(f"主题 {canonical} 下没有论文")
                 return
             paper_refs = [(meta.get("id") or pdir.name) for pdir, meta in tagged]
             ui(f"主题 {canonical or args.add_tag}: 找到 {len(paper_refs)} 篇论文")
@@ -178,9 +175,9 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
         top_k = _resolve_top(args, cfg.search.top_k)
         tags = _resolve_tag_filters(args, cfg)
 
-        from scrinium.index import search as kw_search
+        from scrinium.index import search
 
-        results = kw_search(
+        results = search(
             query,
             cfg.index_db,
             top_k=top_k,

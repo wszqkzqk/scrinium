@@ -126,7 +126,7 @@ def _check_missing(issues: list[Issue], pid: str, data: dict) -> None:
     if not data.get("title"):
         issues.append(Issue(pid, "error", "missing_title", "缺少标题"))
     if not data.get("tags"):
-        issues.append(Issue(pid, "info", "untagged", "未打策展标签；可运行 curate 流程或 scrinium tag 补充"))
+        issues.append(Issue(pid, "info", "untagged", "未打策展标签"))
 
 
 def _check_content_consistency(

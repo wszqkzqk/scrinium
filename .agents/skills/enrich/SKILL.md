@@ -59,7 +59,7 @@ scrinium show "<paper-id>" --layer 3
 ## 目录提取（TOC，纯规则命令）
 
 ```bash
-scrinium enrich toc [<paper-id> | --all] [--force] [--inspect]
+scrinium enrich toc [<paper-id> | --all] [--force]
 ```
 
 - 纯规则从 Markdown heading 结构推断 TOC，写入 meta.json 的 `toc` 字段

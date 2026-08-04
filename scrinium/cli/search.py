@@ -22,12 +22,6 @@ from .common import (
 
 _log = logging.getLogger(__package__)
 
-# Handoff hint shown when a paper has no L3 conclusion yet (agent writes it).
-_L3_MISSING_HINT = (
-    "该论文尚无结论。hint: 建议 agent（或派 subagent）阅读全文（--layer 4）后写入 "
-    "meta.json 的 l3_conclusion 字段，并运行 scrinium index 使其可检索"
-)
-
 
 def cmd_index(args: argparse.Namespace, cfg) -> None:
     from scrinium.index import build_index
@@ -143,7 +137,10 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
     elif args.layer == 3:
         conclusion = load_l3(json_path)
         if conclusion is None:
-            _log.error(_L3_MISSING_HINT)
+            from scrinium.ingest.pipeline import HINT_L3_MISSING
+
+            _log.error("该论文尚无结论")
+            ui(f"hint: {HINT_L3_MISSING}")
             sys.exit(1)
         payload["conclusion"] = conclusion
     elif args.layer == 4:
@@ -166,6 +163,7 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
 
 
 def cmd_show(args: argparse.Namespace, cfg) -> None:
+    from scrinium.ingest.pipeline import HINT_L3_MISSING
     from scrinium.loader import append_notes, load_l1, load_l2, load_l3, load_l4, load_notes
     from scrinium.metrics import get_store
 
@@ -245,7 +243,8 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
     if args.layer == 3:
         conclusion = load_l3(json_path)
         if conclusion is None:
-            _log.error(_L3_MISSING_HINT)
+            _log.error("该论文尚无结论")
+            ui(f"hint: {HINT_L3_MISSING}")
             sys.exit(1)
         ui("\n--- 结论 ---\n")
         ui(conclusion)

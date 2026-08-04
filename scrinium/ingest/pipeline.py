@@ -60,8 +60,6 @@ class PipelineOptions:
     dry_run: bool = False
     no_api: bool = False
     force: bool = False
-    inspect: bool = False
-    max_retries: int = 2
     rebuild: bool = False
     inbox_dir: Path | None = None
     papers_dir: Path | None = None
@@ -115,12 +113,24 @@ HINT_NO_PUB_NUM = "建议派 subagent 确认公开号后 scrinium repair 修正�
 HINT_DUPLICATE = "建议派 subagent 对比两篇论文后决定去留"
 HINT_ABSTRACT_MISS = "建议 agent 阅读原文后直接写 meta.json 的 abstract 字段"
 HINT_TOC_MISS = "建议 agent 阅读全文后直接写 meta.json 的 toc 字段"
+HINT_L3_MISSING = (
+    "建议 agent（或派 subagent）阅读全文（--layer 4）后写入 "
+    "meta.json 的 l3_conclusion 字段，并运行 scrinium index 使其可检索"
+)
+# Fallback takeover hint for pending issue types without a specific hint
+HINT_PENDING_FALLBACK = "建议派 subagent 审查后处理"
 
 # Recommended takeover action per pending.json issue type
-_PENDING_HINTS = {
+PENDING_HINTS = {
     "no_doi": HINT_NO_DOI,
     "no_pub_num": HINT_NO_PUB_NUM,
     "duplicate": HINT_DUPLICATE,
+}
+
+# Handoff hint per failing papers-scope step (rule-based miss -> agent takeover)
+_PAPERS_STEP_HINTS = {
+    "abstract": HINT_ABSTRACT_MISS,
+    "toc": HINT_TOC_MISS,
 }
 
 
@@ -443,7 +453,7 @@ def step_extract_doc(ctx: InboxCtx) -> StepResult:
     from scrinium.ingest.metadata._doc_extract import extract_document_metadata
 
     try:
-        meta = extract_document_metadata(ctx.md_path, ctx.cfg)
+        meta = extract_document_metadata(ctx.md_path)
     except Exception as e:
         _log.error("document extraction failed: %s", e)
         ctx.status = "failed"
@@ -484,7 +494,7 @@ def step_extract(ctx: InboxCtx) -> StepResult:
         ctx.status = "failed"
         return StepResult.FAIL
 
-    extractor = get_extractor(ctx.cfg)
+    extractor = get_extractor()
     meta = extractor.extract(ctx.md_path)
     ui(f"Title: {(meta.title or '?')[:80]}")
     doi_or_arxiv = meta.doi or (f"arXiv:{meta.arxiv_id}" if meta.arxiv_id else "none")
@@ -565,7 +575,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
         ctx.meta.extraction_method = "local_only"
         _log.debug("skipping API query (offline mode)")
 
-    # DOI dedup (guard against extractors returning "null"/"None" strings)
+    # DOI dedup (defensive: cheap sanity check against "null"/"None" strings)
     doi = ctx.meta.doi
     if doi and doi.strip().lower() in ("null", "none", "n/a"):
         ctx.meta.doi = ""
@@ -641,7 +651,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
             md_stem = ctx.md_path.stem if ctx.md_path else ""
             shutil.move(str(ctx.md_path), str(existing_md))
             _log.debug("duplicate (MD missing, restored): %s", existing_md.name)
-            _repair_abstract(existing_json, existing_md, ctx.cfg)
+            _repair_abstract(existing_json, existing_md)
             _cleanup_inbox(ctx.pdf_path, None, dry_run=False)
             _cleanup_assets(ctx.inbox_dir, pdf_stem, md_stem)
         else:
@@ -792,13 +802,7 @@ def step_toc(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any
         _log.debug("would run toc: %s", json_path.stem)
         return StepResult.OK
 
-    ok = enrich_toc(
-        json_path,
-        md_path,
-        cfg,
-        force=opts.force,
-        inspect=opts.inspect,
-    )
+    ok = enrich_toc(json_path, md_path, force=opts.force)
     return StepResult.OK if ok else StepResult.FAIL
 
 
@@ -1430,6 +1434,9 @@ def run_pipeline(
                     elif result == StepResult.FAIL:
                         _log.debug("%s: %.1fs FAIL", step_name, t.elapsed)
                         paper_ok = False
+                        hint = _PAPERS_STEP_HINTS.get(step_name)
+                        if hint:
+                            ui(f"hint: {hint}")
                     else:
                         _log.debug("%s: %.1fs OK", step_name, t.elapsed)
                 if paper_skipped and paper_ok:
@@ -2108,16 +2115,15 @@ _DETECT_HEURISTICS: dict[str, dict] = {
 }
 
 
-def _detect_type(ctx: InboxCtx, kind: str, cfg: Config) -> bool:
+def _detect_type(ctx: InboxCtx, kind: str) -> bool:
     """启发式判断无 DOI 文档是否属于指定类型（thesis/book）。
 
     只使用确定性信号：API 返回的 paper_type 与标题关键词。
     未命中时返回 False（文档转入 pending，由 agent/subagent 审查接管）。
 
     Args:
-        ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
+        ctx: Inbox 上下文，需要 ``ctx.meta`` 已设置。
         kind: 检测类型，``"thesis"`` 或 ``"book"``。
-        cfg: 全局配置。
 
     Returns:
         ``True`` 如果判定为对应类型。
@@ -2142,7 +2148,7 @@ def _detect_type(ctx: InboxCtx, kind: str, cfg: Config) -> bool:
 
 def _detect_thesis(ctx: InboxCtx) -> bool:
     """启发式判断无 DOI 论文是否为学位论文（``_detect_type`` 的薄包装）。"""
-    return _detect_type(ctx, "thesis", ctx.cfg)
+    return _detect_type(ctx, "thesis")
 
 
 def _ingest_proceedings_ctx(ctx: InboxCtx, *, force: bool) -> bool:
@@ -2172,7 +2178,7 @@ def _ingest_proceedings_ctx(ctx: InboxCtx, *, force: bool) -> bool:
 
 def _detect_book(ctx: InboxCtx) -> bool:
     """启发式判断无 DOI 论文是否为书籍/专著（``_detect_type`` 的薄包装）。"""
-    return _detect_type(ctx, "book", ctx.cfg)
+    return _detect_type(ctx, "book")
 
 
 def _find_assets(inbox_dir: Path, asset_prefix: str, md_stem: str) -> tuple[Path | None, list[Path], list[Path]]:
@@ -2265,7 +2271,7 @@ def _move_to_pending(
     _move_assets(ctx.inbox_dir, paper_d, pdf_stem or md_stem, md_stem)
 
     # Write marker JSON with extracted metadata + issue description + handoff hint
-    hint = _PENDING_HINTS.get(issue, "建议派 subagent 审查后处理")
+    hint = PENDING_HINTS.get(issue, HINT_PENDING_FALLBACK)
     marker: dict[str, Any] = {
         "issue": issue,
         "message": message,
@@ -2280,7 +2286,7 @@ def _move_to_pending(
     _log.debug("-> pending/%s/ (%s)", dir_name, issue)
 
 
-def _repair_abstract(json_path: Path, md_path: Path, cfg: Config) -> None:
+def _repair_abstract(json_path: Path, md_path: Path) -> None:
     """已入库论文 MD 补全后，检查并补写 abstract。"""
     from scrinium.papers import read_meta, write_meta
 

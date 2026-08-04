@@ -119,14 +119,17 @@ class MetricsStore:
         """写入一条 metrics 事件。
 
         Args:
-            category: 事件类别，如 ``"llm"``、``"api"``、``"step"``。
-            name: 事件名称，如 ``"extract.robust"``、``"enrich_toc"``。
+            category: 事件类别，如 ``"step"``、``"api"``、``"search"``、``"read"``。
+            name: 事件名称，如 ``"pipeline.inbox.mineru"``、``"search"``。
             duration_s: 耗时（秒）。
             tokens_in: prompt token 数。
             tokens_out: completion token 数。
             model: 模型名。
             status: ``"ok"`` | ``"error"`` | ``"skip"``。
             detail: 额外信息（序列化为 JSON）。
+
+        注：``tokens_in`` / ``tokens_out`` / ``model`` 三列为 legacy——
+        框架内已无生产者，仅为兼容旧 metrics.db 中的历史事件保留。
         """
         with self._lock:
             self._conn.execute(

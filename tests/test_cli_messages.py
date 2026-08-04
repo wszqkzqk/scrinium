@@ -401,7 +401,7 @@ class TestEnrichTocCliProgress:
         messages: list[str] = []
         monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
-        def fake_enrich_toc(json_path, md_path, cfg, *, force=False, inspect=False):
+        def fake_enrich_toc(json_path, md_path, *, force=False):
             data = json.loads(json_path.read_text(encoding="utf-8"))
             data["toc"] = [{"line": 1, "level": 1, "title": "Introduction"}]
             json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -410,7 +410,7 @@ class TestEnrichTocCliProgress:
         monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers)
-        args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True, inspect=False)
+        args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True)
 
         cli.cmd_enrich_toc(args, cfg)
 
@@ -423,13 +423,16 @@ class TestEnrichTocCliProgress:
         monkeypatch.setattr("scrinium.loader.enrich_toc", lambda *a, **k: False)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers)
-        args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True, inspect=False)
+        args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True)
 
         cli.cmd_enrich_toc(args, cfg)
 
         from scrinium.ingest.pipeline import HINT_TOC_MISS
 
-        assert any("TOC 提取失败" in m and HINT_TOC_MISS in m for m in messages)
+        assert any("TOC 提取失败" in m for m in messages)
+        hints = [m for m in messages if m.startswith("hint:")]
+        assert len(hints) == 1
+        assert HINT_TOC_MISS in hints[0]
 
     def test_cmd_enrich_toc_all_uses_fixed_concurrency_budget(self, tmp_papers, monkeypatch):
         messages: list[str] = []
@@ -457,7 +460,7 @@ class TestEnrichTocCliProgress:
         monkeypatch.setattr(cli_ingest.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
         monkeypatch.setattr(cli_ingest.concurrent.futures, "as_completed", lambda futures: list(futures))
 
-        def fake_enrich_toc(json_path, md_path, cfg, *, force=False, inspect=False):
+        def fake_enrich_toc(json_path, md_path, *, force=False):
             data = json.loads(json_path.read_text(encoding="utf-8"))
             data["toc"] = [{"line": 1, "level": 1, "title": json_path.parent.name}]
             json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -466,11 +469,11 @@ class TestEnrichTocCliProgress:
         monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers)
-        args = Namespace(all=True, paper_id=None, force=True, inspect=False)
+        args = Namespace(all=True, paper_id=None, force=True)
 
         cli.cmd_enrich_toc(args, cfg)
 
-        # Fixed budget: min(min(8, cpu_count), queued) — no LLM config involved.
+        # Fixed budget: min(min(8, cpu_count), queued).
         assert max_workers_seen == [min(min(8, os.cpu_count() or 1), 2)]
         assert submitted == [
             "Smith-2023-Turbulence",
@@ -514,7 +517,7 @@ class TestEnrichTocCliBatchRetries:
         monkeypatch.setattr(cli_ingest.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
         monkeypatch.setattr(cli_ingest.concurrent.futures, "as_completed", lambda futures: list(futures))
 
-        def fake_enrich_toc(json_path, md_path, cfg, *, force=False, inspect=False):
+        def fake_enrich_toc(json_path, md_path, *, force=False):
             name = json_path.parent.name
             attempts[name] = attempts.get(name, 0) + 1
             if name == "Smith-2023-Turbulence" and attempts[name] < 3:
@@ -527,7 +530,7 @@ class TestEnrichTocCliBatchRetries:
         monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers)
-        args = Namespace(all=True, paper_id=None, force=True, inspect=False)
+        args = Namespace(all=True, paper_id=None, force=True)
 
         cli.cmd_enrich_toc(args, cfg)
 

@@ -13,7 +13,7 @@ from scrinium.setup import (
     ParserChoice,
     _check_docling,
     _check_huggingface,
-    _check_mineru,
+    _detect_mineru,
     _editable_project_root,
     _prompt_text,
     _wizard_deps,
@@ -119,7 +119,6 @@ def test_recommend_pdf_parser_prefers_docling_when_only_huggingface_reachable():
 
 def test_run_check_includes_parser_recommendation(monkeypatch):
     cfg = Config()
-    monkeypatch.setattr("scrinium.setup._check_mineru", lambda *_: (True, "mineru ok"))
     monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
     monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
     monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
@@ -134,7 +133,6 @@ def test_run_check_includes_parser_recommendation(monkeypatch):
 
 def test_run_check_includes_pdf_office_and_draw_dependency_groups(monkeypatch):
     cfg = Config()
-    monkeypatch.setattr("scrinium.setup._check_mineru", lambda *_: (True, "mineru ok"))
     monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
     monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
     monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
@@ -149,7 +147,6 @@ def test_run_check_includes_pdf_office_and_draw_dependency_groups(monkeypatch):
 
 def test_run_check_includes_optional_api_configuration_statuses(monkeypatch):
     cfg = Config()
-    monkeypatch.setattr("scrinium.setup._check_mineru", lambda *_: (True, "mineru ok"))
     monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
     monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
     monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
@@ -229,7 +226,7 @@ def test_check_dep_group_treats_oserror_import_failure_as_missing(monkeypatch):
     assert "pymupdf" in status.missing
 
 
-def test_check_mineru_reports_actionable_failure(monkeypatch):
+def test_detect_mineru_reports_actionable_failure(monkeypatch):
     cfg = Config()
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
     monkeypatch.setattr("scrinium.setup.shutil.which", lambda _name: None)
@@ -241,17 +238,15 @@ def test_check_mineru_reports_actionable_failure(monkeypatch):
 
     monkeypatch.setitem(__import__("sys").modules, "requests", DummyRequests)
 
-    from scrinium.setup import _check_mineru
+    status = _detect_mineru(cfg, "zh")
 
-    ok, detail = _check_mineru(cfg, "zh")
-
-    assert ok is False
-    assert "mineru-open-api" in detail
-    assert "token" in detail
-    assert "Docker" in detail
+    assert status.ok is False
+    assert "mineru-open-api" in status.detail
+    assert "token" in status.detail
+    assert "Docker" in status.detail
 
 
-def test_check_mineru_prefers_local_server_even_when_token_cli_missing(monkeypatch):
+def test_detect_mineru_prefers_local_server_even_when_token_cli_missing(monkeypatch):
     cfg = Config()
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "token")
     monkeypatch.setattr("scrinium.setup.shutil.which", lambda _name: None)
@@ -266,10 +261,10 @@ def test_check_mineru_prefers_local_server_even_when_token_cli_missing(monkeypat
 
     monkeypatch.setitem(__import__("sys").modules, "requests", DummyRequests)
 
-    ok, detail = _check_mineru(cfg, "en")
+    status = _detect_mineru(cfg, "en")
 
-    assert ok is True
-    assert "local server" in detail
+    assert status.ok is True
+    assert "local server" in status.detail
 
 
 def test_wizard_parser_mineru_choice_skips_auto_probe(monkeypatch, capsys):
@@ -465,7 +460,7 @@ def test_wizard_keys_skips_creating_local_config_when_default_parser_and_no_new_
 
 def test_wizard_keys_cleans_redundant_default_parser_override(tmp_path, monkeypatch, capsys):
     (tmp_path / "config.local.yaml").write_text(
-        "llm:\n  api_key: existing-llm-key\ningest:\n  mineru_api_key: existing-mineru-key\n  pdf_preferred_parser: mineru\n",
+        "ingest:\n  mineru_api_key: existing-mineru-key\n  pdf_preferred_parser: mineru\n",
         encoding="utf-8",
     )
     answers = iter(["", "", ""])

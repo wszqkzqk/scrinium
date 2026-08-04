@@ -527,12 +527,6 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
     return results
 
 
-def _check_mineru(cfg: Config, lang: Lang) -> tuple[bool, str]:
-    """Check MinerU availability (local server or cloud CLI + token)."""
-    status = _detect_mineru(cfg, lang)
-    return status.ok, status.detail
-
-
 def _detect_mineru(cfg: Config, lang: Lang) -> MinerUStatus:
     """Collect MinerU status for both diagnostics and recommendation logic."""
     cli_path = shutil.which("mineru-open-api")

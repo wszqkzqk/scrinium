@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from scrinium.config import Config
 
 #: FTS schema version recorded in ``PRAGMA user_version``; bump when the
-#: ``papers`` FTS table layout changes (v0 = pre-tags databases,
+#: ``papers`` FTS table layout changes (v1 = tags column added,
 #: v2 = embedding/vector storage removed).
 _SCHEMA_VERSION = 2
 

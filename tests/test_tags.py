@@ -17,7 +17,7 @@ from types import SimpleNamespace
 import pytest
 
 from scrinium import cli
-from scrinium.audit import audit_papers
+from scrinium.audit import _RULE_HINTS, audit_papers
 from scrinium.index import _SCHEMA_VERSION, build_index, paper_ids_for_tags, search
 from scrinium.search_common import fts_create_sql
 from scrinium.tags import (
@@ -370,7 +370,8 @@ class TestAuditUntagged:
         untagged = [i for i in issues if i.rule == "untagged"]
         assert {i.paper_id for i in untagged} == {_SMITH, _WANG}
         assert all(i.severity == "info" for i in untagged)
-        assert all("scrinium tag" in i.message for i in untagged)
+        assert all(i.message == "未打策展标签" for i in untagged)
+        assert "scrinium tag" in _RULE_HINTS["untagged"]
 
     def test_tagged_paper_not_reported(self, tmp_papers):
         set_paper_tags(tmp_papers / _SMITH, ["md"])

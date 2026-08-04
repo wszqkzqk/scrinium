@@ -8,7 +8,7 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium search <query> --scope main,proceedings,explore:*,arxiv [--top N]
     scrinium search-author <query> [--top N] [--year Y] [--journal J] [--type T]
     scrinium show <paper-id> [--layer 1|2|3|4] [--lang LANG] [--json] [--append-notes TEXT]
-    scrinium enrich toc [<paper-id> | --all] [--force] [--inspect]
+    scrinium enrich toc [<paper-id> | --all] [--force]
     scrinium enrich abstract [--dry-run] [--doi-fetch]
     scrinium top-cited [--top N] [--year Y] [--journal J] [--type T]
     scrinium references <paper-id>
@@ -22,8 +22,8 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium tags [--json]
     scrinium topics [<标签>] [--json]
     scrinium pending
-    scrinium repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]
-    scrinium ingest [--dry-run] [--no-api] [--force] [--inspect] ...   (= pipeline 的 ingest 预设)
+    scrinium repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]   （库内论文原地改名；data/pending 待确认项查重后入库）
+    scrinium ingest [--dry-run] [--no-api] [--force] ...   (= pipeline 的 ingest 预设)
     scrinium pipeline <preset> | --steps <s1,s2,...> [--list] [--dry-run] ...
     scrinium metrics [--last N] [--category CAT] [--since DATE]
     scrinium insights [--days N]
@@ -93,7 +93,6 @@ from .common import (
     _INSTALL_HINTS,
     _add_filter_args,
     _check_import_error,
-    _count_registry_papers,
     _emit_json,
     _record_search_metrics,
     _resolve_export_paper_ids,
@@ -105,7 +104,6 @@ from .common import (
 )
 from .explore import cmd_explore
 from .ingest import (
-    _PENDING_SUGGESTIONS,
     _collect_pending_items,
     _run_batch_enrich,
     _toc_success_message,
@@ -174,7 +172,6 @@ _log = logging.getLogger(__package__)
 
 __all__ = [
     "_INSTALL_HINTS",
-    "_PENDING_SUGGESTIONS",
     "_add_filter_args",
     "_batch_convert_pdfs",
     "_check_import_error",
@@ -186,7 +183,6 @@ __all__ = [
     "_cmd_style_list",
     "_cmd_style_show",
     "_collect_pending_items",
-    "_count_registry_papers",
     "_emit_json",
     "_format_citations",
     "_import_zotero_collections_as_workspaces",

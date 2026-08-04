@@ -473,8 +473,9 @@ _warned_deprecated: set[str] = set()
 def _warn_deprecated_sections(data: dict) -> None:
     """Log a one-time deprecation warning for removed config sections.
 
-    Detects top-level ``llm:``/``translate:``/``embed:``/``topics:`` sections
-    and a non-regex ``ingest.extractor`` value; all are ignored.
+    Detects top-level ``llm:``/``translate:``/``embed:``/``topics:`` sections,
+    a non-regex ``ingest.extractor`` value, and ``ingest.abstract_llm_mode``;
+    all are ignored.
     """
     for section in _DEPRECATED_SECTIONS:
         if section in data and section not in _warned_deprecated:
@@ -492,6 +493,13 @@ def _warn_deprecated_sections(data: dict) -> None:
             "config ingest.extractor=%r is deprecated and ignored: metadata extraction is regex-only; "
             "low-confidence items go to pending for agent review",
             extractor,
+        )
+    if "abstract_llm_mode" in ingest_data and "ingest.abstract_llm_mode" not in _warned_deprecated:
+        _warned_deprecated.add("ingest.abstract_llm_mode")
+        _log.warning(
+            "config ingest.abstract_llm_mode=%r is deprecated and ignored: abstract extraction is regex-only; "
+            "regex misses are backfilled by the agent",
+            ingest_data.get("abstract_llm_mode"),
         )
 
 

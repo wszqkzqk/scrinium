@@ -10,7 +10,7 @@ tags: ["academic", "research", "literature", "discovery", "openalex"]
 
 从 OpenAlex 拉取文献（支持多维过滤）到隔离的探索库，关键词检索 + agent 主题分组，用于文献调研。数据与主库完全隔离。
 
-> **框架边界**：explore 只保留 `fetch` / `search`（FTS5 关键词）/ `list` / `info` 四个确定性原语，无嵌入、无自动聚类。**主题分组由 subagent 粗读接管**（见下方工作流）——真读标题摘要后的分组，强于原来的 BERTopic 无监督聚类。
+> **框架边界**：explore 只保留 `fetch` / `search`（FTS5 关键词）/ `list` / `info` 四个确定性原语，无嵌入、无自动聚类。**主题分组由 subagent 粗读接管**（见下方工作流）——真读标题摘要后的分组。
 
 ## 执行逻辑
 

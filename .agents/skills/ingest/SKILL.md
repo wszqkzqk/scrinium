@@ -38,13 +38,13 @@ tags: ["academic", "papers", "patent", "pipeline", "pdf", "docx", "office"]
 2. 执行流水线命令：
 
 ```bash
-scrinium ingest [--dry-run] [--no-api] [--force] [--inspect]
+scrinium ingest [--dry-run] [--no-api] [--force]
 ```
 
 `scrinium ingest` 是 `scrinium pipeline ingest` 的直名别名（无参数时等价，且支持 pipeline 的全部选项）。需要其他预设时用完整形式：
 
 ```bash
-scrinium pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
+scrinium pipeline <preset> [--dry-run] [--no-api] [--force]
 ```
 
 可用预设：`full` | `ingest` | `enrich` | `reindex`
@@ -53,7 +53,6 @@ scrinium pipeline <preset> [--dry-run] [--no-api] [--force] [--inspect]
 - `--dry-run` — 预览处理，不写文件
 - `--no-api` — 离线模式，跳过外部 API 查询
 - `--force` — 强制重新处理（toc 等步骤）
-- `--inspect` — 展示处理详情
 - `--steps STEPS` — 自定义步骤序列（逗号分隔），如 `--steps toc,index`
 - `--list` — 列出所有可用步骤和预设
 

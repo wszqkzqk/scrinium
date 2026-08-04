@@ -1,4 +1,4 @@
-"""Contract tests for the CLI naming ergonomics refactor.
+"""Contract tests for the CLI command naming surface.
 
 Covers the unified ``search`` entry point (keyword-only retrieval, ``--scope``
 dispatch), the grouped ``enrich`` and ``import`` commands, full-word aliases

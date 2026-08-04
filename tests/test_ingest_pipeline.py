@@ -245,7 +245,7 @@ def test_step_extract_labels_arxiv_id_as_generic_id(tmp_path: Path, monkeypatch)
             )
 
     monkeypatch.setattr("scrinium.ingest.pipeline.ui", lambda msg="": messages.append(msg))
-    monkeypatch.setattr("scrinium.ingest.extractor.get_extractor", lambda cfg: DummyExtractor())
+    monkeypatch.setattr("scrinium.ingest.extractor.get_extractor", lambda: DummyExtractor())
 
     ctx = InboxCtx(
         pdf_path=None,

@@ -8,11 +8,9 @@ Stage-1 元数据提取（从 MinerU markdown 提取 title/authors/year/doi/jour
 
 用法
 ----
-    from scrinium.config import load_config
     from scrinium.ingest.extractor import get_extractor
 
-    config = load_config()
-    extractor = get_extractor(config)
+    extractor = get_extractor()
     meta = extractor.extract(Path("paper.md"))
 """
 
@@ -25,7 +23,6 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 _log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from scrinium.config import Config
     from scrinium.ingest.metadata import PaperMetadata
 
 
@@ -51,15 +48,15 @@ class MetadataExtractor(Protocol):
 
 
 # ============================================================================
-#  Regex extractor (wraps existing metadata.py logic, zero changes there)
+#  Regex extractor (wraps the regex logic in scrinium.ingest.metadata)
 # ============================================================================
 
 
 class RegexExtractor:
     """纯正则元数据提取器。
 
-    封装 ``metadata.py`` 中的正则提取逻辑，不调用 LLM。
-    速度最快，适用于 OCR 质量好的论文。
+    封装 ``scrinium.ingest.metadata`` 中的正则提取逻辑，不调用 LLM。
+    零模型调用、速度快，适用于 OCR 质量好的论文。
     """
 
     def extract(self, filepath: Path) -> PaperMetadata:
@@ -95,12 +92,8 @@ def _extract_patent_number(meta, text: str) -> None:
 # ============================================================================
 
 
-def get_extractor(config: Config) -> MetadataExtractor:
+def get_extractor() -> MetadataExtractor:
     """返回元数据提取器实例（恒为 :class:`RegexExtractor`）。
-
-    Args:
-        config: 全局配置（保留参数；LLM 提取模式已移除，
-            非 regex 的 ``ingest.extractor`` 配置在加载时触发 deprecation warning）。
 
     Returns:
         :class:`RegexExtractor` 实例。

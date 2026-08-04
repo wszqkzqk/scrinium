@@ -118,6 +118,13 @@ def resolve_tag(cfg: Config, name: str) -> str | None:
     return lookup.get(name.strip().lower()) or lookup.get(normalize_tag(name))
 
 
+def unknown_tag_message(cfg: Config, tag: str) -> str:
+    """Build the unknown-tag error message listing the current vocabulary."""
+    known = sorted((load_taxonomy(cfg).get("tags") or {}).keys())
+    hint = f"；当前词表: {', '.join(known)}" if known else "（词表为空，可先用 scrinium tag 打标）"
+    return f"未知标签: {tag}{hint}"
+
+
 def register_tag(
     cfg: Config,
     name: str,

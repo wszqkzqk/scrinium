@@ -21,10 +21,6 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from scrinium.config import Config
 
 _log = logging.getLogger(__name__)
 
@@ -207,10 +203,8 @@ def append_notes(paper_dir: Path, section: str) -> None:
 def enrich_toc(
     json_path: Path,
     md_path: Path,
-    config: Config,
     *,
     force: bool = False,
-    inspect: bool = False,
 ) -> bool:
     """纯规则提取论文目录结构，写入 ``JSON["toc"]``。
 
@@ -220,9 +214,7 @@ def enrich_toc(
     Args:
         json_path: 论文 JSON 元数据文件路径（结果写回此文件）。
         md_path: 论文 Markdown 文件路径。
-        config: 全局配置（保留参数，当前规则路径不使用）。
         force: 为 ``True`` 时覆盖已有 TOC。
-        inspect: 为 ``True`` 时打印过滤过程详情。
 
     Returns:
         提取成功返回 ``True``，失败返回 ``False``。

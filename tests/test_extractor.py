@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from scrinium.config import _build_config
 from scrinium.ingest.extractor import RegexExtractor, get_extractor
 
 
@@ -29,12 +28,10 @@ class TestRegexExtractor:
 
 
 class TestGetExtractor:
-    def test_always_returns_regex(self, tmp_path):
-        cfg = _build_config({"ingest": {"extractor": "regex"}}, tmp_path)
-        ext = get_extractor(cfg)
+    def test_always_returns_regex(self):
+        ext = get_extractor()
         assert isinstance(ext, RegexExtractor)
 
-    def test_no_api_key_needed(self, tmp_path):
-        cfg = _build_config({}, tmp_path)
-        ext = get_extractor(cfg)
+    def test_no_api_key_needed(self):
+        ext = get_extractor()
         assert isinstance(ext, RegexExtractor)

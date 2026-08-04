@@ -683,7 +683,11 @@ def register(sub) -> None:
     p_metrics = sub.add_parser("metrics", help="查看运行指标（步骤/API 调用计时）")
     p_metrics.set_defaults(func=cmd_metrics)
     p_metrics.add_argument("--last", type=int, default=20, help="最近 N 条记录")
-    p_metrics.add_argument("--category", default="step", help="事件类别（step/api/search/read，默认 step）")
+    p_metrics.add_argument(
+        "--category",
+        default="step",
+        help="事件类别（step/api/search/read/llm，默认 step；llm 仅用于查看历史存量事件）",
+    )
     p_metrics.add_argument("--since", default=None, help="起始时间（ISO 格式，如 2026-03-01）")
 
     # --- citation-styles (primary name; `style` kept as a hidden legacy alias) ---

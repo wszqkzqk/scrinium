@@ -144,7 +144,7 @@ def cmd_tags(args: argparse.Namespace, cfg) -> None:
 
 
 def cmd_topics(args: argparse.Namespace, cfg) -> None:
-    from scrinium.tags import load_taxonomy, papers_with_tag, resolve_tag, topic_overview
+    from scrinium.tags import normalize_tag, papers_with_tag, resolve_tag, topic_overview, unknown_tag_message
 
     json_mode = getattr(args, "json", False)
     tag = getattr(args, "tag", None)
@@ -170,15 +170,13 @@ def cmd_topics(args: argparse.Namespace, cfg) -> None:
     tagged = papers_with_tag(cfg, tag)
     if not tagged:
         if canonical is None:
-            known = sorted((load_taxonomy(cfg).get("tags") or {}).keys())
-            hint = f"；当前词表: {', '.join(known)}" if known else "（词表为空，可先用 scrinium tag 打标）"
-            raise ValueError(f"未知标签: {tag}{hint}")
+            raise ValueError(unknown_tag_message(cfg, tag))
         ui(f"主题 {canonical} 下没有论文")
         return
     papers = [{"dir_name": pdir.name, "title": meta.get("title") or "", "year": meta.get("year")} for pdir, meta in tagged]
     # Newest first; stable sort keeps dir-name order within the same year
     papers.sort(key=lambda p: str(p["year"] or ""), reverse=True)
-    name = canonical or tag
+    name = canonical or normalize_tag(tag)
     if json_mode:
         _emit_json({"topic": name, "count": len(papers), "papers": papers})
         return
@@ -191,18 +189,10 @@ def cmd_topics(args: argparse.Namespace, cfg) -> None:
         ui(f"       {p['dir_name']}")
 
 
-# Suggested takeover action per pending.json issue type (handoff hints for agents).
-from scrinium.ingest.pipeline import HINT_ABSTRACT_MISS, HINT_DUPLICATE, HINT_NO_DOI, HINT_NO_PUB_NUM, HINT_TOC_MISS
-
-_PENDING_SUGGESTIONS = {
-    "no_doi": HINT_NO_DOI,
-    "no_pub_num": HINT_NO_PUB_NUM,
-    "duplicate": HINT_DUPLICATE,
-}
-
-
 def _collect_pending_items(cfg) -> list[dict]:
     """Collect entries from data/pending/ and data/duplicates/ for `scrinium pending`."""
+    from scrinium.ingest.pipeline import HINT_PENDING_FALLBACK, PENDING_HINTS
+
     items: list[dict] = []
     pending_root = cfg._root / "data" / "pending"
     if pending_root.is_dir():
@@ -222,7 +212,7 @@ def _collect_pending_items(cfg) -> list[dict]:
                     "issue": issue,
                     "title": meta.get("title", ""),
                     "duplicate_of": data.get("duplicate_of", ""),
-                    "hint": data.get("hint") or _PENDING_SUGGESTIONS.get(issue, "建议派 subagent 审查后处理"),
+                    "hint": data.get("hint") or PENDING_HINTS.get(issue, HINT_PENDING_FALLBACK),
                 }
             )
     dup_root = cfg._root / "data" / "duplicates"
@@ -243,7 +233,7 @@ def _collect_pending_items(cfg) -> list[dict]:
                     "issue": "duplicate",
                     "title": title,
                     "duplicate_of": "",
-                    "hint": _PENDING_SUGGESTIONS["duplicate"],
+                    "hint": PENDING_HINTS["duplicate"],
                 }
             )
     return items
@@ -429,6 +419,7 @@ def _ingest_pending_repair(pending_d: Path, meta, papers_dir: Path) -> None:
 
 
 def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
+    from scrinium.ingest.pipeline import HINT_TOC_MISS
     from scrinium.loader import enrich_toc
     from scrinium.papers import iter_paper_dirs
 
@@ -449,14 +440,14 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
             worker_fn=lambda json_path, md_path: enrich_toc(
                 json_path,
                 md_path,
-                cfg,
                 force=args.force,
-                inspect=args.inspect,
             ),
             success_message=_toc_success_message,
-            failure_message=f"  TOC 提取失败；hint: {HINT_TOC_MISS}",
+            failure_message="  TOC 提取失败",
             max_retries=2,
         )
+        if fail:
+            ui(f"hint: {fail} 篇 TOC 提取失败；{HINT_TOC_MISS}")
     else:
         ok = fail = skip = 0
         for json_path in targets:
@@ -471,16 +462,15 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
             success = enrich_toc(
                 json_path,
                 md_path,
-                cfg,
                 force=args.force,
-                inspect=args.inspect,
             )
             if success:
                 ok += 1
                 ui(_toc_success_message(json_path))
             else:
                 fail += 1
-                ui(f"  TOC 提取失败；hint: {HINT_TOC_MISS}")
+                ui("  TOC 提取失败")
+                ui(f"hint: {HINT_TOC_MISS}")
 
     if args.all or len(targets) > 1:
         ui(f"\n完成: {ok} 成功 | {fail} 失败 | {skip} 跳过")
@@ -514,8 +504,6 @@ def cmd_pipeline(args: argparse.Namespace, cfg) -> None:
         dry_run=args.dry_run,
         no_api=args.no_api,
         force=args.force,
-        inspect=args.inspect,
-        max_retries=args.max_retries,
         rebuild=args.rebuild,
         inbox_dir=Path(args.inbox).resolve() if args.inbox else None,
         papers_dir=Path(args.papers).resolve() if args.papers else None,
@@ -557,6 +545,7 @@ def _run_batch_enrich(
     if not queued:
         return 0, 0, skip
 
+    # Rule-based enrich is CPU-bound; a small fixed worker budget is enough.
     workers = min(min(8, os.cpu_count() or 1), len(queued))
     ui(f"并发处理（{workers} workers，共 {len(queued)} 篇）...")
 
@@ -684,6 +673,7 @@ def cmd_refetch(args: argparse.Namespace, cfg) -> None:
 
 def cmd_backfill_abstract(args: argparse.Namespace, cfg) -> None:
     from scrinium.ingest.metadata import backfill_abstracts
+    from scrinium.ingest.pipeline import HINT_ABSTRACT_MISS
 
     papers_dir = cfg.papers_dir
     if not papers_dir.exists():
@@ -914,6 +904,7 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
     ui(f"paper.md 已生成: {paper_d.name}/")
 
     # Backfill abstract if missing
+    from scrinium.ingest.pipeline import HINT_ABSTRACT_MISS
     from scrinium.papers import read_meta, write_meta
 
     data = read_meta(paper_d)
@@ -940,7 +931,6 @@ def _add_enrich_toc_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
     p.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
     p.add_argument("--force", action="store_true", help="强制重新提取")
-    p.add_argument("--inspect", action="store_true", help="展示过滤过程")
 
 
 def _add_backfill_abstract_args(p: argparse.ArgumentParser) -> None:
@@ -964,8 +954,6 @@ def _add_pipeline_args(p: argparse.ArgumentParser, *, preset_default: str | None
     p.add_argument("--dry-run", action="store_true", help="预览，不写文件")
     p.add_argument("--no-api", action="store_true", help="离线模式，跳过外部 API")
     p.add_argument("--force", action="store_true", help="强制重新处理（abstract/toc）")
-    p.add_argument("--inspect", action="store_true", help="展示处理详情")
-    p.add_argument("--max-retries", type=int, default=2, help="步骤最大重试次数（默认 2）")
     p.add_argument("--rebuild", action="store_true", help="重建索引（index 步骤）")
     p.add_argument("--inbox", help="inbox 目录（默认 data/inbox）")
     p.add_argument("--papers", help="papers 目录（默认配置值）")

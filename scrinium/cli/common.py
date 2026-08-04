@@ -186,20 +186,6 @@ def _resolve_export_paper_ids(paper_ids: list[str] | None, cfg) -> list[str] | N
     return list(dict.fromkeys(resolved))
 
 
-def _count_registry_papers(index_db) -> int | None:
-    """Return the number of papers in papers_registry, or None if unavailable."""
-    import sqlite3
-
-    if not Path(index_db).exists():
-        return None
-    try:
-        with sqlite3.connect(str(index_db)) as conn:
-            row = conn.execute("SELECT COUNT(*) FROM papers_registry").fetchone()
-    except sqlite3.Error:
-        return None
-    return row[0] if row else None
-
-
 def _resolve_paper(paper_id: str, cfg) -> Path:
     """Resolve a paper identifier (dir_name, UUID, or DOI) to its directory.
 
