@@ -14,13 +14,8 @@ config.py — Scrinium 配置加载
   4. ~/.scrinium/config.yaml（全局配置，插件模式使用；不存在时兼容读取
      旧的 ~/.scholaraio/config.yaml 并提示迁移）
 
-LLM API key 查找顺序：
-  1. config.local.yaml 中的 llm.api_key
-  2. 环境变量 SCRINIUM_LLM_API_KEY（旧名 SCHOLARAIO_LLM_API_KEY 兼容）
-  3. 按 llm.backend 查找对应厂商环境变量，例如：
-       - openai-compat: DEEPSEEK_API_KEY → OPENAI_API_KEY
-       - anthropic: ANTHROPIC_API_KEY
-       - google: GOOGLE_API_KEY → GEMINI_API_KEY
+已移除的配置段（llm/translate/embed/topics）在加载时触发一次性
+deprecation warning 并被忽略——框架内不再调用任何 LLM/embedding。
 """
 
 from __future__ import annotations
@@ -39,14 +34,6 @@ _log = logging.getLogger(__name__)
 # deprecation warning when the new one is unset or empty.
 _DEPRECATED_ENV_NAMES = {
     "SCRINIUM_CONFIG": "SCHOLARAIO_CONFIG",
-    "SCRINIUM_LLM_API_KEY": "SCHOLARAIO_LLM_API_KEY",
-    "SCRINIUM_EMBED_PROVIDER": "SCHOLARAIO_EMBED_PROVIDER",
-    "SCRINIUM_EMBED_SOURCE": "SCHOLARAIO_EMBED_SOURCE",
-    "SCRINIUM_EMBED_CACHE_DIR": "SCHOLARAIO_EMBED_CACHE_DIR",
-    "SCRINIUM_EMBED_MODEL": "SCHOLARAIO_EMBED_MODEL",
-    "SCRINIUM_EMBED_API_BASE": "SCHOLARAIO_EMBED_API_BASE",
-    "SCRINIUM_EMBED_API_KEY": "SCHOLARAIO_EMBED_API_KEY",
-    "SCRINIUM_HF_ENDPOINT": "SCHOLARAIO_HF_ENDPOINT",
 }
 
 
@@ -78,7 +65,6 @@ VALID_LOCAL_MINERU_BACKENDS = {
 VALID_PDF_CLOUD_MODEL_VERSIONS = {"pipeline", "vlm"}
 VALID_MINERU_PARSE_METHODS = {"auto", "txt", "ocr"}
 VALID_PDF_PREFERRED_PARSERS = {"mineru", "docling", "pymupdf"}
-VALID_EMBED_PROVIDERS = {"local", "openai-compat", "none"}
 
 # ============================================================================
 #  Config dataclasses
@@ -99,34 +85,6 @@ class PathsConfig:
 
 
 @dataclass
-class LLMConfig:
-    """LLM 后端配置（支持多厂商协议）。
-
-    Attributes:
-        backend: LLM 协议类型。支持:
-            - ``"openai-compat"`` — OpenAI 兼容协议（DeepSeek / OpenAI / vLLM / Ollama 等）
-            - ``"anthropic"`` — Anthropic Messages API（Claude 系列）
-            - ``"google"`` — Google Gemini API
-        model: 模型名称。
-        base_url: API 基础 URL（不含 ``/v1/...`` 后缀）。
-        api_key: API 密钥，建议放 config.local.yaml 或环境变量。
-        timeout: 普通 LLM 调用超时（秒）。
-        timeout_toc: enrich-toc 调用超时（秒），标题列表较长。
-        timeout_clean: validate_and_clean 调用超时（秒），结论全文较长。
-        concurrency: enrich pipeline 最大并发 LLM 调用数。
-    """
-
-    backend: str = "openai-compat"
-    model: str = "deepseek-chat"
-    base_url: str = "https://api.deepseek.com"
-    api_key: str = ""
-    timeout: int = 30
-    timeout_toc: int = 120
-    timeout_clean: int = 90
-    concurrency: int = 32
-
-
-@dataclass
 class SearchConfig:
     """FTS5 全文检索配置。
 
@@ -135,54 +93,6 @@ class SearchConfig:
     """
 
     top_k: int = 20
-
-
-@dataclass
-class EmbedConfig:
-    """语义向量嵌入配置。
-
-    Attributes:
-        provider: 嵌入后端，``"local"`` | ``"openai-compat"`` | ``"none"``。
-        model: Sentence Transformer 模型名称或 HuggingFace ID。
-        cache_dir: 本地模型缓存目录。
-        device: 推理设备，``"auto"`` | ``"cpu"`` | ``"cuda"``。
-        top_k: ``scrinium vsearch`` 默认返回条数。
-        source: 模型下载源，``"modelscope"`` | ``"huggingface"``。
-        hf_endpoint: HuggingFace 镜像地址（可选），用于无代理或私有镜像。
-        api_base: 云端嵌入 API 基础地址（OpenAI-compatible ``/v1`` 前缀）。
-        api_key: 云端嵌入 API 密钥，建议放 config.local.yaml 或环境变量。
-        api_timeout: 云端嵌入 API 超时（秒）。
-        batch_size: 云端嵌入 API 的请求批大小。
-        max_retries: 云端嵌入 API 最大重试次数。
-    """
-
-    provider: str = "local"
-    model: str = "Qwen/Qwen3-Embedding-0.6B"
-    cache_dir: str = "~/.cache/modelscope/hub/models"
-    device: str = "auto"
-    top_k: int = 10
-    source: str = "modelscope"
-    hf_endpoint: str = ""
-    api_base: str = ""
-    api_key: str = ""
-    api_timeout: int = 30
-    batch_size: int = 64
-    max_retries: int = 3
-
-
-@dataclass
-class TopicsConfig:
-    """BERTopic 主题建模配置。
-
-    Attributes:
-        min_topic_size: HDBSCAN 最小聚类大小。
-        nr_topics: 目标主题数，``0`` 表示 ``"auto"``。
-        model_dir: 主题模型保存目录（相对于项目根目录）。
-    """
-
-    min_topic_size: int = 5
-    nr_topics: int = 0  # 0 means "auto"
-    model_dir: str = "data/topic_model"
 
 
 @dataclass
@@ -209,7 +119,6 @@ class IngestConfig:
     """数据入库管道配置。
 
     Attributes:
-        extractor: 元数据提取模式，``"regex"`` | ``"auto"`` | ``"llm"`` | ``"robust"``。
         mineru_endpoint: MinerU 本地 API 地址。
         mineru_cloud_url: `mineru-open-api` 的 ``--base-url`` 覆盖值。
             默认值保留官方公网地址，私有部署时可改成自建服务。
@@ -224,12 +133,6 @@ class IngestConfig:
             无对应模式，按默认处理并告警）。
         mineru_enable_formula: 是否启用公式解析。仅对云端 ``pipeline``/``vlm`` 生效。
         mineru_enable_table: 是否启用表格解析。仅对云端 ``pipeline``/``vlm`` 生效。
-        abstract_llm_mode: abstract 提取时的 LLM 介入模式：
-
-            - ``"off"``：纯正则，不使用 LLM。
-            - ``"fallback"``：正则失败时才调用 LLM 提取。
-            - ``"verify"``：正则成功后仍由 LLM 校验/修正，失败时 LLM 直接提取。
-
         contact_email: Crossref polite pool 联系邮箱（User-Agent），建议放 config.local.yaml。
         s2_api_key: Semantic Scholar API 密钥，有 key 可大幅提升限速（1 req/s vs 100 req/5min）。
             建议放 config.local.yaml 或环境变量 ``S2_API_KEY``。
@@ -250,7 +153,6 @@ class IngestConfig:
         pdf_fallback_auto_detect: 是否启用自动检测本机已安装的 fallback 解析器。
     """
 
-    extractor: str = "robust"  # regex | auto | llm | robust
     mineru_endpoint: str = "http://localhost:8000"
     mineru_cloud_url: str = "https://mineru.net/api/v4"
     mineru_api_key: str = ""
@@ -260,7 +162,6 @@ class IngestConfig:
     mineru_parse_method: str = "auto"
     mineru_enable_formula: bool = True
     mineru_enable_table: bool = True
-    abstract_llm_mode: str = "verify"  # off | fallback | verify
     contact_email: str = ""
     s2_api_key: str = ""  # Semantic Scholar API key for higher rate limits
     chunk_page_limit: int = 100  # local MinerU auto-split threshold in pages
@@ -272,23 +173,6 @@ class IngestConfig:
     pdf_preferred_parser: str = "mineru"
     pdf_fallback_order: list[str] = field(default_factory=lambda: ["auto"])
     pdf_fallback_auto_detect: bool = True
-
-
-@dataclass
-class TranslateConfig:
-    """论文自动翻译配置。
-
-    Attributes:
-        auto_translate: 入库时是否自动翻译非目标语言的论文。
-        target_lang: 翻译目标语言代码（``"zh"`` | ``"en"`` 等）。
-        chunk_size: 分块翻译时每块最大字符数（避免超 LLM token 限制）。
-        concurrency: 总翻译并发预算（单篇时用于 chunk 并发，批量时会在论文间分摊）。
-    """
-
-    auto_translate: bool = False
-    target_lang: str = "zh"
-    chunk_size: int = 4000
-    concurrency: int = 20
 
 
 @dataclass
@@ -312,24 +196,16 @@ class Config:
 
     Attributes:
         paths: 文件路径配置。
-        llm: LLM 后端配置。
         ingest: 数据入库配置。
-        embed: 语义向量配置。
         search: 全文检索配置。
-        topics: BERTopic 主题建模配置。
         log: 日志与指标配置。
-        translate: 自动翻译配置。
         zotero: Zotero 集成配置。
     """
 
     paths: PathsConfig = field(default_factory=PathsConfig)
-    llm: LLMConfig = field(default_factory=LLMConfig)
     ingest: IngestConfig = field(default_factory=IngestConfig)
-    embed: EmbedConfig = field(default_factory=EmbedConfig)
     search: SearchConfig = field(default_factory=SearchConfig)
-    topics: TopicsConfig = field(default_factory=TopicsConfig)
     log: LogConfig = field(default_factory=LogConfig)
-    translate: TranslateConfig = field(default_factory=TranslateConfig)
     zotero: ZoteroConfig = field(default_factory=ZoteroConfig)
 
     # Root directory of the config file (used to resolve relative paths)
@@ -356,11 +232,6 @@ class Config:
         return (self._root / self.log.metrics_db).resolve()
 
     @property
-    def topics_model_dir(self) -> Path:
-        """BERTopic 模型保存目录的绝对路径。"""
-        return (self._root / self.topics.model_dir).resolve()
-
-    @property
     def workspace_dir(self) -> Path:
         """工作区根目录的绝对路径。"""
         return (self._root / "workspace").resolve()
@@ -381,36 +252,6 @@ class Config:
             self.metrics_db_path.parent,
         ):
             d.mkdir(parents=True, exist_ok=True)
-
-    def resolved_api_key(self) -> str:
-        """按优先级查找 LLM API key。
-
-        查找顺序:
-        1. config.local.yaml ``llm.api_key``
-        2. 环境变量 ``SCRINIUM_LLM_API_KEY``（旧名 ``SCHOLARAIO_LLM_API_KEY`` 兼容）
-        3. 按 backend 查找对应厂商环境变量:
-           - openai-compat: ``DEEPSEEK_API_KEY`` → ``OPENAI_API_KEY``
-           - anthropic: ``ANTHROPIC_API_KEY``
-           - google: ``GOOGLE_API_KEY`` → ``GEMINI_API_KEY``
-
-        Returns:
-            API key 字符串，未找到则返回空字符串。
-        """
-        if self.llm.api_key:
-            return self.llm.api_key
-        generic = _env_with_fallback("SCRINIUM_LLM_API_KEY")
-        if generic:
-            return generic
-        backend_env_map: dict[str, tuple[str, ...]] = {
-            "openai-compat": ("DEEPSEEK_API_KEY", "OPENAI_API_KEY"),
-            "anthropic": ("ANTHROPIC_API_KEY",),
-            "google": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
-        }
-        for env_var in backend_env_map.get(self.llm.backend, ("DEEPSEEK_API_KEY", "OPENAI_API_KEY")):
-            val = os.environ.get(env_var, "")
-            if val:
-                return val
-        return ""
 
     def resolved_zotero_api_key(self) -> str:
         """按优先级查找 Zotero API key。
@@ -461,31 +302,6 @@ class Config:
         if self.ingest.s2_api_key:
             return self.ingest.s2_api_key
         return os.environ.get("S2_API_KEY", "")
-
-    def resolved_embed_api_key(self) -> str:
-        """按优先级查找 Embedding API key。
-
-        查找顺序:
-        1. config ``embed.api_key``
-        2. 环境变量 ``SCRINIUM_EMBED_API_KEY``（旧名 ``SCHOLARAIO_EMBED_API_KEY`` 兼容）
-        3. OpenAI 兼容常见环境变量 ``OPENAI_API_KEY`` / ``DEEPSEEK_API_KEY``
-        4. 回退到 :meth:`resolved_api_key`
-
-        Returns:
-            API key 字符串，未找到则返回空字符串。
-        """
-        if self.embed.api_key:
-            return self.embed.api_key
-
-        embed_env = _env_with_fallback("SCRINIUM_EMBED_API_KEY")
-        if embed_env:
-            return embed_env
-        for env_var in ("OPENAI_API_KEY", "DEEPSEEK_API_KEY"):
-            val = os.environ.get(env_var, "")
-            if val:
-                return val
-
-        return self.resolved_api_key()
 
 
 # ============================================================================
@@ -648,10 +464,50 @@ def _normalize_positive_int(value: object, *, default: int, field_name: str, min
     return parsed
 
 
+# Deprecated config sections removed from the framework (no in-framework
+# LLM/embedding calls remain). Each section warns at most once per process.
+_DEPRECATED_SECTIONS = ("llm", "translate", "embed", "topics")
+_warned_deprecated: set[str] = set()
+
+
+def _warn_deprecated_sections(data: dict) -> None:
+    """Log a one-time deprecation warning for removed config sections.
+
+    Detects top-level ``llm:``/``translate:``/``embed:``/``topics:`` sections,
+    a non-regex ``ingest.extractor`` value, and ``ingest.abstract_llm_mode``;
+    all are ignored.
+    """
+    for section in _DEPRECATED_SECTIONS:
+        if section in data and section not in _warned_deprecated:
+            _warned_deprecated.add(section)
+            _log.warning(
+                "config section %r is deprecated and ignored: in-framework LLM/embedding calls were removed; "
+                "agent skills take over these tasks",
+                section,
+            )
+    ingest_data = data.get("ingest") or {}
+    extractor = str(ingest_data.get("extractor", "") or "").strip().lower()
+    if extractor and extractor != "regex" and "ingest.extractor" not in _warned_deprecated:
+        _warned_deprecated.add("ingest.extractor")
+        _log.warning(
+            "config ingest.extractor=%r is deprecated and ignored: metadata extraction is regex-only; "
+            "low-confidence items go to pending for agent review",
+            extractor,
+        )
+    if "abstract_llm_mode" in ingest_data and "ingest.abstract_llm_mode" not in _warned_deprecated:
+        _warned_deprecated.add("ingest.abstract_llm_mode")
+        _log.warning(
+            "config ingest.abstract_llm_mode=%r is deprecated and ignored: abstract extraction is regex-only; "
+            "regex misses are backfilled by the agent",
+            ingest_data.get("abstract_llm_mode"),
+        )
+
+
 def _build_config(data: dict, root: Path) -> Config:
     """Build Config dataclass from raw dict."""
+    _warn_deprecated_sections(data)
+
     paths_data = data.get("paths", {}) or {}
-    llm_data = data.get("llm", {}) or {}
     ingest_data = data.get("ingest", {}) or {}
 
     paths = PathsConfig(
@@ -659,19 +515,7 @@ def _build_config(data: dict, root: Path) -> Config:
         index_db=paths_data.get("index_db", "data/index.db"),
     )
 
-    llm = LLMConfig(
-        backend=llm_data.get("backend", "openai-compat"),
-        model=llm_data.get("model", "deepseek-chat"),
-        base_url=llm_data.get("base_url", "https://api.deepseek.com"),
-        api_key=llm_data.get("api_key") or "",
-        timeout=int(llm_data.get("timeout", 30)),
-        timeout_toc=int(llm_data.get("timeout_toc", 120)),
-        timeout_clean=int(llm_data.get("timeout_clean", 90)),
-        concurrency=max(1, int(llm_data.get("concurrency", 32))),
-    )
-
     ingest = IngestConfig(
-        extractor=ingest_data.get("extractor", "robust"),
         mineru_endpoint=ingest_data.get("mineru_endpoint", "http://localhost:8000"),
         mineru_cloud_url=ingest_data.get("mineru_cloud_url", "https://mineru.net/api/v4"),
         mineru_api_key=ingest_data.get("mineru_api_key") or "",
@@ -693,7 +537,6 @@ def _build_config(data: dict, root: Path) -> Config:
         ),
         mineru_enable_formula=_bool_or_default(ingest_data.get("mineru_enable_formula"), True),
         mineru_enable_table=_bool_or_default(ingest_data.get("mineru_enable_table"), True),
-        abstract_llm_mode=ingest_data.get("abstract_llm_mode", "verify"),
         contact_email=ingest_data.get("contact_email") or "",
         s2_api_key=ingest_data.get("s2_api_key") or "",
         mineru_batch_size=_normalize_mineru_batch_size(ingest_data.get("mineru_batch_size")),
@@ -729,53 +572,9 @@ def _build_config(data: dict, root: Path) -> Config:
         pdf_fallback_auto_detect=_bool_or_default(ingest_data.get("pdf_fallback_auto_detect"), True),
     )
 
-    embed_data = data.get("embed", {}) or {}
-    embed_provider = _normalize_choice(
-        _env_with_fallback("SCRINIUM_EMBED_PROVIDER") or embed_data.get("provider"),
-        default="local",
-        valid=VALID_EMBED_PROVIDERS,
-        field_name="embed.provider",
-    )
-    embed_source = _env_with_fallback("SCRINIUM_EMBED_SOURCE") or embed_data.get("source") or "modelscope"
-    embed_cache_dir = (
-        _env_with_fallback("SCRINIUM_EMBED_CACHE_DIR")
-        or embed_data.get("cache_dir")
-        or "~/.cache/modelscope/hub/models"
-    )
-    embed_model = _env_with_fallback("SCRINIUM_EMBED_MODEL") or embed_data.get("model") or "Qwen/Qwen3-Embedding-0.6B"
-    embed_api_base = _env_with_fallback("SCRINIUM_EMBED_API_BASE") or embed_data.get("api_base") or ""
-    embed_api_key = _env_with_fallback("SCRINIUM_EMBED_API_KEY") or embed_data.get("api_key") or ""
-    hf_endpoint = (
-        _env_with_fallback("SCRINIUM_HF_ENDPOINT")
-        or embed_data.get("hf_endpoint")
-        or os.environ.get("HF_ENDPOINT")
-        or ""
-    )
-    embed = EmbedConfig(
-        provider=embed_provider,
-        model=embed_model,
-        cache_dir=embed_cache_dir,
-        device=embed_data.get("device", "auto"),
-        top_k=int(embed_data.get("top_k", 10)),
-        source=embed_source,
-        hf_endpoint=hf_endpoint,
-        api_base=embed_api_base,
-        api_key=embed_api_key,
-        api_timeout=int(embed_data.get("api_timeout", 30)),
-        batch_size=max(1, int(embed_data.get("batch_size", 64))),
-        max_retries=max(0, int(embed_data.get("max_retries", 3))),
-    )
-
     search_data = data.get("search", {}) or {}
     search = SearchConfig(
         top_k=int(search_data.get("top_k", 20)),
-    )
-
-    topics_data = data.get("topics", {}) or {}
-    topics = TopicsConfig(
-        min_topic_size=int(topics_data.get("min_topic_size", 5)),
-        nr_topics=int(topics_data.get("nr_topics", 0)),
-        model_dir=topics_data.get("model_dir", "data/topic_model"),
     )
 
     log_data = data.get("logging", {}) or {}
@@ -787,14 +586,6 @@ def _build_config(data: dict, root: Path) -> Config:
         metrics_db=log_data.get("metrics_db", "data/metrics.db"),
     )
 
-    translate_data = data.get("translate", {}) or {}
-    translate = TranslateConfig(
-        auto_translate=bool(translate_data.get("auto_translate", False)),
-        target_lang=translate_data.get("target_lang", "zh"),
-        chunk_size=int(translate_data.get("chunk_size", 4000)),
-        concurrency=max(1, int(translate_data.get("concurrency", 20))),
-    )
-
     zotero_data = data.get("zotero", {}) or {}
     zotero = ZoteroConfig(
         api_key=zotero_data.get("api_key") or "",
@@ -804,13 +595,9 @@ def _build_config(data: dict, root: Path) -> Config:
 
     return Config(
         paths=paths,
-        llm=llm,
         ingest=ingest,
-        embed=embed,
         search=search,
-        topics=topics,
         log=log,
-        translate=translate,
         zotero=zotero,
         _root=root,
     )

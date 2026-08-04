@@ -1,22 +1,17 @@
 """Contract tests for the L1-L2 layer loading system.
 
 Verifies: each layer returns the documented fields from well-formed data.
-Does NOT test: internal JSON parsing details, LLM enrichment paths, or L3/L4
-layers that require LLM enrichment or full-text paper files.
+Does NOT test: internal JSON parsing details or L3 enrichment (agent-written).
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import cast
 
-from scrinium.config import Config
-from scrinium.loader import L3_SKIP_TYPES, append_notes, enrich_l3, load_l1, load_l2, load_l4, load_notes
+import pytest
 
-# enrich_l3 requires a Config argument but the skip-by-type branch
-# returns before it is used.  We use a typed sentinel so mypy is happy.
-_UNUSED_CONFIG = cast(Config, None)
+from scrinium.loader import append_notes, load_l1, load_l2, load_l4, load_notes, validate_lang
 
 
 class TestLoadL1:
@@ -62,43 +57,27 @@ class TestLoadL2:
         assert "No abstract" in result
 
 
-class TestEnrichL3Skip:
-    """enrich_l3 skips non-article paper types and writes a marker."""
+class TestValidateLang:
+    """validate_lang guards show --lang against path traversal and malformed codes."""
 
-    def test_skips_thesis(self, tmp_papers):
-        """Thesis paper_type should be skipped without any LLM call."""
-        json_path = tmp_papers / "Wang-2024-DeepLearning" / "meta.json"
-        md_path = json_path.parent / "paper.md"
+    def test_accepts_iso_codes(self):
+        assert validate_lang("zh") == "zh"
+        assert validate_lang("eng") == "eng"
 
-        # config=_UNUSED_CONFIG is fine because the skip happens before config is used
-        result = enrich_l3(json_path, md_path, config=_UNUSED_CONFIG)
+    def test_normalizes_case_and_whitespace(self):
+        assert validate_lang(" ZH ") == "zh"
 
-        assert result is True
-        data = json.loads(json_path.read_text(encoding="utf-8"))
-        assert data["l3_extraction_method"] == "skipped"
-        assert "l3_extracted_at" in data
-        assert "l3_conclusion" not in data
+    def test_rejects_path_traversal(self):
+        with pytest.raises(ValueError, match="invalid language code"):
+            validate_lang("../bad")
 
-    def test_skips_book(self, tmp_path):
-        """Book paper_type should be skipped."""
-        d = tmp_path / "Author-2020-Handbook"
-        d.mkdir(parents=True)
-        (d / "meta.json").write_text(
-            json.dumps({"id": "book-1", "paper_type": "book"}),
-            encoding="utf-8",
-        )
-        (d / "paper.md").write_text("# Handbook\n\nContent.", encoding="utf-8")
+    def test_rejects_non_string(self):
+        with pytest.raises(ValueError, match="invalid language code type"):
+            validate_lang(None)  # type: ignore[arg-type]
 
-        result = enrich_l3(d / "meta.json", d / "paper.md", config=_UNUSED_CONFIG)
-
-        assert result is True
-        data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
-        assert data["l3_extraction_method"] == "skipped"
-
-    def test_skip_types_coverage(self):
-        """All documented skip types are present in the set."""
-        for t in ("thesis", "book", "monograph", "document", "dissertation"):
-            assert t in L3_SKIP_TYPES
+    def test_rejects_too_long(self):
+        with pytest.raises(ValueError, match="invalid language code"):
+            validate_lang("toolongcode")
 
 
 class TestLoadL4:
@@ -160,3 +139,62 @@ class TestNotes:
         notes = load_notes(d)
         assert "## Section 1" in notes
         assert "## Section 2" in notes
+
+
+class TestEnrichToc:
+    """enrich_toc is rule-based only: headings -> toc, no model calls."""
+
+    def _paper(self, tmp_path, md_text):
+        d = tmp_path / "Author-2023-Paper"
+        d.mkdir(parents=True)
+        (d / "meta.json").write_text(json.dumps({"id": "p1", "title": "Paper"}), encoding="utf-8")
+        (d / "paper.md").write_text(md_text, encoding="utf-8")
+        return d
+
+    def test_rules_extract_numbered_sections(self, tmp_path):
+        d = self._paper(
+            tmp_path,
+            "# Paper Title\n\n# 1 Introduction\n\nBody.\n\n# 2 Methods\n\nBody.\n\n## 2.1 Setup\n\nBody.\n",
+        )
+
+        from scrinium.loader import enrich_toc
+
+        assert enrich_toc(d / "meta.json", d / "paper.md") is True
+        data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+        titles = [e["title"] for e in data["toc"]]
+        assert any("Introduction" in t for t in titles)
+        assert any("Methods" in t for t in titles)
+        assert "toc_extracted_at" in data
+
+    def test_existing_toc_not_overwritten_without_force(self, tmp_path):
+        d = self._paper(tmp_path, "# 1 Introduction\n\nBody.\n")
+        meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+        meta["toc"] = [{"line": 1, "level": 1, "title": "Keep Me"}]
+        (d / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+        from scrinium.loader import enrich_toc
+
+        assert enrich_toc(d / "meta.json", d / "paper.md", force=False) is True
+        data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+        assert data["toc"] == [{"line": 1, "level": 1, "title": "Keep Me"}]
+
+    def test_force_overwrites_existing_toc(self, tmp_path):
+        d = self._paper(tmp_path, "# 1 Introduction\n\nBody.\n")
+        meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+        meta["toc"] = [{"line": 1, "level": 1, "title": "Stale"}]
+        (d / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+        from scrinium.loader import enrich_toc
+
+        assert enrich_toc(d / "meta.json", d / "paper.md", force=True) is True
+        data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+        assert [e["title"] for e in data["toc"]] != ["Stale"]
+
+    def test_no_headings_returns_false(self, tmp_path):
+        d = self._paper(tmp_path, "Plain body text without any headings.\n")
+
+        from scrinium.loader import enrich_toc
+
+        assert enrich_toc(d / "meta.json", d / "paper.md") is False
+        data = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+        assert "toc" not in data

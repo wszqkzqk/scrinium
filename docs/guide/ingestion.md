@@ -11,12 +11,12 @@ scrinium pipeline ingest
 This will:
 
 1. Convert PDFs to Markdown (MinerU first, then Docling / PyMuPDF fallback when needed)
-2. Extract metadata (regex + LLM)
+2. Extract metadata (regex only — the framework makes no LLM calls)
 3. Query APIs for completeness (Crossref, Semantic Scholar, OpenAlex)
 4. Deduplicate by DOI
 5. Move to `data/papers/` and update indexes
 
-If `translate.auto_translate: true` is enabled in config, the pipeline will also auto-inject the `translate` step for newly ingested papers before `embed/index`. It does not retroactively translate the whole library.
+When extraction comes back low-confidence (missing title/authors), the output includes a `hint:` line suggesting agent takeover — see "Agent Handoff Hints" in the [Architecture](architecture.md) guide.
 
 ## Five Inboxes
 
@@ -26,7 +26,7 @@ If `translate.auto_translate: true` is enabled in config, the pipeline will also
 | Proceedings | `data/inbox-proceedings/` | Two-stage proceedings pipeline; first ingest creates `data/proceedings/<Volume>/` with `proceeding.md` + `split_candidates.json` and marks `split_status=pending_review` |
 | Theses | `data/inbox-thesis/` | Skips DOI check, marks as thesis |
 | Patents | `data/inbox-patent/` | Extracts publication number and deduplicates as patent |
-| Documents | `data/inbox-doc/` | Skips DOI check, LLM-generated title/abstract |
+| Documents | `data/inbox-doc/` | Skips DOI check, minimal rule-based metadata (first heading/filename -> title, first 500 words -> abstract) |
 
 Proceedings are only routed from the dedicated `data/inbox-proceedings/` path. Regular `data/inbox/` items always stay on the normal paper/document flow unless you move them into the proceedings inbox explicitly. Child papers are written under `data/proceedings/<Volume>/papers/` only after you review the split and run `scrinium proceedings apply-split`.
 
@@ -46,7 +46,18 @@ Already have Markdown? Place `.md` files directly in the inbox — PDF parsing i
 
 ## Pending Papers
 
-Papers without DOI (that aren't theses) go to `data/pending/` for manual review. Add a DOI and re-run the pipeline to complete ingestion.
+Papers without DOI go to `data/pending/` unless a title-keyword heuristic recognizes them as theses. `pending.json` records the reason plus a `hint` for the recommended takeover action, and `scrinium pending` lists everything grouped by issue.
+
+The intended resolution flow is agent-driven: a subagent reads the PDF, judges the real type (thesis / patent / genuinely missing DOI), then either runs `scrinium repair <pending-stem>` with the corrected metadata — `repair` accepts pending items directly, guards against duplicates already in the library (DOI / arXiv ID), ingests the item, and removes the pending directory — or moves the file into the matching inbox for re-ingest.
+
+## Pipeline Presets
+
+| Preset | Steps |
+|---|---|
+| `full` | `mineru, extract, dedup, ingest, index` (same as `ingest`) |
+| `ingest` | `mineru, extract, dedup, ingest, index` |
+| `enrich` | `abstract, toc` |
+| `reindex` | `index` |
 
 ## External Import
 

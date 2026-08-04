@@ -3,58 +3,35 @@ _doc_extract.py — 非论文文档的元数据提取
 ==========================================
 
 对于缺少标题/摘要的普通文档（技术报告、课程讲义、标准文档等），
-使用 LLM 从全文生成标题和摘要，确保文档可以被检索系统正确索引。
+以首标题/文件名 + 前 500 词最小元数据入库（纯规则，零模型调用）。
+提取结果不理想时由 pipeline 输出 handoff hint，agent 后处理直写
+正式标题/摘要。
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from scrinium.config import Config
 
 from scrinium.ingest.metadata._models import PaperMetadata
-from scrinium.prompts import build_doc_extract_prompt, parse_llm_json
 
 _log = logging.getLogger(__name__)
-
-# LLM input truncation limit
-_MAX_TEXT_FOR_LLM = 60_000
-
-# document types that skip DOI warnings
-DOCUMENT_TYPES = frozenset(
-    {
-        "document",
-        "technical-report",
-        "lecture-notes",
-        "standard",
-        "book-chapter",
-        "manual",
-        "white-paper",
-        "presentation",
-        "meeting-notes",
-    }
-)
 
 
 def extract_document_metadata(
     md_path: Path,
-    cfg: Config,
     *,
     existing_meta: PaperMetadata | None = None,
 ) -> PaperMetadata:
-    """Extract/generate metadata for a non-paper document.
+    """Extract metadata for a non-paper document (rule-based only).
 
     Flow:
     1. Try regex extraction (may get title, authors, etc.)
-    2. Check if extraction results are sufficient (need at least title)
-    3. If insufficient, call LLM to generate title + summary from full text
+    2. Fill any gaps with fallback metadata (first heading / filename
+       as title, first 500 words as abstract)
 
     Args:
         md_path: Markdown file path.
-        cfg: Global config.
         existing_meta: Pre-existing metadata (if any).
 
     Returns:
@@ -73,60 +50,8 @@ def extract_document_metadata(
             _log.debug("regex extraction failed for doc: %s", e)
             meta = PaperMetadata()
 
-    text = md_path.read_text(encoding="utf-8", errors="replace")
-
-    # Step 2: check completeness
-    has_title = bool((meta.title or "").strip())
-    has_abstract = bool((meta.abstract or "").strip())
-
-    if has_title and has_abstract:
-        _log.debug("document already has title and abstract, skipping LLM")
-        meta.paper_type = meta.paper_type or "document"
-        return meta
-
-    # Step 3: LLM generation
-    api_key = cfg.resolved_api_key()
-    if not api_key:
-        _log.warning("no LLM API key, using fallback for document metadata")
-        return _fallback_document_metadata(md_path, meta)
-
-    truncated = text[:_MAX_TEXT_FOR_LLM]
-    prompt = _build_prompt(truncated, has_title=has_title, has_abstract=has_abstract, existing_title=meta.title or "")
-
-    try:
-        from scrinium.metrics import call_llm
-
-        result = call_llm(prompt, cfg, purpose="doc_extract", max_tokens=1000)
-        data = _parse_llm_response(result.content)
-
-        if not has_title and data.get("title"):
-            meta.title = data["title"]
-
-        if not has_abstract and data.get("summary"):
-            meta.abstract = data["summary"]
-
-        if data.get("authors") and not meta.authors:
-            meta.authors = data["authors"]
-            meta.first_author = data["authors"][0] if data["authors"] else ""
-
-        if data.get("year") and not meta.year:
-            meta.year = data["year"]
-
-        if data.get("document_type"):
-            meta.paper_type = data["document_type"]
-        else:
-            meta.paper_type = meta.paper_type or "document"
-
-    except Exception as e:
-        _log.warning("LLM document extraction failed: %s", e)
-        return _fallback_document_metadata(md_path, meta)
-
-    # Final fallback: ensure title exists
-    if not (meta.title or "").strip():
-        meta.title = md_path.stem.replace("-", " ").replace("_", " ")
-
-    meta.extraction_method = "llm_document"
-    return meta
+    # Step 2: fill gaps with minimal fallback metadata
+    return _fallback_document_metadata(md_path, meta)
 
 
 def _fallback_document_metadata(
@@ -157,13 +82,3 @@ def _fallback_document_metadata(
     meta.paper_type = meta.paper_type or "document"
     meta.extraction_method = "fallback_document"
     return meta
-
-
-def _build_prompt(text: str, *, has_title: bool, has_abstract: bool, existing_title: str = "") -> str:
-    """Build LLM prompt for document metadata extraction."""
-    return build_doc_extract_prompt(text, has_title=has_title, has_abstract=has_abstract, existing_title=existing_title)
-
-
-def _parse_llm_response(text: str) -> dict:
-    """Extract JSON from LLM response."""
-    return parse_llm_json(text) or {}

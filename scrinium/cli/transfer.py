@@ -1,4 +1,4 @@
-"""cli/transfer.py — export / import / arxiv / translate commands."""
+"""cli/transfer.py — export / import / arxiv commands."""
 
 from __future__ import annotations
 
@@ -10,73 +10,9 @@ from pathlib import Path
 
 from scrinium.log import ui
 
-from .common import _check_import_error, _resolve_export_paper_ids, _resolve_paper, _resolve_top
+from .common import _check_import_error, _resolve_export_paper_ids, _resolve_top
 
 _log = logging.getLogger(__package__)
-
-
-def cmd_translate(args: argparse.Namespace, cfg) -> None:
-    from scrinium.translate import batch_translate, translate_paper
-
-    papers_dir = cfg.papers_dir
-
-    # Determine target language: CLI flag > config default; normalize input
-    target_lang = (args.lang or cfg.translate.target_lang).lower().strip()
-
-    try:
-        from scrinium.translate import validate_lang
-
-        validate_lang(target_lang)
-    except ValueError:
-        ui(f"错误: 无效的语言代码 '{target_lang}'（应为 2-5 个小写字母，如 zh、en、ja）")
-        sys.exit(1)
-
-    if args.paper_id:
-        paper_d = _resolve_paper(args.paper_id, cfg)
-        tr = translate_paper(
-            paper_d,
-            cfg,
-            target_lang=target_lang,
-            force=args.force,
-            portable=args.portable,
-            progress_callback=ui,
-        )
-        if tr.ok:
-            ui(f"翻译完成: {tr.path}")
-            if tr.portable_path:
-                ui(f"可移植导出: {tr.portable_path}")
-        else:
-            from scrinium.translate import (
-                SKIP_ALL_CHUNKS_FAILED,
-                SKIP_ALREADY_EXISTS,
-                SKIP_EMPTY,
-                SKIP_NO_MD,
-                SKIP_SAME_LANG,
-            )
-
-            _skip_messages = {
-                SKIP_NO_MD: "跳过: 该论文目录下无 paper.md 文件",
-                SKIP_EMPTY: "跳过: paper.md 内容为空",
-                SKIP_SAME_LANG: f"跳过: 论文已是目标语言 ({target_lang})",
-                SKIP_ALREADY_EXISTS: "跳过: 翻译已存在（使用 --force 强制重新翻译）",
-            }
-            if tr.partial and tr.path:
-                ui(
-                    f"翻译中断：已完成 {tr.completed_chunks}/{tr.total_chunks} 块，"
-                    f"当前结果已写入 {tr.path}，可稍后继续续翻"
-                )
-                sys.exit(1)
-            if tr.skip_reason == SKIP_ALL_CHUNKS_FAILED:
-                ui("翻译失败: 所有分块都翻译失败，未写出目标文件")
-                sys.exit(1)
-            ui(_skip_messages.get(tr.skip_reason, "跳过"))
-    elif args.all:
-        ui(f"批量翻译 → {target_lang}")
-        stats = batch_translate(papers_dir, cfg, target_lang=target_lang, force=args.force, portable=args.portable)
-        ui(f"完成: {stats['translated']} 已翻译 | {stats['skipped']} 跳过 | {stats['failed']} 失败")
-    else:
-        ui("请指定 <paper-id> 或 --all")
-        sys.exit(1)
 
 
 def cmd_export(args: argparse.Namespace, cfg) -> None:
@@ -328,16 +264,16 @@ def cmd_import_endnote(args: argparse.Namespace, cfg) -> None:
         dry_run=args.dry_run,
     )
 
-    # Batch convert PDFs → paper.md via MinerU + enrich (toc/l3/abstract)
+    # Batch convert PDFs → paper.md via MinerU + abstract backfill
     if not args.dry_run and not args.no_convert and stats["ingested"] > 0:
-        _batch_convert_pdfs(cfg, enrich=True)
+        _batch_convert_pdfs(cfg)
 
 
-def _batch_convert_pdfs(cfg, *, enrich: bool = False) -> None:
+def _batch_convert_pdfs(cfg) -> None:
     """Convert all unprocessed PDFs in papers_dir to paper.md via MinerU."""
     from scrinium.ingest.pipeline import batch_convert_pdfs
 
-    batch_convert_pdfs(cfg, enrich=enrich)
+    batch_convert_pdfs(cfg)
 
 
 def cmd_import_zotero(args: argparse.Namespace, cfg) -> None:
@@ -433,9 +369,9 @@ def cmd_import_zotero(args: argparse.Namespace, cfg) -> None:
         dry_run=args.dry_run,
     )
 
-    # Batch convert PDFs → paper.md via MinerU + enrich (toc/l3/abstract)
+    # Batch convert PDFs → paper.md via MinerU + abstract backfill
     if not args.dry_run and not args.no_convert and stats["ingested"] > 0:
-        _batch_convert_pdfs(cfg, enrich=True)
+        _batch_convert_pdfs(cfg)
 
     # Import collections as workspaces
     if args.import_collections and not args.dry_run:
@@ -604,16 +540,3 @@ def register(sub) -> None:
     p_arxiv_fetch.add_argument("--ingest", action="store_true", help="下载后直接走 ingest pipeline 入库")
     p_arxiv_fetch.add_argument("--force", action="store_true", help="覆盖已有同名 PDF 或强制 pipeline 处理")
     p_arxiv_fetch.add_argument("--dry-run", action="store_true", help="预览将要执行的操作")
-
-    # --- translate ---
-    p_trans = sub.add_parser("translate", help="翻译论文 Markdown 到目标语言")
-    p_trans.set_defaults(func=cmd_translate)
-    p_trans.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
-    p_trans.add_argument("--all", action="store_true", help="批量翻译所有论文")
-    p_trans.add_argument("--lang", type=str, default=None, help="目标语言（默认读 config translate.target_lang）")
-    p_trans.add_argument("--force", action="store_true", help="强制重新翻译（覆盖已有翻译）")
-    p_trans.add_argument(
-        "--portable",
-        action="store_true",
-        help="额外导出到 workspace/translation-ws/ 的可移植翻译包（复制 images/）",
-    )

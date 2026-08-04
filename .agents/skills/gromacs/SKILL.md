@@ -91,7 +91,7 @@ scrinium toolref show gromacs mdp ref-t
 
 这是本 skill 与普通 GROMACS 教程的核心区别。**在任何模拟开始前：**
 
-1. 用 `scrinium search "<体系关键词>" --mode hybrid` 检索知识库中的相关论文
+1. 用 `scrinium search "<体系关键词>"` 检索知识库中的相关论文
 2. 从论文中提取：力场选择依据、模拟参数（温度、压力、时长）、验证基准数据
 3. 在 `.mdp` 文件注释中标注参数来源（如 "# 300 K, per Homeyer et al. 2014 JCTC"）
 4. 模拟完成后，将结果与论文数据定量对比

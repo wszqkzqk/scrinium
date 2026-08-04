@@ -10,7 +10,7 @@ metadata — 论文元数据提取、API 查询、JSON 输出与文件重命名
     _models   — PaperMetadata dataclass + 常量 + HTTP session
     _extract  — markdown 正则解析（title/authors/doi/year/journal）
     _api      — API 查询（Crossref/S2/OA）+ enrich_metadata
-    _abstract — abstract 提取（regex/LLM/DOI fetch/backfill）
+    _abstract — abstract 提取（regex/DOI fetch/backfill）
     _writer   — JSON 序列化 + 文件重命名
     _cli      — 独立 CLI 命令
 """

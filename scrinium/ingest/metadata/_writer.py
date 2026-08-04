@@ -13,6 +13,19 @@ _log = logging.getLogger(__name__)
 
 from ._models import PaperMetadata
 
+# arXiv DOIs embed the identifier: 10.48550/arxiv.2510.16510 or 10.48550/arxiv.hep-th/9901001
+_ARXIV_DOI_RE = re.compile(
+    r"^10\.48550/arxiv\.(\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]+)?/\d{7})$",
+    re.IGNORECASE,
+)
+
+
+def _arxiv_id_from_doi(doi: str) -> str:
+    """Derive the arXiv identifier from an arXiv DOI, or "" if not an arXiv DOI."""
+    m = _ARXIV_DOI_RE.match((doi or "").strip())
+    return m.group(1) if m else ""
+
+
 # ============================================================================
 #  JSON Serialization
 # ============================================================================
@@ -67,9 +80,11 @@ def metadata_to_dict(meta: PaperMetadata) -> dict:
         d["ids"]["doi_url"] = f"https://doi.org/{meta.doi}"
     if meta.publication_number:
         d["ids"]["patent_publication_number"] = meta.publication_number
-    if meta.arxiv_id:
-        d["ids"]["arxiv"] = meta.arxiv_id
-        d["ids"]["arxiv_url"] = f"https://arxiv.org/abs/{meta.arxiv_id}"
+    # Fall back to the arXiv DOI so preprint dedup never misses the id
+    arxiv_id = meta.arxiv_id or _arxiv_id_from_doi(meta.doi)
+    if arxiv_id:
+        d["ids"]["arxiv"] = arxiv_id
+        d["ids"]["arxiv_url"] = f"https://arxiv.org/abs/{arxiv_id}"
     if meta.s2_paper_id:
         d["ids"]["semantic_scholar"] = meta.s2_paper_id
         d["ids"]["semantic_scholar_url"] = f"https://www.semanticscholar.org/paper/{meta.s2_paper_id}"

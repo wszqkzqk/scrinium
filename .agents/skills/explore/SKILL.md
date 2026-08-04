@@ -1,6 +1,6 @@
 ---
 name: explore
-description: Explore literature by fetching papers from OpenAlex with multi-dimensional filters (ISSN, concept, author, institution, keyword, etc.), building local embeddings, running BERTopic clustering, and multi-mode search (semantic/keyword/unified). Data is isolated in data/explore/<name>/. Use when the user wants to survey a journal, explore a research field, analyze an author's output, or do landscape analysis.
+description: Explore literature by fetching papers from OpenAlex with multi-dimensional filters (ISSN, concept, author, institution, keyword, etc.) into an isolated database under data/explore/<name>/, with keyword search and agent-driven topic grouping of results. Use when the user wants to survey a journal, explore a research field, analyze an author's output, or do landscape analysis.
 version: 1.0.0
 author: wszqkzqk/scrinium
 license: GPL-3.0-or-later
@@ -8,17 +8,9 @@ tags: ["academic", "research", "literature", "discovery", "openalex"]
 ---
 # 多维文献探索
 
-从 OpenAlex 拉取文献（支持多维过滤），本地嵌入 + BERTopic 聚类 + 多模式搜索，用于文献调研。数据与主库完全隔离。
+从 OpenAlex 拉取文献（支持多维过滤）到隔离的探索库，关键词检索 + agent 主题分组，用于文献调研。数据与主库完全隔离。
 
-## 嵌入后端依赖（重要）
-
-explore 库的语义能力依赖嵌入后端（`embed.provider: local` 或 `openai-compat`）。若配置为 `embed.provider: none`，或探索库尚未执行 `explore embed`：
-
-- **不可用**：`explore embed`；`explore search` 的默认 semantic 模式与 `--mode hybrid`（会明确报错提示缺少嵌入后端）；`explore topics --build` / `--rebuild`
-- **不受影响**：`explore fetch` 拉取、`explore search --mode keyword`（FTS5 关键词搜索）；`explore topics` 浏览已有主题模型
-- 无嵌入时，搜索必须显式加 `--mode keyword`
-
-注意：主库的 curator 标签体系（`/curate`）不覆盖 explore 库——explore 库没有标签，无嵌入时关键词搜索是唯一的检索路径。
+> **框架边界**：explore 只保留 `fetch` / `search`（FTS5 关键词）/ `list` / `info` 四个确定性原语，无嵌入、无自动聚类。**主题分组由 subagent 粗读接管**（见下方工作流）——真读标题摘要后的分组。
 
 ## 执行逻辑
 
@@ -69,39 +61,13 @@ scrinium explore fetch --issn 0022-1120 --name jfm --incremental
 - JCP (Journal of Computational Physics): 0021-9991
 - IJMF (Int J Multiphase Flow): 0301-9322
 
-### 生成嵌入
+### 搜索（关键词）
 
 ```bash
-scrinium explore embed --name <名称> [--rebuild]
-```
-
-### 主题聚类
-
-```bash
-scrinium explore topics --name <名称> --build
-scrinium explore topics --name <名称> --rebuild --nr-topics <N>
-scrinium explore topics --name <名称>
-scrinium explore topics --name <名称> --topic <ID> [--top N]
-```
-
-### 搜索（三种模式）
-
-```bash
-# 语义搜索（默认）
 scrinium explore search --name <名称> "<查询词>" [--top N]
-
-# 关键词搜索（FTS5）
-scrinium explore search --name <名称> "<查询词>" --mode keyword
-
-# 融合搜索（语义 + 关键词 RRF 排序）
-scrinium explore search --name <名称> "<查询词>" --mode hybrid
 ```
 
-### 生成可视化
-
-```bash
-scrinium explore viz --name <名称>
-```
+唯一的检索模式是 FTS5 关键词，**无 `--mode` 选项**。召回不足时用查询扩展（同义词、中英改写、缩写/全称）多搜几轮合并去重（见 `/search` skill 的查询扩展发现协议）。
 
 ### 列出所有探索库
 
@@ -116,7 +82,14 @@ scrinium explore info
 scrinium explore info --name <名称>
 ```
 
-对于全新探索库，完整流程是：fetch → embed → topics --build → viz
+## 主题分组工作流（subagent 接管）
+
+explore 库没有 curator 标签体系，主题组织由 agent 完成：
+
+1. 取待分组论文清单：全量分组时直接读 `data/explore/<名称>/papers.jsonl`（每行一篇，含标题/摘要）；或按若干主题关键词分轮 `explore search` 取子集
+2. **并行派 subagent 分批粗读**（每批 30-50 篇，标题 + 摘要即可，互不重叠），每个 subagent 只带回每篇的「主题归属 + 一句话理由」
+3. 主 agent 汇总分组结果，识别 5-15 个主题簇，写入 `workspace/<调研主题>/` 笔记（如 `topic-groups.md`）：每簇含主题名、代表论文、论文数、一句话概括
+4. 分组结果可直接指导下一步：挑每簇核心论文入工作区（`/workspace`）、深读（`/show`）或写综述（`/literature-review`）
 
 ## 示例
 
@@ -124,7 +97,7 @@ scrinium explore info --name <名称>
 → 执行 `explore fetch --issn 0022-1120 --name jfm`
 
 用户说："帮我看看 acoustic metamaterial 领域有哪些研究"
-→ 执行 `explore fetch --keyword "acoustic metamaterial" --name acoustic-metamaterial`
+→ 执行 `explore fetch --keyword "acoustic metamaterial" --name acoustic-metamaterial`，再做主题分组：分批派 subagent 粗读 → 分组写入 workspace 笔记
 
 用户说："拉取某机构近 5 年高引论文"
 → 执行 `explore fetch --institution I123 --year-range 2020-2025 --min-citations 50 --name inst-highcite`
@@ -132,8 +105,8 @@ scrinium explore info --name <名称>
 用户说："在 JFM 里搜 drag reduction"
 → 执行 `explore search --name jfm "drag reduction"`
 
-用户说："用关键词搜索 JFM 中的 turbulence"
-→ 执行 `explore search --name jfm "turbulence" --mode keyword`
+用户说："给刚拉的 jfm 库梳理一下研究主题"
+→ 主题分组工作流：取论文清单 → 并行 subagent 分批粗读 → 汇总 5-15 个主题簇写入 `workspace/` 笔记
 
 用户说："更新 JFM 探索库"
 → 执行 `explore fetch --issn 0022-1120 --name jfm --incremental`

@@ -33,8 +33,8 @@ scrinium show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_name
 |----|------|------|
 | L1 | 元数据 | title, authors, year, journal, doi, tags（标签） |
 | L2 | 摘要 | abstract |
-| L3 | 结论 | conclusion（需先运行 enrich conclusion） |
-| L4 | 全文 | 完整 markdown |
+| L3 | 结论 | l3_conclusion（由 agent 阅读全文后写入 meta.json，见 `/enrich` skill；缺失时输出带接管 hint） |
+| L4 | 全文 | 完整 markdown；`--lang zh` 读取 `paper_{lang}.md` 译文（见 `/translate` skill） |
 
 ## 示例
 
@@ -45,7 +45,7 @@ scrinium show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_name
 → 执行 `show "Zhang-2024-LLM" --layer 4`
 
 用户说："这篇论文的结论是什么"（上下文中已有论文 ID）
-→ 执行 `show "<paper-id>" --layer 3`
+→ 执行 `show "<paper-id>" --layer 3`；缺失时按 hint 读 L4 提炼并直写 meta.json（见 `/enrich` skill），`scrinium index` 后再展示
 
 ## T2 笔记集成
 

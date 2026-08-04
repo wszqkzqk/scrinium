@@ -24,20 +24,17 @@ class TestPipelineOptions:
         assert opts.dry_run is False
         assert opts.no_api is False
         assert opts.force is False
-        assert opts.inspect is False
-        assert opts.max_retries == 2
         assert opts.rebuild is False
         assert opts.inbox_dir is None
         assert opts.papers_dir is None
         assert opts.include_aux_inboxes is True
-        assert opts.translate_lang is None
         assert opts.office_path is None
 
     def test_from_mapping_roundtrip(self):
-        opts = PipelineOptions.from_mapping({"dry_run": True, "no_api": True, "max_retries": 5})
+        opts = PipelineOptions.from_mapping({"dry_run": True, "no_api": True, "force": True})
         assert opts.dry_run is True
         assert opts.no_api is True
-        assert opts.max_retries == 5
+        assert opts.force is True
         assert opts.include_aux_inboxes is True  # untouched field keeps default
 
     def test_from_mapping_rejects_unknown_keys(self):
@@ -47,7 +44,7 @@ class TestPipelineOptions:
 
 class TestPipelineErrorBoundary:
     def test_run_pipeline_unknown_step_raises_instead_of_exit(self, tmp_path):
-        cfg = SimpleNamespace(translate=SimpleNamespace(auto_translate=False))
+        cfg = SimpleNamespace(_root=tmp_path)
         with pytest.raises(PipelineError, match="未知步骤"):
             run_pipeline(["no_such_step"], cfg, {})
 
@@ -98,7 +95,6 @@ class TestCollectExistingIdsFailures:
 
     def test_run_pipeline_warns_when_dedup_incomplete(self, tmp_path, monkeypatch):
         cfg = SimpleNamespace(
-            translate=SimpleNamespace(auto_translate=False),
             _root=tmp_path,
             papers_dir=tmp_path / "papers",
         )
@@ -121,7 +117,6 @@ class TestCollectExistingIdsFailures:
 
     def test_run_pipeline_no_warning_when_all_readable(self, tmp_path, monkeypatch):
         cfg = SimpleNamespace(
-            translate=SimpleNamespace(auto_translate=False),
             _root=tmp_path,
             papers_dir=tmp_path / "papers",
         )

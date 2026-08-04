@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scrinium"
-version = "2.0.0"
+version = "3.0.0"
 description = "Scrinium — a research infrastructure for AI agents (hard fork of ScholarAIO)"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ authors = [
     {name = "Zhou Qiankang", email = "wszqkzqk@qq.com"},
     {name = "Zimo Liao", email = "zimoliao@mail.ustc.edu.cn"},
 ]
-keywords = ["academic", "literature", "literature-management", "research", "knowledge-base", "semantic-search", "ai-agents", "agent-skills"]
+keywords = ["academic", "literature", "literature-management", "research", "knowledge-base", "ai-agents", "agent-skills"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -38,16 +38,6 @@ Repository = "https://github.com/wszqkzqk/scrinium"
 Issues = "https://github.com/wszqkzqk/scrinium/issues"
 
 [project.optional-dependencies]
-embed = [
-    "sentence-transformers>=3.0",
-    "numpy>=1.24",
-    "faiss-cpu>=1.7",
-]
-topics = [
-    "scrinium[embed]",
-    "bertopic>=0.16",
-    "pandas>=2.0",
-]
 pdf = [
     "pymupdf>=1.24",
 ]
@@ -67,13 +57,10 @@ draw = [
     "mermaid-py>=0.3",
 ]
 full = [
-    "scrinium[embed]",
-    "scrinium[topics]",
     "scrinium[import]",
     "scrinium[pdf]",
     "scrinium[office]",
     "scrinium[draw]",
-    "modelscope>=1.10",
     "curl-cffi>=0.5",
 ]
 dev = [
@@ -125,8 +112,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Optional-import heavy modules: BERTopic/numpy imported at runtime
-"scrinium/topics.py" = ["F821"]
 # Existing modules: suppress style nits that don't affect correctness
 "scrinium/*.py" = ["SIM105", "SIM102", "SIM115", "E402", "F841", "RUF059", "B904"]
 "scrinium/**/*.py" = ["SIM105", "SIM102", "SIM115", "E402", "F841", "RUF059", "B904"]
@@ -153,8 +138,6 @@ check_untyped_defs = true
 # Lenient for modules with heavy optional imports and dynamic typing
 [[tool.mypy.overrides]]
 module = [
-    "scrinium.topics",
-    "scrinium.vectors",
     "scrinium.cli",
     "scrinium.cli.*",
 

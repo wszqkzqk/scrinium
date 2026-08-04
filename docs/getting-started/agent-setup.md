@@ -81,7 +81,6 @@ In plugin mode, all data lives under `~/.scrinium/`:
 │   ├── inbox-proceedings/ # Proceedings volumes waiting for dedicated ingest
 │   ├── pending/          # Items awaiting confirmation
 │   ├── explore/          # Literature exploration data (created on demand)
-│   ├── topic_model/      # Topic models (created on demand)
 │   ├── index.db          # SQLite index
 │   └── metrics.db        # Runtime metrics
 └── workspace/            # Workspaces

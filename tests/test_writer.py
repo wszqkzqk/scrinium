@@ -404,3 +404,26 @@ class TestRefetchMetadata:
         result = rename_paper(old_dir / "meta.json", dry_run=True)
         assert result is not None
         assert old_dir.exists()  # original not moved
+
+
+class TestArxivIdFromDoi:
+    def test_derives_from_new_style_arxiv_doi(self):
+        meta = PaperMetadata(title="T", doi="10.48550/arXiv.2510.16510")
+        d = metadata_to_dict(meta)
+        assert d["ids"]["arxiv"] == "2510.16510"
+        assert d["ids"]["arxiv_url"] == "https://arxiv.org/abs/2510.16510"
+
+    def test_derives_from_old_style_arxiv_doi(self):
+        meta = PaperMetadata(title="T", doi="10.48550/arxiv.hep-th/9901001")
+        d = metadata_to_dict(meta)
+        assert d["ids"]["arxiv"] == "hep-th/9901001"
+
+    def test_explicit_arxiv_id_wins(self):
+        meta = PaperMetadata(title="T", doi="10.48550/arxiv.2510.16510", arxiv_id="2501.00001")
+        d = metadata_to_dict(meta)
+        assert d["ids"]["arxiv"] == "2501.00001"
+
+    def test_non_arxiv_doi_no_derivation(self):
+        meta = PaperMetadata(title="T", doi="10.1038/s41586-021-03819-2")
+        d = metadata_to_dict(meta)
+        assert "arxiv" not in d["ids"]

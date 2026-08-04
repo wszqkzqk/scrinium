@@ -235,7 +235,7 @@ class TestValidateWorkspaceName:
 
 
 def _ws_args(**kw) -> Namespace:
-    base = dict(ws_action="add", name="ws", paper_refs=[], add_all=False, add_topic=None, add_search=None)
+    base = dict(ws_action="add", name="ws", paper_refs=[], add_all=False, add_tag=None, add_search=None)
     base.update(kw)
     return Namespace(**base)
 

@@ -35,25 +35,6 @@ class TestSearchJson:
         assert "下一步" not in out
 
 
-class TestUsearchJson:
-    def test_usearch_json_includes_score_and_match(self, tmp_papers, tmp_db, capsys):
-        build_index(tmp_papers, tmp_db)
-        cfg = SimpleNamespace(index_db=tmp_db, search=SimpleNamespace(top_k=10))
-        args = Namespace(query=["turbulence"], top=None, year=None, journal=None, paper_type=None, json=True)
-
-        cli.cmd_usearch(args, cfg)
-
-        out = capsys.readouterr().out
-        payload = json.loads(out)
-        assert payload["count"] >= 1
-        result = payload["results"][0]
-        assert result["id"] == "aaaa-1111"
-        assert result["dir_name"] == "Smith-2023-Turbulence"
-        assert result["match"] in {"fts", "vec", "both"}
-        assert result["score"] is not None
-        assert "下一步" not in out
-
-
 class TestShowJson:
     def test_show_json_layer2_includes_metadata_and_abstract(self, tmp_papers, capsys):
         cfg = SimpleNamespace(papers_dir=tmp_papers, index_db=tmp_papers / "index.db")

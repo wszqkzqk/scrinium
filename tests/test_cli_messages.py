@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import os
 from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,7 +17,6 @@ from scrinium.cli import transfer as cli_transfer
 from scrinium.index import build_index
 from scrinium.ingest.mineru import ConvertResult
 from scrinium.setup import _S
-from scrinium.translate import TranslateResult
 
 
 class TestSetupImportHints:
@@ -38,12 +38,10 @@ class TestSetupImportHints:
 
 
 class TestSetupPromptTransparency:
-    def test_setup_prompts_explain_paid_vs_free_items(self):
-        zh_llm = _S["llm_key_prompt"]["zh"]
+    def test_setup_prompts_explain_free_items(self):
         zh_mineru = _S["mineru_key_prompt"]["zh"]
         zh_email = _S["email_prompt"]["zh"]
 
-        assert "单独计费" in zh_llm
         assert "免费" in zh_mineru
         assert "免费" in zh_email
 
@@ -336,7 +334,7 @@ class TestArxivCommands:
 
         cli.cmd_arxiv_fetch(args, cfg)
 
-        assert seen["steps"] == ["mineru", "extract", "dedup", "ingest", "embed", "index"]
+        assert seen["steps"] == ["mineru", "extract", "dedup", "ingest", "index"]
         assert seen["inbox_dir"] != cfg._root / "data" / "inbox"
         assert seen["opts"].include_aux_inboxes is False
         assert any("开始直接入库" in m for m in messages)
@@ -398,70 +396,12 @@ class TestFederatedArxivPresence:
         assert any("[已入库]" in m for m in messages)
 
 
-class TestTranslateCliProgress:
-    def test_cmd_translate_reports_portable_export_path(self, tmp_papers, monkeypatch):
-        messages: list[str] = []
-        monkeypatch.setattr(cli_transfer, "ui", messages.append)
-        monkeypatch.setattr(cli_transfer, "_resolve_paper", lambda paper_id, cfg: tmp_papers / paper_id)
-        monkeypatch.setattr(
-            "scrinium.translate.translate_paper",
-            lambda *args, **kwargs: TranslateResult(
-                path=(tmp_papers / "Smith-2023-Turbulence" / "paper_zh.md"),
-                portable_path=(
-                    tmp_papers.parent / "workspace" / "translation-ws" / "Smith-2023-Turbulence" / "paper_zh.md"
-                ),
-            ),
-        )
-
-        cfg = SimpleNamespace(
-            papers_dir=tmp_papers,
-            translate=SimpleNamespace(target_lang="zh"),
-            workspace_dir=tmp_papers.parent / "workspace",
-        )
-        args = Namespace(paper_id="Smith-2023-Turbulence", lang="zh", force=True, all=False, portable=True)
-
-        cli.cmd_translate(args, cfg)
-
-        assert any("翻译完成:" in m for m in messages)
-        assert any("可移植导出:" in m and "translation-ws" in m for m in messages)
-
-    def test_cmd_translate_reports_resumable_partial_progress(self, tmp_papers, monkeypatch):
-        messages: list[str] = []
-        monkeypatch.setattr(cli_transfer, "ui", messages.append)
-        monkeypatch.setattr(cli_transfer, "_resolve_paper", lambda paper_id, cfg: tmp_papers / paper_id)
-        monkeypatch.setattr(
-            "scrinium.translate.translate_paper",
-            lambda *args, **kwargs: TranslateResult(
-                path=(tmp_papers / "Smith-2023-Turbulence" / "paper_zh.md"),
-                partial=True,
-                completed_chunks=2,
-                total_chunks=5,
-            ),
-        )
-
-        cfg = SimpleNamespace(
-            papers_dir=tmp_papers,
-            translate=SimpleNamespace(target_lang="zh"),
-        )
-        args = Namespace(paper_id="Smith-2023-Turbulence", lang="zh", force=True, all=False, portable=False)
-
-        try:
-            cli.cmd_translate(args, cfg)
-        except SystemExit as exc:
-            assert exc.code == 1
-        else:
-            raise AssertionError("expected SystemExit")
-
-        assert any("已完成 2/5 块" in m for m in messages)
-        assert any("可稍后继续续翻" in m for m in messages)
-
-
 class TestEnrichTocCliProgress:
     def test_cmd_enrich_toc_reports_single_paper_success(self, tmp_papers, monkeypatch):
         messages: list[str] = []
         monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
-        def fake_enrich_toc(json_path, md_path, cfg, *, force=False, inspect=False):
+        def fake_enrich_toc(json_path, md_path, *, force=False):
             data = json.loads(json_path.read_text(encoding="utf-8"))
             data["toc"] = [{"line": 1, "level": 1, "title": "Introduction"}]
             json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -470,14 +410,31 @@ class TestEnrichTocCliProgress:
         monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
         cfg = SimpleNamespace(papers_dir=tmp_papers)
-        args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True, inspect=False)
+        args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True)
 
         cli.cmd_enrich_toc(args, cfg)
 
         assert any("开始提取 TOC" in m for m in messages)
         assert any("TOC 提取完成" in m and "1 节" in m for m in messages)
 
-    def test_cmd_enrich_toc_all_uses_llm_concurrency_budget(self, tmp_papers, monkeypatch):
+    def test_cmd_enrich_toc_single_paper_failure_emits_hint(self, tmp_papers, monkeypatch):
+        messages: list[str] = []
+        monkeypatch.setattr(cli_ingest, "ui", messages.append)
+        monkeypatch.setattr("scrinium.loader.enrich_toc", lambda *a, **k: False)
+
+        cfg = SimpleNamespace(papers_dir=tmp_papers)
+        args = Namespace(all=False, paper_id="Smith-2023-Turbulence", force=True)
+
+        cli.cmd_enrich_toc(args, cfg)
+
+        from scrinium.ingest.pipeline import HINT_TOC_MISS
+
+        assert any("TOC 提取失败" in m for m in messages)
+        hints = [m for m in messages if m.startswith("hint:")]
+        assert len(hints) == 1
+        assert HINT_TOC_MISS in hints[0]
+
+    def test_cmd_enrich_toc_all_uses_fixed_concurrency_budget(self, tmp_papers, monkeypatch):
         messages: list[str] = []
         monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
@@ -503,7 +460,7 @@ class TestEnrichTocCliProgress:
         monkeypatch.setattr(cli_ingest.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
         monkeypatch.setattr(cli_ingest.concurrent.futures, "as_completed", lambda futures: list(futures))
 
-        def fake_enrich_toc(json_path, md_path, cfg, *, force=False, inspect=False):
+        def fake_enrich_toc(json_path, md_path, *, force=False):
             data = json.loads(json_path.read_text(encoding="utf-8"))
             data["toc"] = [{"line": 1, "level": 1, "title": json_path.parent.name}]
             json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -511,12 +468,13 @@ class TestEnrichTocCliProgress:
 
         monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
-        cfg = SimpleNamespace(papers_dir=tmp_papers, llm=SimpleNamespace(concurrency=7))
-        args = Namespace(all=True, paper_id=None, force=True, inspect=False)
+        cfg = SimpleNamespace(papers_dir=tmp_papers)
+        args = Namespace(all=True, paper_id=None, force=True)
 
         cli.cmd_enrich_toc(args, cfg)
 
-        assert max_workers_seen == [2]
+        # Fixed budget: min(min(8, cpu_count), queued).
+        assert max_workers_seen == [min(min(8, os.cpu_count() or 1), 2)]
         assert submitted == [
             "Smith-2023-Turbulence",
             "Wang-2024-DeepLearning",
@@ -528,8 +486,8 @@ class TestEnrichTocCliProgress:
         assert any("完成: 2 成功 | 0 失败 | 0 跳过" in m for m in messages)
 
 
-class TestEnrichL3CliBatchRetries:
-    def test_cmd_enrich_l3_all_retries_failed_papers_with_backoff(self, tmp_papers, monkeypatch):
+class TestEnrichTocCliBatchRetries:
+    def test_cmd_enrich_toc_all_retries_failed_papers_with_backoff(self, tmp_papers, monkeypatch):
         messages: list[str] = []
         monkeypatch.setattr(cli_ingest, "ui", messages.append)
 
@@ -559,19 +517,22 @@ class TestEnrichL3CliBatchRetries:
         monkeypatch.setattr(cli_ingest.concurrent.futures, "ThreadPoolExecutor", FakeExecutor)
         monkeypatch.setattr(cli_ingest.concurrent.futures, "as_completed", lambda futures: list(futures))
 
-        def fake_enrich_l3(json_path, md_path, cfg, *, force=False, max_retries=2, inspect=False):
+        def fake_enrich_toc(json_path, md_path, *, force=False):
             name = json_path.parent.name
             attempts[name] = attempts.get(name, 0) + 1
             if name == "Smith-2023-Turbulence" and attempts[name] < 3:
                 raise TimeoutError("transient")
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            data["toc"] = [{"line": 1, "level": 1, "title": name}]
+            json_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             return True
 
-        monkeypatch.setattr("scrinium.loader.enrich_l3", fake_enrich_l3)
+        monkeypatch.setattr("scrinium.loader.enrich_toc", fake_enrich_toc)
 
-        cfg = SimpleNamespace(papers_dir=tmp_papers, llm=SimpleNamespace(concurrency=4))
-        args = Namespace(all=True, paper_id=None, force=True, inspect=False, max_retries=2)
+        cfg = SimpleNamespace(papers_dir=tmp_papers)
+        args = Namespace(all=True, paper_id=None, force=True)
 
-        cli.cmd_enrich_l3(args, cfg)
+        cli.cmd_enrich_toc(args, cfg)
 
         assert attempts == {
             "Smith-2023-Turbulence": 3,
@@ -581,8 +542,8 @@ class TestEnrichL3CliBatchRetries:
         assert any("Smith-2023-Turbulence" in m and "开始处理" in m for m in messages)
         assert any("Wang-2024-DeepLearning" in m and "开始处理" in m for m in messages)
         assert any("Smith-2023-Turbulence" in m and "重试后成功" in m for m in messages)
-        assert any("Smith-2023-Turbulence" in m and "结论提取完成" in m for m in messages)
-        assert any("Wang-2024-DeepLearning" in m and "结论提取完成" in m for m in messages)
+        assert any("Smith-2023-Turbulence" in m and "TOC 提取完成" in m for m in messages)
+        assert any("Wang-2024-DeepLearning" in m and "TOC 提取完成" in m for m in messages)
         assert any("完成: 2 成功 | 0 失败 | 0 跳过" in m for m in messages)
 
 
@@ -686,7 +647,6 @@ class TestAttachPdfFallback:
 
         monkeypatch.setattr(pdf_fallback, "convert_pdf_with_fallback", _fallback)
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
@@ -736,7 +696,6 @@ class TestAttachPdfFallback:
 
         monkeypatch.setattr(pdf_fallback, "convert_pdf_with_fallback", _fallback)
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
@@ -793,7 +752,6 @@ class TestAttachPdfFallback:
             ),
         )
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
         (paper_dir / "input.md").write_text("ok\n", encoding="utf-8")
 
@@ -843,7 +801,6 @@ class TestAttachPdfFallback:
 
         monkeypatch.setattr(mineru, "convert_pdf_cloud", fake_convert_pdf_cloud)
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
         (paper_dir / "input.md").write_text("ok\n", encoding="utf-8")
 
@@ -902,7 +859,6 @@ class TestAttachPdfFallback:
             ),
         )
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
@@ -960,7 +916,6 @@ class TestAttachPdfFallback:
             ),
         )
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
@@ -1016,7 +971,6 @@ class TestAttachPdfFallback:
 
         monkeypatch.setattr(mineru, "_convert_long_pdf_cloud", fake_convert_long)
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)
@@ -1077,7 +1031,6 @@ class TestAttachPdfFallback:
             )[1:],
         )
         monkeypatch.setattr("scrinium.papers.read_meta", lambda *_: {"abstract": "exists"})
-        monkeypatch.setattr("scrinium.ingest.pipeline.step_embed", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.pipeline.step_index", lambda *_: None)
 
         args = Namespace(paper_id="paper-1", pdf_path=str(src_pdf), dry_run=False)

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import logging
 
+import pytest
+
+import scrinium.config as config_mod
 from scrinium.config import _build_config, _deep_merge, _find_config_file, load_config
 
 
@@ -14,10 +17,10 @@ class TestDeepMerge:
         assert _deep_merge(base, override) == {"a": 1, "b": 99}
 
     def test_nested_merge(self):
-        base = {"llm": {"model": "gpt-4", "timeout": 30}}
-        override = {"llm": {"timeout": 60}}
+        base = {"search": {"top_k": 20, "timeout": 30}}
+        override = {"search": {"timeout": 60}}
         result = _deep_merge(base, override)
-        assert result == {"llm": {"model": "gpt-4", "timeout": 60}}
+        assert result == {"search": {"top_k": 20, "timeout": 60}}
 
     def test_add_new_keys(self):
         base = {"a": 1}
@@ -47,36 +50,17 @@ class TestDeepMerge:
 class TestBuildConfig:
     def test_empty_dict_uses_defaults(self, tmp_path):
         cfg = _build_config({}, tmp_path)
-        assert cfg.llm.model == "deepseek-chat"
-        assert cfg.llm.backend == "openai-compat"
         assert cfg.paths.papers_dir == "data/papers"
         assert cfg.search.top_k == 20
 
     def test_partial_override(self, tmp_path):
-        data = {"llm": {"model": "gpt-4o", "timeout": 60}}
+        data = {"search": {"top_k": 42}}
         cfg = _build_config(data, tmp_path)
-        assert cfg.llm.model == "gpt-4o"
-        assert cfg.llm.timeout == 60
-        assert cfg.llm.backend == "openai-compat"  # default preserved
-
-    def test_concurrency_min_1(self, tmp_path):
-        data = {"llm": {"concurrency": 0}}
-        cfg = _build_config(data, tmp_path)
-        assert cfg.llm.concurrency == 1
-
-    def test_concurrency_negative(self, tmp_path):
-        data = {"llm": {"concurrency": -5}}
-        cfg = _build_config(data, tmp_path)
-        assert cfg.llm.concurrency == 1
-
-    def test_api_key_none_becomes_empty(self, tmp_path):
-        data = {"llm": {"api_key": None}}
-        cfg = _build_config(data, tmp_path)
-        assert cfg.llm.api_key == ""
+        assert cfg.search.top_k == 42
+        assert cfg.paths.papers_dir == "data/papers"  # default preserved
 
     def test_ingest_defaults(self, tmp_path):
         cfg = _build_config({}, tmp_path)
-        assert cfg.ingest.extractor == "robust"
         assert cfg.ingest.chunk_page_limit == 100
         assert cfg.ingest.mineru_batch_size == 20
         assert cfg.ingest.mineru_upload_workers == 4
@@ -141,22 +125,15 @@ class TestBuildConfig:
         assert cfg.ingest.pdf_fallback_auto_detect is True
 
     def test_null_sections_handled(self, tmp_path):
-        data = {"llm": None, "paths": None}
+        data = {"paths": None, "search": None}
         cfg = _build_config(data, tmp_path)
-        assert cfg.llm.model == "deepseek-chat"
         assert cfg.paths.papers_dir == "data/papers"
+        assert cfg.search.top_k == 20
 
     def test_zotero_library_id_coerced_to_str(self, tmp_path):
         data = {"zotero": {"library_id": 12345}}
         cfg = _build_config(data, tmp_path)
         assert cfg.zotero.library_id == "12345"
-
-    def test_translate_defaults_are_exposed(self, tmp_path):
-        cfg = _build_config({}, tmp_path)
-        assert cfg.translate.auto_translate is False
-        assert cfg.translate.target_lang == "zh"
-        assert cfg.translate.chunk_size == 4000
-        assert cfg.translate.concurrency == 20
 
     def test_zotero_library_type_default_and_override(self, tmp_path):
         cfg = _build_config({}, tmp_path)
@@ -207,90 +184,50 @@ class TestBuildConfig:
         cfg = _build_config({"ingest": {"mineru_batch_size": 0}}, tmp_path)
         assert cfg.ingest.mineru_batch_size == 20
 
-    def test_embed_env_vars_override_yaml(self, tmp_path, monkeypatch):
-        data = {
-            "embed": {
-                "provider": "local",
-                "source": "modelscope",
-                "cache_dir": "/yaml-cache",
-                "model": "yaml-model",
-                "api_base": "https://yaml-embed.example/v1",
-            }
-        }
-        monkeypatch.setenv("SCRINIUM_EMBED_PROVIDER", "openai-compat")
-        monkeypatch.setenv("SCRINIUM_EMBED_SOURCE", "huggingface")
-        monkeypatch.setenv("SCRINIUM_EMBED_CACHE_DIR", "/env-cache")
-        monkeypatch.setenv("SCRINIUM_EMBED_MODEL", "env-model")
-        monkeypatch.setenv("SCRINIUM_EMBED_API_BASE", "https://env-embed.example/v1")
-        cfg = _build_config(data, tmp_path)
-        assert cfg.embed.provider == "openai-compat"
-        assert cfg.embed.source == "huggingface"
-        assert cfg.embed.cache_dir == "/env-cache"
-        assert cfg.embed.model == "env-model"
-        assert cfg.embed.api_base == "https://env-embed.example/v1"
 
-    def test_scrinium_hf_endpoint_wins_over_hf_endpoint(self, tmp_path, monkeypatch):
-        data = {"embed": {"hf_endpoint": "https://yaml-mirror.example"}}
-        monkeypatch.setenv("SCRINIUM_HF_ENDPOINT", "https://scrinium-mirror.example")
-        monkeypatch.setenv("HF_ENDPOINT", "https://generic-mirror.example")
-        cfg = _build_config(data, tmp_path)
-        assert cfg.embed.hf_endpoint == "https://scrinium-mirror.example"
+class TestDeprecatedSections:
+    """Removed llm/translate/embed/topics sections warn once and are ignored."""
 
-    def test_empty_embed_env_vars_do_not_override_yaml(self, tmp_path, monkeypatch):
-        data = {
-            "embed": {
-                "provider": "local",
-                "source": "huggingface",
-                "cache_dir": "/yaml-cache",
-                "model": "yaml-model",
-                "hf_endpoint": "https://yaml-mirror.example",
-                "api_base": "https://yaml-embed.example/v1",
-            }
-        }
-        monkeypatch.setenv("SCRINIUM_EMBED_PROVIDER", "")
-        monkeypatch.setenv("SCRINIUM_EMBED_SOURCE", "")
-        monkeypatch.setenv("SCRINIUM_EMBED_CACHE_DIR", "")
-        monkeypatch.setenv("SCRINIUM_EMBED_MODEL", "")
-        monkeypatch.setenv("SCRINIUM_EMBED_API_BASE", "")
-        monkeypatch.setenv("SCRINIUM_HF_ENDPOINT", "")
-        monkeypatch.setenv("HF_ENDPOINT", "")
-        cfg = _build_config(data, tmp_path)
-        assert cfg.embed.provider == "local"
-        assert cfg.embed.source == "huggingface"
-        assert cfg.embed.cache_dir == "/yaml-cache"
-        assert cfg.embed.model == "yaml-model"
-        assert cfg.embed.hf_endpoint == "https://yaml-mirror.example"
-        assert cfg.embed.api_base == "https://yaml-embed.example/v1"
+    @pytest.fixture(autouse=True)
+    def _reset_warned(self):
+        config_mod._warned_deprecated.clear()
+        yield
+        config_mod._warned_deprecated.clear()
 
-    def test_embed_provider_defaults_to_local(self, tmp_path):
-        cfg = _build_config({}, tmp_path)
-        assert cfg.embed.provider == "local"
+    def test_llm_section_warns_and_is_ignored(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING, logger="scrinium.config"):
+            cfg = _build_config({"llm": {"model": "gpt-4"}}, tmp_path)
+        assert "config section 'llm' is deprecated and ignored" in caplog.text
+        assert not hasattr(cfg, "llm")
 
-    def test_embed_provider_valid_choices_pass_through(self, tmp_path):
-        for provider in ("local", "openai-compat", "none"):
-            cfg = _build_config({"embed": {"provider": provider}}, tmp_path)
-            assert cfg.embed.provider == provider
+    def test_all_four_sections_warn(self, tmp_path, caplog):
+        data = {"llm": {}, "translate": {}, "embed": {}, "topics": {}}
+        with caplog.at_level(logging.WARNING, logger="scrinium.config"):
+            _build_config(data, tmp_path)
+        for section in ("llm", "translate", "embed", "topics"):
+            assert f"config section {section!r} is deprecated and ignored" in caplog.text
 
-    def test_embed_provider_invalid_falls_back_to_local(self, tmp_path, caplog):
-        with caplog.at_level(logging.WARNING):
-            cfg = _build_config({"embed": {"provider": "bedrock"}}, tmp_path)
-        assert cfg.embed.provider == "local"
-        assert "embed.provider" in caplog.text
+    def test_warning_is_one_time(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING, logger="scrinium.config"):
+            _build_config({"llm": {}}, tmp_path)
+            _build_config({"llm": {}}, tmp_path)
+        assert caplog.text.count("config section 'llm' is deprecated") == 1
 
-    def test_embed_provider_is_case_insensitive(self, tmp_path):
-        cfg = _build_config({"embed": {"provider": "None"}}, tmp_path)
-        assert cfg.embed.provider == "none"
+    def test_non_regex_extractor_warns_and_is_ignored(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING, logger="scrinium.config"):
+            cfg = _build_config({"ingest": {"extractor": "robust"}}, tmp_path)
+        assert "config ingest.extractor='robust' is deprecated and ignored" in caplog.text
+        assert not hasattr(cfg.ingest, "extractor")
 
-    def test_embed_provider_invalid_env_var_falls_back_to_local(self, tmp_path, monkeypatch, caplog):
-        monkeypatch.setenv("SCRINIUM_EMBED_PROVIDER", "bogus")
-        with caplog.at_level(logging.WARNING):
-            cfg = _build_config({"embed": {"provider": "none"}}, tmp_path)
-        assert cfg.embed.provider == "local"
-        assert "embed.provider" in caplog.text
+    def test_regex_extractor_does_not_warn(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING, logger="scrinium.config"):
+            _build_config({"ingest": {"extractor": "regex"}}, tmp_path)
+        assert "ingest.extractor" not in caplog.text
 
-    def test_embed_batch_size_min_1(self, tmp_path):
-        cfg = _build_config({"embed": {"batch_size": 0}}, tmp_path)
-        assert cfg.embed.batch_size == 1
+    def test_no_warning_without_deprecated_keys(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING, logger="scrinium.config"):
+            _build_config({"search": {"top_k": 5}}, tmp_path)
+        assert "deprecated" not in caplog.text
 
 
 class TestConfigProperties:
@@ -311,10 +248,6 @@ class TestConfigProperties:
     def test_metrics_db_path(self, tmp_path):
         cfg = _build_config({}, tmp_path)
         assert cfg.metrics_db_path == (tmp_path / "data" / "metrics.db").resolve()
-
-    def test_topics_model_dir(self, tmp_path):
-        cfg = _build_config({}, tmp_path)
-        assert cfg.topics_model_dir == (tmp_path / "data" / "topic_model").resolve()
 
 
 class TestEnsureDirs:
@@ -337,41 +270,6 @@ class TestEnsureDirs:
 
 
 class TestResolvedApiKey:
-    def test_config_key_wins(self, tmp_path, monkeypatch):
-        data = {"llm": {"api_key": "from-config"}}
-        cfg = _build_config(data, tmp_path)
-        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "from-env")
-        assert cfg.resolved_api_key() == "from-config"
-
-    def test_generic_env_var(self, tmp_path, monkeypatch):
-        cfg = _build_config({}, tmp_path)
-        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "generic-key")
-        assert cfg.resolved_api_key() == "generic-key"
-
-    def test_backend_specific_env_openai(self, tmp_path, monkeypatch):
-        cfg = _build_config({"llm": {"backend": "openai-compat"}}, tmp_path)
-        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
-        monkeypatch.setenv("DEEPSEEK_API_KEY", "dsk-123")
-        assert cfg.resolved_api_key() == "dsk-123"
-
-    def test_backend_specific_env_anthropic(self, tmp_path, monkeypatch):
-        cfg = _build_config({"llm": {"backend": "anthropic"}}, tmp_path)
-        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "ant-key")
-        assert cfg.resolved_api_key() == "ant-key"
-
-    def test_backend_specific_env_google(self, tmp_path, monkeypatch):
-        cfg = _build_config({"llm": {"backend": "google"}}, tmp_path)
-        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
-        monkeypatch.setenv("GOOGLE_API_KEY", "goog-key")
-        assert cfg.resolved_api_key() == "goog-key"
-
-    def test_no_key_returns_empty(self, tmp_path, monkeypatch):
-        cfg = _build_config({}, tmp_path)
-        for v in ("SCRINIUM_LLM_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY"):
-            monkeypatch.delenv(v, raising=False)
-        assert cfg.resolved_api_key() == ""
-
     def test_mineru_key_from_config(self, tmp_path):
         cfg = _build_config({"ingest": {"mineru_api_key": "mu-key"}}, tmp_path)
         assert cfg.resolved_mineru_api_key() == "mu-key"
@@ -406,51 +304,35 @@ class TestResolvedApiKey:
         monkeypatch.delenv("S2_API_KEY", raising=False)
         assert cfg.resolved_s2_api_key() == ""
 
-    def test_embed_key_from_embed_config(self, tmp_path):
-        cfg = _build_config({"embed": {"api_key": "embed-key"}}, tmp_path)
-        assert cfg.resolved_embed_api_key() == "embed-key"
-
-    def test_embed_key_prefers_embed_env(self, tmp_path, monkeypatch):
-        cfg = _build_config({}, tmp_path)
-        monkeypatch.setenv("SCRINIUM_EMBED_API_KEY", "embed-env")
-        assert cfg.resolved_embed_api_key() == "embed-env"
-
-    def test_embed_key_falls_back_to_llm(self, tmp_path, monkeypatch):
-        cfg = _build_config({}, tmp_path)
-        monkeypatch.delenv("SCRINIUM_EMBED_API_KEY", raising=False)
-        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "llm-env")
-        assert cfg.resolved_embed_api_key() == "llm-env"
-
 
 class TestLoadConfig:
     def test_load_from_explicit_path(self, tmp_path):
         cfg_file = tmp_path / "config.yaml"
-        cfg_file.write_text("llm:\n  model: test-model\n", encoding="utf-8")
+        cfg_file.write_text("search:\n  top_k: 42\n", encoding="utf-8")
         cfg = load_config(cfg_file)
-        assert cfg.llm.model == "test-model"
+        assert cfg.search.top_k == 42
 
     def test_local_yaml_overrides(self, tmp_path):
         (tmp_path / "config.yaml").write_text(
-            "llm:\n  model: base-model\n  timeout: 30\n",
+            "search:\n  top_k: 30\n",
             encoding="utf-8",
         )
         (tmp_path / "config.local.yaml").write_text(
-            "llm:\n  model: local-model\n",
+            "search:\n  top_k: 41\n",
             encoding="utf-8",
         )
         cfg = load_config(tmp_path / "config.yaml")
-        assert cfg.llm.model == "local-model"
-        assert cfg.llm.timeout == 30  # preserved from base
+        assert cfg.search.top_k == 41
 
     def test_nonexistent_path_uses_defaults(self, tmp_path):
         cfg = load_config(tmp_path / "nonexistent.yaml")
-        assert cfg.llm.model == "deepseek-chat"
+        assert cfg.search.top_k == 20
 
     def test_empty_yaml(self, tmp_path):
         cfg_file = tmp_path / "config.yaml"
         cfg_file.write_text("", encoding="utf-8")
         cfg = load_config(cfg_file)
-        assert cfg.llm.model == "deepseek-chat"
+        assert cfg.search.top_k == 20
 
     def test_env_var_config_path(self, tmp_path, monkeypatch):
         cfg_file = tmp_path / "custom.yaml"
@@ -462,63 +344,6 @@ class TestLoadConfig:
 
 class TestLegacyEnvFallback:
     """Deprecated SCHOLARAIO_* env vars still work after the fork rename."""
-
-    def test_legacy_llm_api_key_fallback(self, tmp_path, monkeypatch, caplog):
-        cfg = _build_config({}, tmp_path)
-        monkeypatch.delenv("SCRINIUM_LLM_API_KEY", raising=False)
-        monkeypatch.setenv("SCHOLARAIO_LLM_API_KEY", "legacy-key")
-        with caplog.at_level(logging.WARNING):
-            assert cfg.resolved_api_key() == "legacy-key"
-        assert "SCHOLARAIO_LLM_API_KEY is deprecated" in caplog.text
-
-    def test_new_llm_api_key_wins_over_legacy(self, tmp_path, monkeypatch):
-        cfg = _build_config({}, tmp_path)
-        monkeypatch.setenv("SCRINIUM_LLM_API_KEY", "new-key")
-        monkeypatch.setenv("SCHOLARAIO_LLM_API_KEY", "legacy-key")
-        assert cfg.resolved_api_key() == "new-key"
-
-    def test_legacy_embed_api_key_fallback(self, tmp_path, monkeypatch):
-        cfg = _build_config({}, tmp_path)
-        monkeypatch.delenv("SCRINIUM_EMBED_API_KEY", raising=False)
-        monkeypatch.setenv("SCHOLARAIO_EMBED_API_KEY", "legacy-embed")
-        assert cfg.resolved_embed_api_key() == "legacy-embed"
-
-    def test_legacy_embed_env_vars_override_yaml(self, tmp_path, monkeypatch):
-        data = {
-            "embed": {
-                "provider": "local",
-                "source": "modelscope",
-                "cache_dir": "/yaml-cache",
-                "model": "yaml-model",
-                "api_base": "https://yaml-embed.example/v1",
-            }
-        }
-        for v in (
-            "SCRINIUM_EMBED_PROVIDER",
-            "SCRINIUM_EMBED_SOURCE",
-            "SCRINIUM_EMBED_CACHE_DIR",
-            "SCRINIUM_EMBED_MODEL",
-            "SCRINIUM_EMBED_API_BASE",
-        ):
-            monkeypatch.delenv(v, raising=False)
-        monkeypatch.setenv("SCHOLARAIO_EMBED_PROVIDER", "openai-compat")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_SOURCE", "huggingface")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_CACHE_DIR", "/legacy-cache")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_MODEL", "legacy-model")
-        monkeypatch.setenv("SCHOLARAIO_EMBED_API_BASE", "https://legacy-embed.example/v1")
-        cfg = _build_config(data, tmp_path)
-        assert cfg.embed.provider == "openai-compat"
-        assert cfg.embed.source == "huggingface"
-        assert cfg.embed.cache_dir == "/legacy-cache"
-        assert cfg.embed.model == "legacy-model"
-        assert cfg.embed.api_base == "https://legacy-embed.example/v1"
-
-    def test_legacy_hf_endpoint_fallback(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("SCRINIUM_HF_ENDPOINT", raising=False)
-        monkeypatch.delenv("HF_ENDPOINT", raising=False)
-        monkeypatch.setenv("SCHOLARAIO_HF_ENDPOINT", "https://legacy-mirror.example")
-        cfg = _build_config({}, tmp_path)
-        assert cfg.embed.hf_endpoint == "https://legacy-mirror.example"
 
     def test_legacy_config_env_var_fallback(self, tmp_path, monkeypatch):
         cfg_file = tmp_path / "custom.yaml"

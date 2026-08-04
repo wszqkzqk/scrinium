@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from scrinium.index import build_index, lookup_paper, search, unified_search
+from scrinium.index import _SCHEMA_VERSION, build_index, lookup_paper, search
 
 
 class TestBuildAndSearch:
@@ -113,18 +113,57 @@ class TestBuildAndSearch:
             ).fetchall()
         assert [row[0] for row in rows] == ["10.1000/classic", "10.1000/second"]
 
-    def test_unified_search_degrades_to_fts_when_vector_search_runtime_fails(self, tmp_papers, tmp_db, monkeypatch):
+
+class TestSchemaV2Migration:
+    """v1 → v2 migration drops legacy embedding storage and is idempotent."""
+
+    @staticmethod
+    def _create_v1_db(db_path):
+        """Build a v1 index DB that still carries vector tables + FAISS files."""
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE papers (paper_id TEXT, title TEXT)")
+        conn.execute("CREATE TABLE papers_hash (paper_id TEXT PRIMARY KEY, content_hash TEXT NOT NULL)")
+        conn.execute("CREATE TABLE paper_vectors (paper_id TEXT PRIMARY KEY, vector BLOB)")
+        conn.execute("CREATE TABLE vector_metadata (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("INSERT INTO paper_vectors VALUES ('p1', X'00')")
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.close()
+        (db_path.parent / "faiss.index").write_bytes(b"fake")
+        (db_path.parent / "faiss_ids.json").write_text("[]", encoding="utf-8")
+
+    @staticmethod
+    def _table_names(db_path):
+        with sqlite3.connect(db_path) as conn:
+            rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+        return {row[0] for row in rows}
+
+    def test_migration_drops_vector_storage(self, tmp_papers, tmp_db):
+        self._create_v1_db(tmp_db)
         build_index(tmp_papers, tmp_db)
 
-        def boom(*_args, **_kwargs):
-            raise RuntimeError("proxy unavailable")
+        tables = self._table_names(tmp_db)
+        assert "paper_vectors" not in tables
+        assert "vector_metadata" not in tables
+        assert not (tmp_db.parent / "faiss.index").exists()
+        assert not (tmp_db.parent / "faiss_ids.json").exists()
+        with sqlite3.connect(tmp_db) as conn:
+            assert conn.execute("PRAGMA user_version").fetchone()[0] == _SCHEMA_VERSION
 
-        monkeypatch.setattr("scrinium.vectors.vsearch", boom)
-
-        results = unified_search("turbulence", tmp_db)
-
+    def test_migration_is_idempotent(self, tmp_papers, tmp_db):
+        self._create_v1_db(tmp_db)
+        build_index(tmp_papers, tmp_db)
+        # Second build sees user_version == _SCHEMA_VERSION: no migration, no error.
+        build_index(tmp_papers, tmp_db)
+        assert "paper_vectors" not in self._table_names(tmp_db)
+        results = search("turbulence", tmp_db)
         assert len(results) >= 1
-        assert all(r["match"] == "fts" for r in results)
+
+    def test_fresh_db_has_no_vector_tables(self, tmp_papers, tmp_db):
+        build_index(tmp_papers, tmp_db)
+        tables = self._table_names(tmp_db)
+        assert "paper_vectors" not in tables
+        assert "vector_metadata" not in tables
 
 
 class TestLookupPaper:

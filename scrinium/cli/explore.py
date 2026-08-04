@@ -8,7 +8,7 @@ import sys
 
 from scrinium.log import ui
 
-from .common import _check_import_error, _resolve_top, _write_all_viz
+from .common import _resolve_top
 
 _log = logging.getLogger(__package__)
 
@@ -54,113 +54,12 @@ def cmd_explore(args: argparse.Namespace, cfg) -> None:
         )
         ui(f"\n已抓取 {total} 篇论文")
 
-    elif action == "embed":
-        try:
-            from scrinium.explore import build_explore_vectors
-        except ImportError as e:
-            _check_import_error(e)
-        n = build_explore_vectors(args.name, rebuild=args.rebuild, cfg=cfg)
-        provider = (getattr(cfg.embed, "provider", "local") or "local").strip().lower()
-        if provider == "none":
-            ui("当前 embed.provider=none：探索库跳过向量生成，仅保留关键词检索。")
-            return
-        ui(f"完成: 新增 {n} 条向量嵌入")
-
-    elif action == "topics":
-        try:
-            from scrinium.explore import _explore_dir, build_explore_topics
-        except ImportError as e:
-            _check_import_error(e)
-        try:
-            from scrinium.topics import get_topic_overview, get_topic_papers, load_model
-        except ImportError as e:
-            _check_import_error(e)
-
-        model_dir = _explore_dir(args.name, cfg) / "topic_model"
-
-        if args.build or args.rebuild:
-            nr_topics = args.nr_topics
-            info = build_explore_topics(
-                args.name,
-                rebuild=args.rebuild,
-                min_topic_size=args.min_topic_size or 30,
-                nr_topics=nr_topics,
-                cfg=cfg,
-            )
-            ui(f"\n聚类完成: {info['n_topics']} 个主题，{info['n_outliers']} 篇离群论文，{info['n_papers']} 篇论文")
-
-        try:
-            model = load_model(model_dir)
-        except FileNotFoundError:
-            ui("尚未构建主题模型。请先运行 scrinium explore topics --name <name> --build。")
-            return
-
-        if args.topic is not None:
-            papers = get_topic_papers(model, args.topic)
-            top_n = _resolve_top(args, 20)
-            papers = papers[:top_n]
-            ui(f"主题 {args.topic}: {len(papers)} 篇论文\n")
-            for i, p in enumerate(papers, 1):
-                cc = p.get("citation_count", {})
-                best = max((v for v in (cc or {}).values() if isinstance(v, int | float)), default=0)
-                cite_str = f"  [被引: {best}]" if best else ""
-                authors = p.get("authors", "")
-                first_author = authors.split(",")[0].strip() if authors else ""
-                title = p.get("title", "")
-                if len(title) > 70:
-                    title = title[:67] + "..."
-                ui(f"  {i:3d}. [{p.get('year', '?')}] {title}")
-                ui(f"       {first_author} | {p.get('paper_id', '')}{cite_str}")
-            return
-
-        overview = get_topic_overview(model)
-        if not overview:
-            ui("没有可用主题。请先运行 scrinium explore topics --name <name> --build。")
-            return
-        from scrinium.topics import get_outliers
-
-        outliers = get_outliers(model)
-        total = sum(t["count"] for t in overview) + len(outliers)
-        ui(f"\n{len(overview)} 个主题，{total} 篇论文，{len(outliers)} 篇离群论文\n")
-        for t in overview:
-            kw = ", ".join(t["keywords"][:6])
-            ui(f"主题 {t['topic_id']:2d}（{t['count']:3d} 篇）: {kw}")
-            for p in t["representative_papers"][:3]:
-                title = p.get("title", "")
-                if len(title) > 65:
-                    title = title[:62] + "..."
-                cc = p.get("citation_count", {})
-                best = max((v for v in (cc or {}).values() if isinstance(v, int | float)), default=0)
-                cite_str = f"  [被引: {best}]" if best else ""
-                ui(f"    [{p.get('year', '?')}] {title}{cite_str}")
-            ui()
-
     elif action == "search":
         query = " ".join(args.query)
-        mode = getattr(args, "mode", "semantic") or "semantic"
         top_k = _resolve_top(args, 10)
-        if mode == "keyword":
-            from scrinium.explore import explore_search
+        from scrinium.explore import explore_search
 
-            results = explore_search(args.name, query, top_k=top_k, cfg=cfg)
-        elif mode in ("hybrid", "unified"):
-            try:
-                from scrinium.explore import explore_unified_search
-            except ImportError as e:
-                _check_import_error(e)
-            results = explore_unified_search(args.name, query, top_k=top_k, cfg=cfg)
-        else:
-            try:
-                from scrinium.explore import explore_vsearch
-            except ImportError as e:
-                _check_import_error(e)
-            try:
-                results = explore_vsearch(args.name, query, top_k=top_k, cfg=cfg)
-            except FileNotFoundError as e:
-                # Empty/missing vector index or embed.provider=none: clean exit,
-                # same contract as the main-library `vsearch` command.
-                _log.error("%s", e)
-                sys.exit(1)
+        results = explore_search(args.name, query, top_k=top_k, cfg=cfg)
         if not results:
             ui("未找到结果。")
             return
@@ -172,20 +71,6 @@ def cmd_explore(args: argparse.Namespace, cfg) -> None:
             ui(f"[{i}] [{r.get('year', '?')}] {r.get('title', '')}")
             ui(f"     {first} | {r.get('doi', '')}  (分数: {r['score']:.3f}){cite_str}")
             ui()
-
-    elif action == "viz":
-        try:
-            from scrinium.explore import _explore_dir
-            from scrinium.topics import load_model
-        except ImportError as e:
-            _check_import_error(e)
-        model_dir = _explore_dir(args.name, cfg) / "topic_model"
-        try:
-            model = load_model(model_dir)
-        except FileNotFoundError:
-            ui("尚未构建主题模型。请先运行 scrinium explore topics --name <name> --build。")
-            return
-        _write_all_viz(model, model_dir / "viz")
 
     elif action == "list":
         import json as _json
@@ -267,7 +152,7 @@ def cmd_explore(args: argparse.Namespace, cfg) -> None:
 def register(sub) -> None:
     """Register explore-domain subcommands."""
     # --- explore ---
-    p_explore = sub.add_parser("explore", help="多维文献探索（OpenAlex 拉取 + 嵌入 + 聚类）")
+    p_explore = sub.add_parser("explore", help="多维文献探索（OpenAlex 拉取 + 关键词检索）")
     p_explore.set_defaults(func=cmd_explore)
     p_explore_sub = p_explore.add_subparsers(dest="explore_action", required=True)
 
@@ -286,32 +171,10 @@ def register(sub) -> None:
     p_ef.add_argument("--incremental", action="store_true", help="增量更新（追加新论文）")
     p_ef.add_argument("--limit", type=int, default=None, help="最多拉取的论文数量上限（不设则无限）")
 
-    p_ee = p_explore_sub.add_parser("embed", help="为探索库生成语义向量")
-    p_ee.add_argument("--name", required=True, help="探索库名称")
-    p_ee.add_argument("--rebuild", action="store_true", help="清空后重建")
-
-    p_et = p_explore_sub.add_parser("topics", help="探索库主题建模")
-    p_et.add_argument("--name", required=True, help="探索库名称")
-    p_et.add_argument("--build", action="store_true", help="构建主题模型")
-    p_et.add_argument("--rebuild", action="store_true", help="重建主题模型")
-    p_et.add_argument("--topic", type=int, default=None, help="查看指定主题的论文")
-    p_et.add_argument("--top", type=int, default=None, help="返回条数")
-    p_et.add_argument("--min-topic-size", type=int, default=None, help="最小聚类大小（默认 30）")
-    p_et.add_argument("--nr-topics", type=int, default=None, help="目标主题数（默认自然聚类）")
-
-    p_es = p_explore_sub.add_parser("search", help="探索库搜索（语义/关键词/融合）")
+    p_es = p_explore_sub.add_parser("search", help="探索库关键词搜索")
     p_es.add_argument("--name", required=True, help="探索库名称")
     p_es.add_argument("query", nargs="+", help="查询文本")
     p_es.add_argument("--top", type=int, default=None, help="返回条数")
-    p_es.add_argument(
-        "--mode",
-        choices=["semantic", "keyword", "hybrid", "unified"],
-        default="semantic",
-        help="搜索模式：semantic（默认）/ keyword / hybrid（关键词+语义融合，unified 为其等价别名）",
-    )
-
-    p_ev = p_explore_sub.add_parser("viz", help="生成全部可视化（HTML）")
-    p_ev.add_argument("--name", required=True, help="探索库名称")
 
     p_el = p_explore_sub.add_parser("list", help="列出所有探索库")
 

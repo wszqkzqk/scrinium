@@ -4,17 +4,8 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
-
-
-class VectorIndexNotReady(Exception):
-    """Vector index missing or empty; the fix is running `scrinium embed`."""
-
-
-class EmbeddingBackendUnavailable(Exception):
-    """Query embedding failed (model not downloaded or backend unreachable)."""
-
 
 STOPWORDS = {
     "a",
@@ -142,84 +133,6 @@ def recent_unique_read_names(read_events: list[dict], *, limit: int = 5) -> list
         if len(names) >= limit:
             break
     return names
-
-
-def recommend_unread_neighbors(
-    store,
-    cfg,
-    *,
-    recent_days: int = 7,
-    recent_limit: int = 5,
-    top_k: int = 5,
-) -> list[tuple[str, str, float]]:
-    """Recommend semantically similar unread papers from recent reading behavior."""
-    recent_since = (datetime.now(timezone.utc) - timedelta(days=recent_days)).isoformat()
-    recent_reads = store.query(category="read", since=recent_since, limit=500)
-    recent_paper_ids = recent_unique_read_names(recent_reads, limit=recent_limit)
-    if not recent_paper_ids:
-        return []
-
-    all_read_pids = store.query_distinct_names("read")
-
-    try:
-        from scrinium.vectors import vsearch
-    except ImportError:
-        raise
-
-    candidate_scores: dict[str, float] = {}
-    attempted = False
-    succeeded = False
-    first_error: Exception | None = None
-    for pid in recent_paper_ids:
-        meta_path = cfg.papers_dir / pid / "meta.json"
-        if not meta_path.exists():
-            continue
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        title = meta.get("title", "")
-        abstract = meta.get("abstract", "")
-        query_text = f"{title}\n{abstract}".strip()
-        if not query_text:
-            continue
-        attempted = True
-        try:
-            neighbors = vsearch(query_text, cfg.index_db, top_k=10, cfg=cfg)
-        except ImportError:
-            raise
-        except Exception as exc:
-            if first_error is None:
-                first_error = exc
-            continue
-        succeeded = True
-        for row in neighbors:
-            neighbor_pid = row.get("dir_name") or row.get("paper_id", "")
-            if not neighbor_pid or neighbor_pid in all_read_pids:
-                continue
-            score = row.get("score", 0.0)
-            if neighbor_pid not in candidate_scores or candidate_scores[neighbor_pid] < score:
-                candidate_scores[neighbor_pid] = score
-
-    if attempted and not succeeded and first_error is not None:
-        # Every vsearch call failed: classify the cause so the CLI can point at
-        # the real fix instead of blaming a missing index by default.
-        if isinstance(first_error, FileNotFoundError):
-            raise VectorIndexNotReady(str(first_error)) from first_error
-        raise EmbeddingBackendUnavailable(f"{type(first_error).__name__}: {first_error}") from first_error
-
-    recommendations: list[tuple[str, str, float]] = []
-    for pid, score in sorted(candidate_scores.items(), key=lambda item: -item[1])[:top_k]:
-        title = ""
-        meta_path = cfg.papers_dir / pid / "meta.json"
-        if meta_path.exists():
-            try:
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
-                title = meta.get("title", "")
-            except Exception:
-                pass
-        recommendations.append((pid, title or pid, score))
-    return recommendations
 
 
 def list_workspace_counts(ws_root: Path) -> list[tuple[str, int]]:

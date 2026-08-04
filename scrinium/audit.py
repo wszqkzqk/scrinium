@@ -10,6 +10,7 @@ audit.py — 已入库论文数据质量审计
   - 配对完整性（目录内 meta.json / paper.md 是否齐全）
   - 文件名规范性（目录名不符合 Author-Year-Title 格式）
   - DOI 重复检测
+  - arXiv DOI 与 arxiv_id 配对（缺失时预印本去重会漏）
   - MD 内容过短（可能转换失败）
   - JSON title 与 MD 首个 H1 不一致
   - 策展标签缺失（untagged，所有 paper_type 均提示）
@@ -88,6 +89,10 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
         if doi:
             doi_map.setdefault(doi, []).append(pid)
 
+        # -- arXiv id backfill check (preprint dedup relies on it) --
+        if "10.48550/arxiv." in doi and not (data.get("arxiv_id") or (data.get("ids") or {}).get("arxiv")):
+            issues.append(Issue(pid, "warning", "arxiv_id_missing", "有 arXiv DOI 但缺 arxiv_id，预印本去重不会命中"))
+
     # DOI duplicates
     for doi, pids in doi_map.items():
         if len(pids) > 1:
@@ -103,7 +108,7 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
 
 def _check_missing(issues: list[Issue], pid: str, data: dict) -> None:
     """Check for missing critical fields."""
-    from scrinium.ingest.metadata._doc_extract import DOCUMENT_TYPES
+    from scrinium.ingest.metadata._models import DOCUMENT_TYPES
 
     paper_type = data.get("paper_type", "")
     if not data.get("doi") and paper_type not in DOCUMENT_TYPES:
@@ -119,7 +124,7 @@ def _check_missing(issues: list[Issue], pid: str, data: dict) -> None:
     if not data.get("title"):
         issues.append(Issue(pid, "error", "missing_title", "缺少标题"))
     if not data.get("tags"):
-        issues.append(Issue(pid, "info", "untagged", "未打策展标签；可运行 curate 流程或 scrinium tag 补充"))
+        issues.append(Issue(pid, "info", "untagged", "未打策展标签"))
 
 
 def _check_content_consistency(
@@ -187,6 +192,9 @@ def _check_filename(issues: list[Issue], pid: str, data: dict) -> None:
 def format_report(issues: list[Issue]) -> str:
     """将审计结果格式化为可读报告。
 
+    问题条目附修复建议（handoff hint），指向 agent 修复工作流：
+    框架只诊断，修复由 agent/subagent 读原文核对后直改 meta.json 完成。
+
     Args:
         issues: :func:`audit_papers` 返回的问题列表。
 
@@ -209,6 +217,9 @@ def format_report(issues: list[Issue]) -> str:
         for i in errors:
             lines.append(f"  [{i.rule}] {i.paper_id}")
             lines.append(f"    {i.message}")
+            hint = _RULE_HINTS.get(i.rule)
+            if hint:
+                lines.append(f"    hint: {hint}")
 
     if warnings:
         lines.append("")
@@ -218,6 +229,9 @@ def format_report(issues: list[Issue]) -> str:
         for i in warnings:
             lines.append(f"  [{i.rule}] {i.paper_id}")
             lines.append(f"    {i.message}")
+            hint = _RULE_HINTS.get(i.rule)
+            if hint:
+                lines.append(f"    hint: {hint}")
 
     if infos:
         lines.append("")
@@ -227,5 +241,33 @@ def format_report(issues: list[Issue]) -> str:
         for i in infos:
             lines.append(f"  [{i.rule}] {i.paper_id}")
             lines.append(f"    {i.message}")
+            hint = _RULE_HINTS.get(i.rule)
+            if hint:
+                lines.append(f"    hint: {hint}")
 
+    lines.append("")
+    lines.append(
+        "hint: 以上问题建议派 subagent 读原文核对后直接修改 meta.json（audit 修复工作流），必要时运行 scrinium repair / scrinium rename"
+    )
     return "\n".join(lines)
+
+
+# Recommended fix per audit rule (handoff hints for agents)
+_RULE_HINTS = {
+    "invalid_json": "派 subagent 检查该 meta.json 语法并直接修复",
+    "missing_md": "派 subagent 确认 PDF 来源后用 scrinium attach-pdf 补全 paper.md",
+    "missing_title": "派 subagent 读原文确认标题后直写 meta.json title，或 scrinium repair",
+    "missing_doi": "派 subagent 读原文找到 DOI 后直写 meta.json doi，并 scrinium refresh 补全元数据",
+    "missing_abstract": "运行 scrinium enrich abstract，仍缺则由 agent 读原文直写 meta.json abstract",
+    "missing_year": "派 subagent 读原文确认年份后直写 meta.json year",
+    "missing_authors": "派 subagent 读原文确认作者后直写 meta.json authors",
+    "missing_journal": "运行 scrinium refresh 补全期刊信息，或 agent 直写 meta.json journal",
+    "duplicate_doi": "派 subagent 对比重复条目后决定去留（保留一篇，删除多余目录）",
+    "title_mismatch": "派 subagent 读原文核对正确标题后直写 meta.json title",
+    "short_md": "检查 PDF 转换是否失败；必要时重新转换或 scrinium attach-pdf",
+    "unreadable_md": "检查 paper.md 文件编码/权限",
+    "nonstandard_filename": "运行 scrinium rename 规范目录名",
+    "filename_year_mismatch": "确认正确年份后直写 meta.json year 并 scrinium rename",
+    "arxiv_id_missing": "从 arXiv DOI 派生 arxiv_id 直写 meta.json ids.arxiv（如 10.48550/arxiv.2510.16510 → 2510.16510），纯机械操作无需读原文",
+    "untagged": "运行 curate 工作流或 scrinium tag 补充策展标签",
+}

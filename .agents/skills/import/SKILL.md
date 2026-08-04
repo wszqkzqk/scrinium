@@ -17,13 +17,13 @@ tags: ["academic", "papers", "import", "zotero", "endnote"]
 支持 Endnote 导出的 XML 和 RIS 格式文件。
 
 ```bash
-# 完整导入：元数据 + PDF 匹配 + MinerU 批量转换 + enrich (toc/l3/abstract) + embed + index
+# 完整导入：元数据 + PDF 匹配 + MinerU 批量转换 + abstract 补全（纯正则）+ index
 scrinium import endnote <file.xml>
 
 # 多文件导入
 scrinium import endnote file1.xml file2.ris
 
-# 仅导入元数据和 PDF，跳过 MinerU 转换和 enrich
+# 仅导入元数据和 PDF，跳过 MinerU 转换和后处理
 scrinium import endnote <file.xml> --no-convert
 
 # 预览模式
@@ -41,13 +41,19 @@ scrinium import endnote <file.xml> --no-api
 
 ### 导入后自动处理
 
-默认行为（不带 `--no-convert`）下，导入完成后自动执行完整 pipeline：
+默认行为（不带 `--no-convert`）下，导入完成后自动执行：
 1. **批量 PDF→MD**：云端模式使用 `convert_pdfs_cloud_batch()` 批量转换（批次大小由 `config.yaml` `ingest.mineru_batch_size` 控制，默认 20）
-2. **Abstract 补全**：从 markdown 中提取缺失的摘要
-3. **TOC + L3 提取**：LLM 提取目录结构和结论段
-4. **Embed + Index**：更新语义向量和全文索引
+2. **Abstract 补全**：纯正则从 markdown 中提取缺失的摘要
+3. **Index**：更新全文索引
 
-使用 `--no-convert` 跳过以上全部后处理（仅导入元数据 + PDF 复制 + embed + index）。
+使用 `--no-convert` 跳过以上全部后处理（仅导入元数据 + PDF 复制 + index）。
+
+### 导入后的 agent 后处理（可选）
+
+导入只产出规则可得的元数据。需要 TOC 和结论时，由 agent 接管：
+
+- **TOC**：`scrinium enrich toc --all`（纯规则），规则未命中的按 hint 直写
+- **结论（L3）**：参照 `/enrich` skill 的批量工作流——并行 subagent 读 L4 提炼 → 直写 `meta.json.l3_conclusion`（+`l3_extraction_method: agent`）→ `scrinium index`
 
 ## Zotero 导入
 
@@ -91,7 +97,7 @@ zotero:
 scrinium attach-pdf <paper-id> <path/to/paper.pdf>
 ```
 
-自动调用 MinerU 转换 PDF → markdown，补全缺失的 abstract，增量更新 embed + index。
+自动调用 MinerU 转换 PDF → markdown，补全缺失的 abstract（纯正则），增量更新 index。
 
 ## 批量补转 PDF（已入库论文）
 
@@ -102,10 +108,10 @@ from scrinium.config import load_config
 from scrinium.ingest.pipeline import batch_convert_pdfs
 
 cfg = load_config()
-stats = batch_convert_pdfs(cfg, enrich=True)
+stats = batch_convert_pdfs(cfg)
 ```
 
-自动扫描 `data/papers/` 中有 PDF 无 paper.md 的论文，云端模式使用批量 API 转换，完成后运行 abstract backfill + toc + l3 + embed + index。
+自动扫描 `data/papers/` 中有 PDF 无 paper.md 的论文，云端模式使用批量 API 转换，完成后运行 abstract backfill（纯正则）+ index。
 
 ## 示例
 

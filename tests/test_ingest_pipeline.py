@@ -17,9 +17,7 @@ from scrinium.ingest.pipeline import (
     step_dedup,
     step_extract,
     step_office_convert,
-    step_translate,
 )
-from scrinium.translate import SKIP_ALL_CHUNKS_FAILED, TranslateResult
 
 
 class _DummyResponse:
@@ -247,7 +245,7 @@ def test_step_extract_labels_arxiv_id_as_generic_id(tmp_path: Path, monkeypatch)
             )
 
     monkeypatch.setattr("scrinium.ingest.pipeline.ui", lambda msg="": messages.append(msg))
-    monkeypatch.setattr("scrinium.ingest.extractor.get_extractor", lambda cfg: DummyExtractor())
+    monkeypatch.setattr("scrinium.ingest.extractor.get_extractor", lambda: DummyExtractor())
 
     ctx = InboxCtx(
         pdf_path=None,
@@ -266,35 +264,9 @@ def test_step_extract_labels_arxiv_id_as_generic_id(tmp_path: Path, monkeypatch)
     assert all("DOI: arXiv:" not in msg for msg in messages)
 
 
-def test_step_translate_treats_all_chunks_failed_as_failure(tmp_path: Path, monkeypatch):
-    paper_dir = tmp_path / "papers" / "Smith-2023-Test"
-    paper_dir.mkdir(parents=True)
-    json_path = paper_dir / "meta.json"
-    json_path.write_text("{}", encoding="utf-8")
-    (paper_dir / "paper.md").write_text("Original text", encoding="utf-8")
-
-    messages: list[str] = []
-    monkeypatch.setattr("scrinium.ingest.pipeline.ui", lambda msg="": messages.append(msg))
-    monkeypatch.setattr(
-        "scrinium.translate.translate_paper",
-        lambda *args, **kwargs: TranslateResult(skip_reason=SKIP_ALL_CHUNKS_FAILED, total_chunks=3),
-    )
-
+def test_run_pipeline_executes_scopes_in_order(tmp_path: Path, monkeypatch):
+    """Inbox steps run per-file, then papers steps, then global steps."""
     cfg = SimpleNamespace(
-        translate=SimpleNamespace(target_lang="zh", chunk_size=1000, concurrency=1),
-        llm=SimpleNamespace(model="test-model"),
-    )
-
-    result = step_translate(json_path, cfg, {"force": False})
-
-    assert result == StepResult.FAIL
-    assert any("全部分块翻译失败" in msg for msg in messages)
-
-
-def test_run_pipeline_auto_injects_translate_for_new_ingest(tmp_path: Path, monkeypatch):
-    cfg = SimpleNamespace(
-        translate=SimpleNamespace(auto_translate=True, target_lang="zh", concurrency=2),
-        llm=SimpleNamespace(concurrency=3),
         _root=tmp_path,
         papers_dir=tmp_path / "data" / "papers",
     )
@@ -329,16 +301,12 @@ def test_run_pipeline_auto_injects_translate_for_new_ingest(tmp_path: Path, monk
 
     paper_calls: list[str] = []
 
+    def fake_abstract(json_path, cfg, opts):
+        paper_calls.append("abstract")
+        return StepResult.OK
+
     def fake_toc(json_path, cfg, opts):
         paper_calls.append("toc")
-        return StepResult.OK
-
-    def fake_translate(json_path, cfg, opts):
-        paper_calls.append("translate")
-        return StepResult.OK
-
-    def fake_embed(papers_dir, cfg, opts):
-        paper_calls.append("embed")
         return StepResult.OK
 
     def fake_index(papers_dir, cfg, opts):
@@ -352,14 +320,13 @@ def test_run_pipeline_auto_injects_translate_for_new_ingest(tmp_path: Path, monk
             "extract": SimpleNamespace(scope="inbox", fn=lambda ctx: StepResult.OK, desc=""),
             "dedup": SimpleNamespace(scope="inbox", fn=lambda ctx: StepResult.OK, desc=""),
             "ingest": SimpleNamespace(scope="inbox", fn=lambda ctx: StepResult.OK, desc=""),
+            "abstract": SimpleNamespace(scope="papers", fn=fake_abstract, desc=""),
             "toc": SimpleNamespace(scope="papers", fn=fake_toc, desc=""),
-            "translate": SimpleNamespace(scope="papers", fn=fake_translate, desc=""),
-            "embed": SimpleNamespace(scope="global", fn=fake_embed, desc=""),
             "index": SimpleNamespace(scope="global", fn=fake_index, desc=""),
         },
     )
 
-    run_pipeline(["mineru", "extract", "dedup", "ingest", "toc", "embed", "index"], cfg, {})
+    run_pipeline(["mineru", "extract", "dedup", "ingest", "abstract", "toc", "index"], cfg, {})
 
     assert seen_steps == ["mineru", "extract", "dedup", "ingest"]
-    assert paper_calls == ["toc", "translate", "embed", "index"]
+    assert paper_calls == ["abstract", "toc", "index"]

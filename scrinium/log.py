@@ -87,9 +87,8 @@ def setup(cfg: Config) -> str:
     root.addHandler(ch)
 
     # Suppress noisy third-party loggers
-    for name in ("httpx", "urllib3", "httpcore", "sentence_transformers", "faiss"):
+    for name in ("httpx", "urllib3", "httpcore"):
         logging.getLogger(name).setLevel(logging.WARNING)
-    logging.getLogger("modelscope").setLevel(logging.ERROR)
 
     _initialized = True
     logging.getLogger(__name__).debug("session %s started", _session_id)

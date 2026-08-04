@@ -4,7 +4,7 @@ This file is the single source of truth for project instructions across multiple
 
 ## Project Positioning
 
-Scrinium is a research infrastructure for AI agents. Users complete the full workflow of literature search, reading, discussion, analysis, and writing through natural language. The `scrinium` Python package provides the infrastructure (PDF parsing, hybrid retrieval, topic modeling, citation graphs, and more), while the agent is responsible for understanding intent, orchestrating tools, integrating results, and participating in academic discussion.
+Scrinium is a research infrastructure for AI agents. Users complete the full workflow of literature search, reading, discussion, analysis, and writing through natural language. The `scrinium` Python package provides the infrastructure (PDF parsing, full-text retrieval, citation graphs, and more), while the agent is responsible for understanding intent, orchestrating tools, integrating results, and participating in academic discussion.
 
 ### Interaction Model
 
@@ -44,7 +44,7 @@ Skills are defined in `.agents/skills/` and follow the [Agent Skills](https://ag
 The right mental model is to treat skills as "reusable workflows": when the user's intent clearly matches a capability, read the corresponding `SKILL.md` first and follow the workflow already distilled there instead of inventing a process from scratch every time.
 
 **Current skills:**
-- Knowledge base management: `search`, `arxiv`, `show`, `enrich`, `ingest`, `topics`, `explore`, `graph`, `citations`, `insights`, `index`, `workspace`, `export`, `import`, `rename`, `audit`, `curate`, `translate`, `deep-research`
+- Knowledge base management: `search`, `arxiv`, `show`, `enrich`, `ingest`, `topics` (tag-based topic overview), `explore`, `graph`, `citations`, `insights`, `index`, `workspace`, `export`, `import`, `rename`, `audit`, `curate`, `translate`, `deep-research`
 - Academic writing: `literature-review`, `paper-writing`, `citation-check`, `writing-polish`, `review-response`, `research-gap`
 - Visualization and document generation: `draw`, `document`
 - System operations: `setup`, `metrics`
@@ -55,10 +55,10 @@ The right mental model is to treat skills as "reusable workflows": when the user
 | User intent | Use | Do not use (why) |
 |---|---|---|
 | Ingest PDFs / Office / Markdown files from inbox into the knowledge base | `ingest` | `index` (rebuilds indexes only, never touches inbox) |
-| Rebuild FTS5 / vector indexes without ingesting | `index` | `ingest` (triggers inbox processing) |
+| Rebuild the FTS5 index without ingesting | `index` | `ingest` (triggers inbox processing) |
 | Retrieve papers already in the local library | `search` | `explore` (fetches external OpenAlex papers into a separate exploration DB) |
 | Survey a field / journal / institution from external literature | `explore` | `search` (only searches what is already ingested) |
-| Tag papers / batch-curate and tidy the tag vocabulary | `curate` | `topics` (BERTopic auto-clustering, requires an embedding backend) |
+| Tag papers / batch-curate and tidy the tag vocabulary | `curate` (tagging + vocabulary governance) | `topics` (tag-based topic distribution browsing over the same vocabulary; no merging or governance) |
 | Systematically investigate an open research question (multi-round retrieval, reading, synthesis) | `deep-research` | `literature-review` (drafts a review manuscript), `search` (single-shot lookup) |
 | Write a full literature review | `literature-review` | `research-gap` (produces a gap report, not a review narrative) |
 | Systematically identify research gaps / open questions | `research-gap` | `literature-review` (gap discussion is only its closing section) |
@@ -142,8 +142,8 @@ Workflow:
 - Python 3.10+; any environment manager works (conda / venv / uv / pixi) — use the environment where `pip install -e .` was run (`scrinium` on PATH, or that env's `python -m pytest`)
 - Tests: `python -m pytest tests/ -v`
 - **Code comments**: English only, and only when the logic is not self-evident.
-- **LLM prompts**: all new LLM prompts must be registered in `scrinium/prompts.py` (English instructions + Chinese glossary where needed); any prompt change must be recorded in the changelog.
-- **LLM JSON output**: prompts must request "Return JSON only, no fencing"; responses are parsed with `parse_llm_json()`.
+- **Agent direct writes to meta.json**: the `toc` / `l3_conclusion` / `abstract` / `translations` fields may be written directly by the agent (Edit tool); run `scrinium index` afterwards to make them searchable. Pair `l3_conclusion` with `l3_extraction_method: agent`. Batch intelligent operations (conclusion extraction, translation, tagging, metadata repair) go through parallel subagents — follow the `/curate` skill's subagent dispatch template.
+- **Handoff hints**: CLI output lines prefixed with `hint: ` are framework → agent handoff signals. On seeing one, take over per the corresponding skill's workflow (pending review in `/ingest`, meta.json repair in `/audit`, direct field writes in `/enrich`) instead of asking the user to handle it manually.
 
 ## Getting Started
 

@@ -1,120 +1,105 @@
 ---
 name: translate
-description: Translate paper markdown to a target language (default Chinese). Preserves LaTeX formulas, code blocks, and images. Supports single paper or batch translation. Use when the user wants to read papers in their native language or translate non-Chinese documents.
+description: Translate a paper's markdown to a target language (default Chinese) via agent/subagent chunked translation. Preserves LaTeX formulas, code blocks, and images; supports resume from partial output and batch translation. Use when the user wants to read papers in their native language or translate non-Chinese documents.
 version: 1.0.0
 author: wszqkzqk/scrinium
 license: GPL-3.0-or-later
 tags: ["academic", "papers", "translation", "multilingual"]
 ---
-# 论文翻译
+# 论文翻译（agent 接管工作流）
 
-将论文 Markdown 翻译为目标语言（默认中文），保留 LaTeX 公式、代码块、图片引用和 Markdown 格式。翻译结果保存为论文目录内的 `paper_{lang}.md`，原文保持不变；如需可携带分享，可额外导出到 `workspace/translation-ws/<Author-Year-Title>/`。
+将论文 Markdown 翻译为目标语言（默认中文）。框架不再内置翻译命令——翻译由 agent 编排 subagent 完成：真读全文、携带术语表、分块翻译，质量高于一次性 LLM 调用。译文保存为论文目录内的 `paper_{lang}.md`（`lang` 为 ISO 639-1 代码，如 `zh`/`en`/`ja`），原文保持不变。
 
-实现特性：
-- 单篇翻译按 `config.translate.concurrency` 并发请求多个分块，并在终端显示块级进度
-- 在论文目录下创建临时工作目录，按块写入 `parts/*.md`
-- 网络抖动时对单块做超时重试与指数退避（默认最多 5 次尝试）
-- 中途中断后可从临时工作目录续翻
-- `--force` 清理旧的临时翻译目录并从头重新翻译
-- `--portable` 额外生成 `workspace/translation-ws/<Author-Year-Title>/paper_{lang}.md` 和对应的 `images/`
+**存储约定（框架保留的原语）：**
+- 译文文件：`data/papers/<Author-Year-Title>/paper_{lang}.md`
+- 元数据：`meta.json` 的 `translations` 字段记录各语言译文状态
+- 读取译文：`scrinium show "<paper-id>" --layer 4 --lang zh`
 
-## 配置
+## 单篇翻译工作流
 
-`config.yaml` 中可设置默认行为：
-
-```yaml
-translate:
-  auto_translate: false   # 入库时是否自动翻译（默认关闭）
-  target_lang: zh          # 目标语言（zh/en/ja/ko/de/fr/es）
-  chunk_size: 4000         # 分块大小（字符数）
-  concurrency: 20          # 总翻译并发预算（单篇时用于 chunk 并发，批量时会在论文间分摊）
-```
-
-每次调用时可通过 CLI 参数覆盖默认值。
-
-## 执行逻辑
-
-### 单篇翻译
+### 1. 读取与切分
 
 ```bash
-scrinium translate "<paper-id>" [--lang zh] [--force] [--portable]
+scrinium show "<paper-id>" --layer 4
 ```
 
-### 批量翻译
+读入全文后**按章节切分**（沿 Markdown 一级/二级标题边界），每块是一个自然的翻译单元。切分时保证：代码块、公式块、图片引用不跨块截断。
 
-```bash
-scrinium translate --all [--lang zh] [--force] [--portable]
+> 无章节标题的文体（letter、部分期刊格式）按段落块切分；**参考文献节（REFERENCES）不翻译**，译完后将原文该节原样追加到译文末尾。分块 subagent 只返回译文文本（只读型即可），主 agent 负责按顺序落盘。
+
+### 2. 准备术语表
+
+- 若同一领域已翻译过论文，先复用既有术语表（见"术语表复用"）
+- 否则从全文扫出专业术语（方法名、体系名、专有名词），拟定 10-30 条「原文 → 译文」对照
+- 术语表写入 `workspace/translation-ws/glossary-<领域>.md`，跨论文、跨会话复用
+
+### 3. 并行 subagent 分块翻译
+
+把各块派给并行 subagent 翻译。每个 subagent 的 prompt 必须包含：
+
+```text
+翻译以下论文章节为<目标语言>。要求：
+1. 完整保留 LaTeX 公式（$...$/$$...$$）、代码块、图片引用（![](images/...)）、Markdown 结构
+2. 人名、期刊名、模型/方法专名保持原文；首次出现的术语按术语表翻译
+3. 术语表：<逐条粘贴 glossary>
+4. 只返回译文 Markdown，不要任何解释
+
+<章节原文>
 ```
 
-### 查看翻译
+subagent 只带回译文（T1）；主 agent 按原顺序**顺序追加**写入 `paper_{lang}.md`。
+
+### 4. 断点续翻约定
+
+- `paper_{lang}.md` 的部分文件本身就是断点：翻译中断后，从已有文件的章节边界继续，未译章节接着追加即可，**不要从头重翻**
+- 续翻前先读已有 `paper_{lang}.md` 尾部，确认最后一个完整章节，从下一章继续
+- 全文完成前，`meta.json.translations` 中该语言标记 `"status": "partial"`
+
+### 5. 更新 meta.json
+
+全部章节译完后，用 Edit 工具更新论文目录的 `meta.json`：
+
+```json
+"translations": {
+  "zh": {
+    "file": "paper_zh.md",
+    "source_lang": "en",
+    "translated_at": "2026-08-04T12:00:00",
+    "translated_by": "agent"
+  }
+}
+```
+
+未译完时写 `"status": "partial"`，续翻完成后移除该键。
+
+### 6. 抽查验证
 
 ```bash
 scrinium show "<paper-id>" --layer 4 --lang zh
 ```
 
-### 作为 pipeline 步骤
+抽查 2-3 个章节：公式/图片/代码块是否保留、术语是否与术语表一致、有无漏译段落。
 
-```bash
-scrinium pipeline --steps toc,l3,translate
-```
+## 批量翻译
 
-> **注意**：`translate` 默认不在预设（`full`/`ingest`/`enrich`/`reindex`）中；可通过 `--steps` 显式指定。若 `config.translate.auto_translate=true` 且 pipeline 包含 inbox 步骤，`translate` 会在 papers 阶段自动注入。
+批量 = **多篇论文各派一个 subagent**（每篇内部按上面的单篇流程走），互不重叠并行派发。每个 subagent 自己完成读原文 → 分块 → 翻译 → 写 `paper_{lang}.md` → 更新 meta.json，只带回「完成/部分 + 章节数」的 T1 结论。所有 subagent 共用同一份领域术语表。
 
-## 工作流程
+## 术语表复用
 
-1. 检测论文原文语言（基于字符集启发式检测）
-2. 如果已是目标语言，跳过
-3. 将 Markdown 按段落边界分块（保留代码块和公式完整性）
-4. 通过 LLM 逐块翻译，保留所有格式标记
-5. 单篇翻译会并发请求多个分块，但只按原顺序推进最终输出
-6. 在论文目录下创建临时工作目录（如 `.translate_zh/`），将每块分别写入 `parts/*.md`
-7. 状态写入 `state.json` / `chunks.json`；失败块会记录错误并在下次续翻时单独补跑
-8. 每个分块带超时重试和指数退避
-9. 若已有连续成功前缀，则同步刷新 `paper_{lang}.md`，方便中途查看已完成部分
-10. 若指定 `--portable`，则额外复制一份到 `workspace/translation-ws/<Author-Year-Title>/`，并复制 `images/` 以保证脱离原目录后图片仍可用
-11. 若前面某块失败但后面某些块已成功，这些成功块仍会保留在临时工作目录里；下次续翻时会跳过已成功块，只补失败或未完成的块
-12. 全部完成后删除临时工作目录，并在 `meta.json` 中记录翻译元数据
-
-## 进度与续翻
-
-单篇翻译会输出：
-- 总块数
-- 当前块进度（如 `翻译进度: 3/12`）
-- 中断位置
-- 是否可续翻
-
-如果中途中断：
-
-```bash
-scrinium translate "<paper-id>" --lang zh
-```
-
-会自动检测论文目录下的临时翻译工作目录（如 `.translate_zh/`），并从未完成或失败的块继续。
-
-如果想忽略已有部分结果并重新开始：
-
-```bash
-scrinium translate "<paper-id>" --lang zh --force
-```
-
-会删除旧的临时翻译目录和旧的 `paper_zh.md`，从头重新翻译。
+- 存放：`workspace/translation-ws/glossary-<领域>.md`（Markdown 表格：原文 | 译文 | 备注）
+- 每次翻译前查一下是否已有相关领域术语表；翻译中遇到新术语随手补充
+- 同 workspace 的系列论文共享一份，保证术语一致性
 
 ## 示例
 
 用户说："把这篇英文论文翻译成中文"
--> 执行 `scrinium translate "<paper-id>" --lang zh`
+→ 单篇流程：`show --layer 4` 读原文 → 按章节切分 → 准备/复用术语表 → 并行 subagent 翻译 → 顺序写 `paper_zh.md` → 更新 `meta.json.translations` → `show --layer 4 --lang zh` 抽查
 
-用户说："把所有论文翻译成中文"
--> 执行 `scrinium translate --all --lang zh`
-
-用户说："看这篇论文的中文版"
--> 执行 `scrinium show "<paper-id>" --layer 4 --lang zh`
-
-用户说："重新翻译这篇论文"
--> 执行 `scrinium translate "<paper-id>" --force`
+用户说："把这个工作区的 5 篇论文都翻译成中文"
+→ 批量流程：5 个 subagent 各负责一篇，共用术语表，并行派发
 
 用户说："上次翻译到一半断了，继续翻"
--> 直接执行 `scrinium translate "<paper-id>" --lang zh`
+→ 读已有 `paper_zh.md` 确认断点章节，从下一章继续翻译并追加；完成后去掉 meta.json 里的 `"status": "partial"`
 
-用户说："给我一份可以单独发给别人的译文，别丢图"
--> 执行 `scrinium translate "<paper-id>" --lang zh --portable`
+用户说："看这篇论文的中文版"
+→ 执行 `scrinium show "<paper-id>" --layer 4 --lang zh`；不存在则告知尚未翻译，询问是否启动翻译

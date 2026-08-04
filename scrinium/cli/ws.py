@@ -8,7 +8,7 @@ from pathlib import Path
 
 from scrinium.log import ui
 
-from .common import _add_filter_args, _add_tag_arg, _emit_json, _format_match_tag, _resolve_tag_filters, _resolve_top
+from .common import _add_filter_args, _add_tag_arg, _emit_json, _resolve_tag_filters, _resolve_top
 from .search import _print_search_next_steps, _print_search_result
 
 _log = logging.getLogger(__package__)
@@ -83,25 +83,22 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
             for e in added:
                 ui(f"  + {e['dir_name']}")
             return
-        elif args.add_topic is not None:
-            from scrinium.topics import get_topic_papers, load_model
+        elif args.add_tag is not None:
+            from scrinium.tags import papers_with_tag, resolve_tag, unknown_tag_message
 
-            try:
-                model = load_model(cfg.topics_model_dir)
-            except (FileNotFoundError, ImportError) as e:
-                ui(f"无法加载主题模型: {e}")
-                ui("请先运行: scrinium topics --build")
+            canonical = resolve_tag(cfg, args.add_tag)
+            tagged = papers_with_tag(cfg, args.add_tag)
+            if not tagged:
+                if canonical is None:
+                    raise ValueError(unknown_tag_message(cfg, args.add_tag))
+                ui(f"主题 {canonical} 下没有论文")
                 return
-            papers = get_topic_papers(model, args.add_topic)
-            if not papers:
-                ui(f"主题 {args.add_topic} 中没有论文")
-                return
-            paper_refs = [p["paper_id"] for p in papers]
-            ui(f"主题 {args.add_topic}: 找到 {len(paper_refs)} 篇论文")
+            paper_refs = [(meta.get("id") or pdir.name) for pdir, meta in tagged]
+            ui(f"主题 {canonical or args.add_tag}: 找到 {len(paper_refs)} 篇论文")
         elif args.add_search is not None:
-            from scrinium.index import unified_search
+            from scrinium.index import search
 
-            results = unified_search(
+            results = search(
                 args.add_search,
                 cfg.index_db,
                 top_k=_resolve_top(args, cfg.search.top_k),
@@ -175,67 +172,29 @@ def cmd_ws(args: argparse.Namespace, cfg) -> None:
             ui("工作区为空")
             return
         query = " ".join(args.query)
-        mode = getattr(args, "mode", "hybrid") or "hybrid"
         top_k = _resolve_top(args, cfg.search.top_k)
         tags = _resolve_tag_filters(args, cfg)
 
-        if mode == "keyword":
-            from scrinium.index import search as kw_search
+        from scrinium.index import search
 
-            results = kw_search(
-                query,
-                cfg.index_db,
-                top_k=top_k,
-                cfg=cfg,
-                year=args.year,
-                journal=args.journal,
-                paper_type=args.paper_type,
-                paper_ids=pids,
-                tags=tags,
-            )
-        elif mode == "semantic":
-            from scrinium.vectors import vsearch
-
-            if tags:
-                from scrinium.index import paper_ids_for_tags
-
-                # vsearch has no native tag filter; intersect the workspace
-                # whitelist with the tag-matching id set instead
-                pids = pids & paper_ids_for_tags(cfg.index_db, tags)
-
-            results = vsearch(
-                query,
-                cfg.index_db,
-                top_k=top_k,
-                cfg=cfg,
-                year=args.year,
-                journal=args.journal,
-                paper_type=args.paper_type,
-                paper_ids=pids,
-            )
-        else:
-            from scrinium.index import unified_search
-
-            results = unified_search(
-                query,
-                cfg.index_db,
-                top_k=top_k,
-                cfg=cfg,
-                year=args.year,
-                journal=args.journal,
-                paper_type=args.paper_type,
-                paper_ids=pids,
-                tags=tags,
-            )
+        results = search(
+            query,
+            cfg.index_db,
+            top_k=top_k,
+            cfg=cfg,
+            year=args.year,
+            journal=args.journal,
+            paper_type=args.paper_type,
+            paper_ids=pids,
+            tags=tags,
+        )
 
         if not results:
             ui(f'工作区 {args.name} 中未找到 "{query}" 的结果')
             return
         ui(f"工作区 {args.name} 中找到 {len(results)} 篇:\n")
         for i, r in enumerate(results, 1):
-            match = r.get("match")
-            extra = _format_match_tag(match) if match else ""
-            _print_search_result(i, r, extra=extra)
+            _print_search_result(i, r)
         _print_search_next_steps(include_ws_add=False)
 
     elif action == "export":
@@ -291,7 +250,9 @@ def _add_ws_parser(sub, name: str, help_text: str | None = None) -> None:
     p_ws_add.add_argument("paper_refs", nargs="*", help="论文引用（UUID / 目录名 / DOI）")
     p_ws_add_batch = p_ws_add.add_mutually_exclusive_group()
     p_ws_add_batch.add_argument("--search", dest="add_search", type=str, default=None, help="按搜索结果批量添加")
-    p_ws_add_batch.add_argument("--topic", dest="add_topic", type=int, default=None, help="按主题 ID 批量添加")
+    p_ws_add_batch.add_argument(
+        "--tag", dest="add_tag", type=str, default=None, help="按策展标签（主题）批量添加，支持别名"
+    )
     p_ws_add_batch.add_argument("--all", dest="add_all", action="store_true", default=False, help="添加全库论文")
     p_ws_add.add_argument("--top", type=int, default=None, help="限制 --search 返回条数")
     _add_filter_args(p_ws_add)
@@ -310,12 +271,6 @@ def _add_ws_parser(sub, name: str, help_text: str | None = None) -> None:
     p_ws_search.add_argument("name", help="工作区名称")
     p_ws_search.add_argument("query", nargs="+", help="查询文本")
     p_ws_search.add_argument("--top", type=int, default=None, help="返回条数")
-    p_ws_search.add_argument(
-        "--mode",
-        choices=["hybrid", "unified", "keyword", "semantic"],
-        default="hybrid",
-        help="搜索模式：hybrid=关键词+语义融合（默认，unified 为其等价别名）/ keyword / semantic",
-    )
     _add_filter_args(p_ws_search)
     _add_tag_arg(p_ws_search)
 

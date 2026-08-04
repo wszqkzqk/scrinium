@@ -48,7 +48,7 @@ CLI 完成初步筛查后，对问题引用执行更细致的检查：
 
 ```bash
 scrinium search-author "<Author>" --top 5
-scrinium search "<关键词 from title>" --mode hybrid --top 5
+scrinium search "<关键词 from title>" --top 5
 ```
 在本地库中找到匹配论文后，核对：作者名、年份、标题、期刊是否一致。
 

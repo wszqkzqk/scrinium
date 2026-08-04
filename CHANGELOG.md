@@ -5,12 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.0.0] — 2026-08-04
+
+Scrinium 3.0 removes **all in-framework LLM and embedding calls** — no exceptions. The framework keeps only deterministic, model-free primitives (regex metadata extraction, rule-based `enrich toc`/`enrich abstract`, FTS5 indexing, tags, citation graph, pending queue, MinerU parsing). Every capability that requires understanding is taken over by the agent (usually subagents that actually read the papers), so no user-facing function is lost.
+
+### Removed
+
+- **All in-framework LLM calls**: removed `scrinium/prompts.py`, `scrinium/translate.py`, and the LLM backend stack in `metrics.py` (`call_llm()`, `LLMResult`, `MetricsStore.summary()`); removed `LLMExtractor` / `FallbackExtractor` / `RobustExtractor` (metadata extraction is regex-only); removed LLM branches from abstract backfill/verification, inbox-doc metadata generation, TOC extraction, and thesis/book type detection (title-keyword heuristics retained). Removed commands: `scrinium translate` (plus the `translate` pipeline step and `translate.auto_translate`), `scrinium enrich conclusion` (alias `enrich-l3`), and `scrinium metrics --summary` (default category is now `step`)
+- **All embedding / vector retrieval**: removed `scrinium/vectors.py` and the semantic/hybrid stack. Removed commands: `scrinium embed`, `scrinium vsearch`, `scrinium usearch`; the `--mode` option on `search` / `workspace search` / `explore search` is gone — search is FTS5 keyword only. `scrinium explore embed|topics|viz` removed; explore keeps OpenAlex fetch + keyword search over an isolated FTS5 index
+- **BERTopic topic modeling**: removed `scrinium/topics.py`; `data/topic_model/` is no longer produced
+- **Removed config sections**: `llm`, `translate`, `embed`, `topics`, `ingest.extractor` (non-regex values), and `ingest.abstract_llm_mode` — leftover sections log a one-time deprecation warning and are ignored; startup never fails
+- **Removed extras**: `scrinium[embed]` and `scrinium[topics]`; `scrinium[full]` is now import + pdf + office + draw (no `modelscope`, no embedding model download)
 
 ### Added
 
-- **CLI naming ergonomics for LLM agents**: `scrinium search` is now the single retrieval entry point with `--mode keyword|unified|semantic` (default `keyword`, unchanged behavior) and `--scope` for federated search; `scrinium enrich toc|conclusion|abstract` groups the enrichment commands; full-word aliases `workspace`, `ingest` (= `pipeline ingest` preset), `references`, `cited-by`, and `shared-references` are the new primary names. All previous command names (`usearch` / `vsearch` / `fsearch` / `enrich-toc` / `enrich-l3` / `backfill-abstract` / `ws` / `refs` / `citing` / `shared-refs`) keep working as hidden legacy aliases — they no longer appear in the top-level `--help` listing but behave exactly as before, including metrics event names
-- **CLI naming semantic alignment, round 2**: `--mode hybrid` is now the primary term for fused retrieval on `search` / `workspace search` / `explore search` (`unified` remains an accepted alias with identical behavior); `scrinium import endnote|zotero` groups the import commands; `refresh` is the primary name for re-fetching metadata/citations/references from APIs; `citation-styles` is the primary name for citation style management. The old spellings (`import-endnote` / `import-zotero` / `refetch` / `style`) keep working as hidden legacy aliases
+- **Agent takeover paths**: semantic recall → agent query expansion (multiple keyword searches) + `--tag` filters + citation-graph `snowball`; translation → agent writes `paper_{lang}.md` + `meta.json["translations"]` (`show --layer 4 --lang` unchanged); L3 conclusions → agent writes `meta.json["l3_conclusion"]`; metadata correction and pending-queue review → agent edits `meta.json` / runs `repair` after actually reading the PDF
+- **Handoff hints**: when a deterministic path fails or is low-confidence, CLI output (text and `--json` alike) carries a `hint: ` line naming the recommended agent takeover workflow; `pending.json` gains a `hint` field. Emission points: ingest results, `scrinium pending`, `enrich abstract` / `enrich toc` misses, `scrinium audit`, and `show --layer 3`
+- **Tag-based topics ("tags are topics")**: new `scrinium topics [--json]` shows the tag distribution overview (counts, shares, untagged count) and `scrinium topics <tag>` drills into one topic; `workspace add --tag` batch-adds papers by tag (replacing `--topic`). Vocabulary merging stays in `tags.yaml` aliases; distribution charts come from the `draw` skill
+- **Agent-written meta.json convention**: `toc` / `l3_conclusion` / `abstract` / `translations` fields may be written by the agent directly and become searchable after `scrinium index`
+- **`repair` accepts pending items** (with a dedup guard against papers already in the library)
+
+### Changed
+
+- **Index schema v2**: `data/index.db` migrates automatically on the first index operation — legacy `paper_vectors` / `vector_metadata` tables are dropped and the `faiss.index` / `faiss_ids.json` sidecar files next to `index.db` are deleted
+- **Pipeline presets**: `full` = `ingest` = `mineru, extract, dedup, ingest, index`; `enrich` = `abstract, toc`; `reindex` = `index`
+- **`enrich toc`** is pure rules; **`enrich abstract`** is regex + optional DOI-page fetch
+- **`scrinium insights`** drops the semantic-neighbor section; unread-paper discovery is an agent workflow over reading history + tag overlap + citation snowballing
+- **Superseded unreleased changes**: the two intermediate CLI naming rounds after 2.0.0 (`--mode keyword|unified|semantic`, `usearch` / `vsearch` / `enrich-l3` legacy aliases) never shipped in a release and are superseded by this release's removals; surviving aliases (`enrich-toc`, `backfill-abstract`, `fsearch`, `ws`, `refs`, `citing`, `shared-refs`, `import-endnote`, `import-zotero`, `refetch`, `style`) are unchanged
+
+### Migration
+
+- Run `scrinium index` once to apply schema v2 (automatic; safe on libraries of any size)
+- Delete manually to reclaim disk space (the framework never removes these on its own): `data/topic_model/`, `data/explore/<name>/topic_model/`, `data/explore/<name>/faiss.index`, `data/explore/<name>/faiss_ids.json`, `~/.cache/scrinium/gpu_profile.json`, and the Qwen3-Embedding model cache (~1.2 GB under `~/.cache/modelscope/` or your HuggingFace cache, depending on the old `embed.source`)
+- Old config sections (`llm` / `translate` / `embed` / `topics`) can be deleted at your convenience; the deprecation warnings point them out
 
 ## [2.0.0] — 2026-08-02
 

@@ -1,59 +1,32 @@
 # Translation Guide
 
-Scrinium can translate `paper.md` into `paper_{lang}.md` while preserving Markdown structure, LaTeX formulas, code blocks, and image links.
+Scrinium no longer calls any translation API itself. Translation is an agent-side workflow; the framework keeps only the storage and reading conventions, so translated papers stay browsable and resumable.
 
-## Basic Usage
+## Storage Conventions
 
-Translate one paper:
-
-```bash
-scrinium translate "<paper-id>" --lang zh
-```
-
-Translate all papers:
-
-```bash
-scrinium translate --all --lang zh
-```
-
-Read the translated version:
+- Translations live next to the original as `data/papers/<Author-Year-Title>/paper_{lang}.md` (for example `paper_zh.md`)
+- The agent records translation state in `meta.json["translations"]`
+- Reading prefers the translation when `--lang` is given and falls back to the original otherwise:
 
 ```bash
 scrinium show "<paper-id>" --layer 4 --lang zh
 ```
 
-## Concurrency and Resume
+Language codes are validated (lowercase letters only) before any file lookup, so `--lang` cannot escape the paper directory.
 
-- Single-paper translation uses `config.translate.concurrency` to send multiple chunk requests concurrently
-- Chunking prefers natural paragraph boundaries; only oversized paragraphs are split further
-- Translation state is persisted in a temporary per-paper workdir such as `.translate_zh/`
-- Each chunk is written separately to `parts/*.md`, with state tracked in `state.json` and `chunks.json`
-- Chunk failures use timeout retry with exponential backoff (up to 5 attempts by default)
-- The final `paper_{lang}.md` still advances in original order, so partially completed continuous prefixes remain readable
-- Successful trailing chunks are still preserved in the temporary workdir; reruns skip those chunks and only fill the missing gaps
-- If translation is interrupted, rerun the same command to resume from unfinished or failed chunks
-- Use `--force` to discard the temporary workdir and start over
+## Agent Translation Workflow
 
-## Portable Export
+The `translate` skill orchestrates the work with subagents:
 
-If you want a translated copy that can be moved out of the paper directory without breaking image links:
+1. Read the original with `scrinium show "<paper-id>" --layer 4`
+2. Split the Markdown into chunks along section boundaries, keeping LaTeX formulas, code blocks, and image links intact
+3. Dispatch parallel subagents to translate the chunks (a shared glossary from workspace notes keeps terminology consistent across chunks and papers)
+4. Append the translated chunks to `paper_{lang}.md` in original order — the partially written file is the resume point, so an interrupted run simply continues from the current file length
+5. Update `meta.json["translations"]`
+6. Spot-check the result with `scrinium show "<paper-id>" --layer 4 --lang zh`
 
-```bash
-scrinium translate "<paper-id>" --lang zh --portable
-```
+Batch translation is the same workflow fanned out: one subagent per paper.
 
-This keeps the normal in-place translation:
+## Portable Copies
 
-```text
-data/papers/<Author-Year-Title>/paper_zh.md
-```
-
-And also creates a portable bundle:
-
-```text
-workspace/translation-ws/<Author-Year-Title>/
-├── paper_zh.md
-└── images/
-```
-
-The bundle is created by copying, not moving, so the original `paper.md`, `paper_{lang}.md`, and `images/` remain untouched.
+Because translations are plain files inside the paper directory, a portable bundle is just a copy: duplicate `paper_{lang}.md` together with the paper's `images/` directory wherever you need it (for example under `workspace/`). Image links are relative, so the copy keeps rendering as long as `images/` travels with it.

@@ -43,7 +43,6 @@ flowchart TB
     ING --> APIS["Crossref / S2 / OpenAlex"]
     RET --> FTS[FTS5 keyword, BM25 field weights]
     RET --> TAGS["Curated tags + citation graph / snowball"]
-    RET -.-> VEC(["Optional embeddings"])
     DB(["data/papers — meta.json + paper.md + notes.md"])
     ING --> DB
     RET --> DB
@@ -69,9 +68,9 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 |--|---------|---------|
 | **PDF Parsing** | Deep structure extraction | Convert PDFs into structured Markdown while preserving formulas, figures, and layout as much as possible |
 | **Not Just Papers** | More than papers | Journal articles, theses, patents, technical reports, standards, and lecture notes — five inbox categories with tailored metadata handling |
-| **Hybrid Search** | Keyword + semantic fusion | Combine full-text and vector retrieval for stronger search results |
-| **Curated Tags** | Agent-maintained topics | A controlled tag vocabulary curated by the agent (`data/tags.yaml`), indexed into search and filterable via `--tag` — replaces semantic discovery in embedding-free deployments |
-| **Topic Discovery** | See what your library is about | Automatically group papers into research themes and use interactive views to grasp the overall structure quickly |
+| **Keyword Search** | FTS5 full-text retrieval | Field-weighted keyword search; the agent extends recall through query expansion, tag filters, and citation-graph snowballing |
+| **Curated Tags** | Agent-maintained topics | A controlled tag vocabulary curated by the agent (`data/tags.yaml`), indexed into search and filterable via `--tag` — tags are the topic system |
+| **Topic Overview** | See what your library is about | `scrinium topics` shows the tag-based topic distribution and drills into any topic; the `draw` skill renders charts on demand |
 | **Literature Exploration** | Multi-dimensional discovery | Explore a research direction through journal, topic, author, institution, keyword, year, citation impact, and more |
 | **Citation Graph** | References & impact | Forward citations, backward citations, and shared-reference analysis |
 | **Layered Reading** | Read on demand | Start with metadata or the abstract, then move into conclusions or full text only when you need to |
@@ -79,7 +78,7 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 | **Workspaces** | Organize by project | Manage paper subsets with scoped search and BibTeX export |
 | **Multi-Format Export** | BibTeX, RIS, Markdown, DOCX | Export your full library or a workspace for Zotero, Endnote, submission, or sharing |
 | **Persistent Notes** | Cross-session memory | Keep analysis notes for each paper so future sessions can reuse them instead of starting over |
-| **Research Insights** | Reading behavior analytics | Search hot keywords, most-read papers, reading trends, and semantic neighbor recommendations for papers you haven't read yet |
+| **Research Insights** | Reading behavior analytics | Search hot keywords, most-read papers, and reading trends — the agent combines these with tags and the citation graph to surface papers you haven't read yet |
 | **Federated Discovery** | Cross-library search | Search your main library, exploration libraries, and arXiv from one entry point instead of hopping across tools |
 | **AI-for-Science Runtime** | Use scientific software more accurately | Use scientific software against official documentation at runtime instead of guessing commands and parameters |
 | **Extensible Tool Onboarding** | Keep adding the tools that matter | As new scientific tools and workflows become important, the system can keep expanding |
@@ -97,10 +96,9 @@ Skills follow the open [AgentSkills.io](https://agentskills.io) standard and liv
 
 > Start by opening `scrinium` with your agent and let it walk you through the setup. The notes below are only a basic overview.
 
-Scrinium works with a minimal setup and can be expanded as needed.
+Scrinium works with a minimal setup and can be expanded as needed. It makes no LLM or embedding calls of its own — all understanding comes from your agent.
 
 - `scrinium setup` walks you through the basics.
-- An LLM API key is optional but recommended for more robust metadata extraction and content completion.
 - A MinerU token is optional but recommended, and free. You can also deploy MinerU or Docling locally for PDF parsing.
 - `scrinium setup check` shows what is installed, what is optional, and what is missing.
 

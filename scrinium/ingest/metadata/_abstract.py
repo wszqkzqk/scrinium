@@ -1,18 +1,12 @@
-"""Abstract extraction — regex, LLM, DOI fetch, and backfill."""
+"""Abstract extraction — regex and DOI fetch, plus batch backfill."""
 
 from __future__ import annotations
 
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import requests
-
-from scrinium.prompts import PROMPTS
-
-if TYPE_CHECKING:
-    from scrinium.config import Config
 
 _log = logging.getLogger(__name__)
 
@@ -22,51 +16,21 @@ _log = logging.getLogger(__name__)
 # ============================================================================
 
 
-def extract_abstract_from_md(md_path: Path, cfg: Config | None = None) -> str | None:
-    """从 MinerU 解析的 markdown 文件中提取 Abstract 段落。
+def extract_abstract_from_md(md_path: Path) -> str | None:
+    """从 MinerU 解析的 markdown 文件中提取 Abstract 段落（纯正则）。
 
-    提取流程由 ``cfg.ingest.abstract_llm_mode`` 控制：
-
-    - ``"off"``：纯正则提取。
-    - ``"fallback"``：正则失败时调用 LLM 直接提取。
-    - ``"verify"``（默认）：正则成功后 LLM 校验/修正，失败时 LLM 直接提取。
-
-    无 ``cfg`` 或无 LLM API key 时自动降级为纯正则。
+    规则提取失败时返回 ``None``；调用方应输出 handoff hint，
+    由 agent 阅读原文后直接写 ``meta.json`` 的 ``abstract`` 字段。
 
     Args:
         md_path: MinerU 输出的 ``.md`` 文件路径。
-        cfg: 可选的 :class:`~scrinium.config.Config`。
 
     Returns:
         提取到的 abstract 文本，无法提取时返回 ``None``。
     """
     text = md_path.read_text(encoding="utf-8")
     head = text[:8000]
-
-    # Determine LLM mode
-    llm_mode = "off"
-    if cfg is not None and cfg.resolved_api_key():
-        llm_mode = getattr(cfg.ingest, "abstract_llm_mode", "verify")
-
-    # Step 1: regex extraction
-    regex_result = _regex_extract_abstract(head)
-
-    # Step 2: LLM based on mode
-    if llm_mode == "off":
-        return regex_result
-
-    if llm_mode == "verify":
-        if regex_result:
-            # LLM verifies/corrects regex result
-            verified = _llm_verify_abstract(regex_result, head, cfg)
-            return verified or regex_result  # fallback to regex if LLM fails
-        else:
-            return _llm_extract_abstract(head, cfg)
-
-    if llm_mode == "fallback":
-        return regex_result or _llm_extract_abstract(head, cfg)
-
-    return regex_result
+    return _regex_extract_abstract(head)
 
 
 # ============================================================================
@@ -162,53 +126,6 @@ def _clean_abstract(text: str) -> str | None:
 
 
 # ============================================================================
-#  LLM-based Extraction
-# ============================================================================
-
-
-def _call_llm_text(prompt: str, cfg, max_tokens: int = 1000) -> str | None:
-    """Call LLM API and return plain text response, None on failure."""
-    try:
-        from scrinium.metrics import call_llm
-
-        result = call_llm(
-            prompt,
-            cfg,
-            json_mode=False,
-            max_tokens=max_tokens,
-            purpose="abstract",
-        )
-        return result.content.strip()
-    except Exception as e:
-        _log.debug("LLM abstract verification failed: %s", e)
-        return None
-
-
-def _llm_extract_abstract(md_head: str, cfg) -> str | None:
-    """Use LLM to extract abstract from markdown header text."""
-    snippet = md_head[:3000]
-    prompt = PROMPTS["abstract.extract"].render(text=snippet)
-    text = _call_llm_text(prompt, cfg)
-    if not text or "NO_ABSTRACT" in text:
-        return None
-    return _clean_abstract(text)
-
-
-def _llm_verify_abstract(regex_abstract: str, md_head: str, cfg) -> str | None:
-    """Use LLM to verify and correct a regex-extracted abstract.
-
-    Returns corrected abstract, or None if LLM call fails (caller should
-    fall back to the regex result).
-    """
-    snippet = md_head[:3000]
-    prompt = PROMPTS["abstract.verify"].render(markdown=snippet, regex_result=regex_abstract)
-    text = _call_llm_text(prompt, cfg)
-    if not text or "NO_ABSTRACT" in text:
-        return None
-    return _clean_abstract(text)
-
-
-# ============================================================================
 #  DOI Fetch
 # ============================================================================
 
@@ -286,14 +203,12 @@ def _extract_abstract_from_html(html: str) -> str | None:
 # ============================================================================
 
 
-def backfill_abstracts(
-    papers_dir: Path, *, dry_run: bool = False, doi_fetch: bool = False, cfg: Config | None = None
-) -> dict:
-    """批量补全或更新论文 abstract。
+def backfill_abstracts(papers_dir: Path, *, dry_run: bool = False, doi_fetch: bool = False) -> dict:
+    """批量补全或更新论文 abstract（纯正则 + DOI 抓取）。
 
     扫描 ``papers_dir`` 下所有 JSON：
 
-    - **默认模式**：只处理缺 abstract 的论文，从 ``.md`` 提取 + LLM fallback。
+    - **默认模式**：只处理缺 abstract 的论文，从 ``.md`` 纯正则提取。
     - **``doi_fetch=True``**：对所有有 DOI 的论文尝试从出版商网页抓取官方
       abstract。成功则覆盖现有 abstract（官方源优先）；失败则保留原有值，
       仅对仍无 abstract 的论文 fallback 到 ``.md`` 提取。
@@ -302,14 +217,15 @@ def backfill_abstracts(
         papers_dir: 已入库论文目录。
         dry_run: 为 ``True`` 时只预览，不写文件。
         doi_fetch: 为 ``True`` 时启用 DOI 网页抓取（官方源优先）。
-        cfg: 可选的 :class:`~scrinium.config.Config`，提供后启用 LLM fallback。
 
     Returns:
-        统计字典：``{"filled": N, "skipped": N, "failed": N, "updated": N}``。
+        统计字典：``{"filled": N, "skipped": N, "failed": N, "updated": N,
+        "failed_dirs": [...]}``。``failed_dirs`` 列出正则未命中的论文目录名，
+        供调用方输出 agent 接管 hint。
     """
     from scrinium.papers import iter_paper_dirs
 
-    stats = {"filled": 0, "skipped": 0, "failed": 0, "updated": 0}
+    stats: dict = {"filled": 0, "skipped": 0, "failed": 0, "updated": 0, "failed_dirs": []}
 
     for pdir in iter_paper_dirs(papers_dir):
         json_path = pdir / "meta.json"
@@ -354,11 +270,12 @@ def backfill_abstracts(
             stats["skipped"] += 1
             continue
 
-        abstract = extract_abstract_from_md(md_path, cfg=cfg)
+        abstract = extract_abstract_from_md(md_path)
 
         if not abstract:
             _log.debug("no abstract extracted: %s", json_path.stem)
             stats["failed"] += 1
+            stats["failed_dirs"].append(pdir.name)
             continue
 
         stats["filled"] += 1

@@ -1,24 +1,20 @@
-"""cli/misc.py — topics/graph/metrics/style/document/toolref/setup/proceedings/citation-check."""
+"""cli/misc.py — graph/metrics/style/document/toolref/setup/proceedings/citation-check."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import logging
-import shutil
 import sys
 from pathlib import Path
 
 from scrinium.log import ui
 
 from .common import (
-    _check_import_error,
-    _count_registry_papers,
     _emit_json,
     _resolve_paper,
     _resolve_ws_paper_ids,
     _try_resolve_paper,
-    _write_all_viz,
 )
 
 _log = logging.getLogger(__package__)
@@ -269,131 +265,6 @@ def cmd_toolref(args: argparse.Namespace, cfg) -> None:
         sys.exit(1)
 
 
-def cmd_topics(args: argparse.Namespace, cfg) -> None:
-    try:
-        from scrinium.topics import (
-            build_topics,
-            get_outliers,
-            get_topic_overview,
-            get_topic_papers,
-            load_model,
-            reduce_topics_to,
-        )
-    except ImportError as e:
-        _check_import_error(e)
-
-    model_dir = cfg.topics_model_dir
-
-    # Resolve nr_topics: CLI --nr-topics overrides config
-    def _resolve_nr_topics():
-        raw = args.nr_topics if args.nr_topics is not None else cfg.topics.nr_topics
-        return {0: "auto", -1: None}.get(raw, raw)
-
-    if args.build or args.rebuild:
-        min_ts = args.min_topic_size if args.min_topic_size is not None else cfg.topics.min_topic_size
-        if args.rebuild and model_dir.exists():
-            shutil.rmtree(model_dir, ignore_errors=True)
-        ui(f"{'重建' if args.rebuild else '构建'}主题模型...")
-        model = build_topics(
-            cfg.index_db,
-            cfg.papers_dir,
-            min_topic_size=min_ts,
-            nr_topics=_resolve_nr_topics(),
-            save_path=model_dir,
-            cfg=cfg,
-        )
-    else:
-        try:
-            model = load_model(model_dir)
-        except FileNotFoundError as e:
-            _log.error("%s", e)
-            sys.exit(1)
-
-    # Quick reduce (no rebuild)
-    if args.reduce is not None:
-        ui(f"正在压缩到 {args.reduce} 个主题...")
-        model = reduce_topics_to(model, args.reduce, save_path=model_dir, cfg=cfg)
-
-    # Manual merge
-    if args.merge:
-        from scrinium.topics import merge_topics_by_ids
-
-        # Parse "1,6,14+3,5" → [[1,6,14],[3,5]]
-        groups = []
-        for group_str in args.merge.split("+"):
-            ids = [int(x.strip()) for x in group_str.split(",") if x.strip()]
-            if len(ids) >= 2:
-                groups.append(ids)
-        if groups:
-            ui(f"正在合并 {len(groups)} 组主题: {groups}")
-            model = merge_topics_by_ids(model, groups, save_path=model_dir, cfg=cfg)
-        else:
-            _log.error("--merge 格式错误，示例: --merge 1,6,14+3,5")
-
-    # Show specific topic
-    if args.topic is not None:
-        tid = args.topic
-        top_n = args.top or 0  # 0 = show all
-        if tid == -1:
-            papers = get_outliers(model)
-            ui(f"离群论文: {len(papers)}\n")
-        else:
-            topic_words = model.get_topic(tid)
-            if topic_words is False or topic_words is None:
-                _log.error("主题 %d 不存在", tid)
-                sys.exit(1)
-            keywords = [w for w, _ in topic_words[:10]]
-            papers = get_topic_papers(model, tid)
-            ui(f"主题 {tid}: {', '.join(keywords)}")
-            ui(f"{len(papers)} 篇论文\n")
-
-        if top_n:
-            papers = papers[:top_n]
-        for i, p in enumerate(papers, 1):
-            cc = p.get("citation_count", {})
-            best = max((v for v in (cc or {}).values() if isinstance(v, int | float)), default=0)
-            cite_str = f"  [被引: {best}]" if best else ""
-            authors = p.get("authors", "")
-            first_author = authors.split(",")[0].strip() if authors else ""
-            ui(f"  {i:2d}. [{p.get('year', '?')}] {p.get('title', p['paper_id'])}")
-            ui(f"      {first_author} | {p.get('journal', '')}{cite_str}")
-        return
-
-    # Generate visualizations (6 charts, same as explore)
-    if args.viz:
-        _write_all_viz(model, model_dir / "viz")
-        return
-
-    # Default: show overview
-    overview = get_topic_overview(model)
-    if not overview:
-        ui("没有可用主题。可尝试减小 topics.min_topic_size 或增加论文数量。")
-        return
-
-    outliers = get_outliers(model)
-    total = sum(t["count"] for t in overview) + len(outliers)
-    ui(f"论文库概览：{total} 篇论文，{len(overview)} 个主题，{len(outliers)} 篇离群论文\n")
-
-    for t in overview:
-        kw = ", ".join(t["keywords"][:6])
-        ui(f"主题 {t['topic_id']:2d}（{t['count']:3d} 篇）: {kw}")
-        for p in t["representative_papers"][:3]:
-            year = p.get("year", "?")
-            title = p.get("title", "")
-            if len(title) > 70:
-                title = title[:67] + "..."
-            ui(f"    [{year}] {title}")
-        ui()
-
-    # Staleness hint: papers used to build the model vs current library size
-    n_model = len(getattr(model, "_paper_ids", []) or [])
-    n_library = _count_registry_papers(cfg.index_db)
-    if n_model and n_library is not None:
-        ui(f"模型基于 {n_model} 篇论文构建，当前主库 {n_library} 篇")
-        if n_model < n_library:
-            ui("（模型已陈旧，可运行 `scrinium topics --rebuild` 重建）")
-
-
 def cmd_document(args: argparse.Namespace, cfg) -> None:
     action = getattr(args, "doc_action", None)
     if action == "inspect":
@@ -573,35 +444,7 @@ def cmd_insights(args: argparse.Namespace, cfg) -> None:
         ui("  暂无阅读记录")
     ui()
 
-    # 4. Recommend semantically adjacent papers not yet read (based on last 7 days of reads)
-    ui("【推荐：你可能还没读过的邻近论文】")
-    recent_since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    recent_reads = store.query(category="read", since=recent_since, limit=500)
-    recent_paper_ids = insights.recent_unique_read_names(recent_reads, limit=5)
-
-    if not recent_paper_ids:
-        ui("  过去7天无阅读记录，无法推荐")
-    else:
-        try:
-            recommendations = insights.recommend_unread_neighbors(store, cfg, recent_days=7, recent_limit=5, top_k=5)
-            if recommendations:
-                for rank, (_pid, label, score) in enumerate(recommendations, 1):
-                    label = label[:60]
-                    ui(f"  {rank}. {label}  (分数: {score:.3f})")
-            else:
-                ui("  未找到合适的邻近论文（可能向量索引未建立）")
-        except insights.VectorIndexNotReady as exc:
-            # vsearch FileNotFoundError messages already name the fix (embed/index).
-            ui(f"  {exc}")
-        except insights.EmbeddingBackendUnavailable as exc:
-            ui("  嵌入模型未下载或不可用，语义邻居功能暂不可用")
-            ui(f"  原因: {exc}")
-            ui("  解决: 运行 `scrinium embed` 下载嵌入模型，或在 config.yaml 检查 embed.provider / embed.source 配置")
-        except ImportError:
-            ui("  语义搜索不可用（需安装 embed 依赖）")
-    ui()
-
-    # 5. Active workspaces — list workspaces with paper counts
+    # 4. Active workspaces — list workspaces with paper counts
     ui("【活跃工作区】")
     try:
         ws_root = cfg._root / "workspace"
@@ -624,16 +467,6 @@ def cmd_metrics(args: argparse.Namespace, cfg) -> None:
         _log.error("Metrics 数据库尚未初始化。")
         return
 
-    if args.summary:
-        s = store.summary()
-        ui("LLM 调用统计（全部会话）：")
-        ui(f"  调用次数:      {s['call_count']}")
-        ui(f"  输入 tokens:   {s['total_tokens_in']:,}")
-        ui(f"  输出 tokens:   {s['total_tokens_out']:,}")
-        ui(f"  总 tokens:     {s['total_tokens_in'] + s['total_tokens_out']:,}")
-        ui(f"  总耗时:        {s['total_duration_s']:.1f}s")
-        return
-
     rows = store.query(
         category=args.category,
         since=args.since,
@@ -645,6 +478,7 @@ def cmd_metrics(args: argparse.Namespace, cfg) -> None:
 
     # Header
     if args.category == "llm":
+        # Historical llm events (pre-removal) still render with token columns.
         ui(f"{'time':<20s} {'purpose':<24s} {'prompt':>8s} {'compl':>8s} {'total':>8s} {'time':>7s} {'status':<5s}")
         ui("-" * 82)
         total_in = total_out = 0
@@ -805,21 +639,6 @@ def register(sub) -> None:
     p_sb.add_argument("--ws", type=str, default=None, help="限定工作区范围")
     p_sb.add_argument("--json", action="store_true", help="以 JSON 输出")
 
-    # --- topics ---
-    p_topics = sub.add_parser("topics", help="BERTopic 主题建模与探索")
-    p_topics.set_defaults(func=cmd_topics)
-    p_topics.add_argument("--build", action="store_true", help="构建主题模型")
-    p_topics.add_argument("--rebuild", action="store_true", help="清空旧模型目录后重建主题模型")
-    p_topics.add_argument("--reduce", type=int, default=None, metavar="N", help="快速合并主题到 N 个（不重新聚类）")
-    p_topics.add_argument(
-        "--merge", type=str, default=None, metavar="IDS", help="手动合并主题，格式: 1,6,14+3,5（用+分隔组）"
-    )
-    p_topics.add_argument("--topic", type=int, default=None, metavar="ID", help="查看指定主题的论文（-1 查看 outlier）")
-    p_topics.add_argument("--top", type=int, default=None, help="返回条数")
-    p_topics.add_argument("--min-topic-size", type=int, default=None, help="最小聚类大小（覆盖 config）")
-    p_topics.add_argument("--nr-topics", type=int, default=None, help="目标主题数（覆盖 config，0=auto, -1=不合并）")
-    p_topics.add_argument("--viz", action="store_true", help="生成 HTML 可视化图表（6 张）")
-
     # --- citation-check ---
     p_cc = sub.add_parser("citation-check", help="验证文本中的引用是否在本地知识库中")
     p_cc.set_defaults(func=cmd_citation_check)
@@ -861,12 +680,15 @@ def register(sub) -> None:
     p_insights.add_argument("--days", type=int, default=30, help="分析最近 N 天的数据（默认 30）")
 
     # --- metrics ---
-    p_metrics = sub.add_parser("metrics", help="查看 LLM token 用量和调用统计")
+    p_metrics = sub.add_parser("metrics", help="查看运行指标（步骤/API 调用计时）")
     p_metrics.set_defaults(func=cmd_metrics)
     p_metrics.add_argument("--last", type=int, default=20, help="最近 N 条记录")
-    p_metrics.add_argument("--category", default="llm", help="事件类别（llm/api/step，默认 llm）")
+    p_metrics.add_argument(
+        "--category",
+        default="step",
+        help="事件类别（step/api/search/read/llm，默认 step；llm 仅用于查看历史存量事件）",
+    )
     p_metrics.add_argument("--since", default=None, help="起始时间（ISO 格式，如 2026-03-01）")
-    p_metrics.add_argument("--summary", action="store_true", help="仅显示汇总统计")
 
     # --- citation-styles (primary name; `style` kept as a hidden legacy alias) ---
     _add_style_parser(sub, "citation-styles", "引用格式管理（列出 / 查看自定义格式）")

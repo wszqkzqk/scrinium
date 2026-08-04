@@ -115,21 +115,13 @@ def test_cmd_insights_smoke_with_metrics_store(tmp_path: Path, monkeypatch):
     (ws_dir / "papers.json").write_text(json.dumps(["Paper-A", "Paper-B"]), encoding="utf-8")
 
     store = metrics.init(tmp_path / "metrics.db", "test-session")
-    store.record("search", "usearch", detail={"query": "heat transfer wall motion"})
-    store.record("search", "usearch", detail={"query": "turbulent heat transfer"})
+    store.record("search", "search", detail={"query": "heat transfer wall motion"})
+    store.record("search", "search", detail={"query": "turbulent heat transfer"})
     store.record("read", "Paper-A", detail={"title": "Heat Transfer in Turbulent Flow"})
     store.record("read", "Paper-A", detail={"title": "Heat Transfer in Turbulent Flow"})
 
     messages: list[str] = []
     monkeypatch.setattr(cli_misc, "ui", lambda msg="": messages.append(msg))
-    monkeypatch.setattr(
-        "scrinium.vectors.vsearch",
-        lambda query, db_path, top_k, cfg: [
-            {"dir_name": "Paper-B", "score": 0.93},
-            {"dir_name": "Paper-C", "score": 0.81},
-            {"dir_name": "Paper-A", "score": 0.99},
-        ],
-    )
 
     cfg = SimpleNamespace(_root=tmp_path, papers_dir=papers_dir, index_db=tmp_path / "index.db")
 
@@ -143,6 +135,5 @@ def test_cmd_insights_smoke_with_metrics_store(tmp_path: Path, monkeypatch):
     assert "【搜索热词前 10】" in joined
     assert "【最常阅读论文前 10】" in joined
     assert "Heat Transfer in Turbulent Flow" in joined
-    assert "Compliant Walls for Cooling" in joined
     assert "【活跃工作区】" in joined
     assert "cooling-study" in joined
