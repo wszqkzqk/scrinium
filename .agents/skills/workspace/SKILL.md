@@ -34,12 +34,12 @@ scrinium workspace add <名称> <论文标识...>
 批量添加：
 ```bash
 scrinium workspace add <名称> --search "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型]
-scrinium workspace add <名称> --topic <主题ID>
+scrinium workspace add <名称> --tag <标签>
 scrinium workspace add <名称> --all
 ```
 
-- `--search`：按融合检索结果批量添加，支持 `--top`/`--year`/`--journal`/`--type` 过滤
-- `--topic`：按 BERTopic 主题 ID 批量添加该主题下的全部论文
+- `--search`：按关键词检索结果批量添加，支持 `--top`/`--year`/`--journal`/`--type` 过滤
+- `--tag`：按策展标签（主题）批量添加该标签下的全部论文，支持别名（配合 `scrinium topics` 浏览主题）
 - `--all`：将主库全部论文加入工作区
 
 三个批量参数互斥。提供批量参数时，位置参数 `<论文标识>` 被忽略。
@@ -71,15 +71,10 @@ scrinium workspace rename <旧名称> <新名称>
 ### 在工作区内搜索
 
 ```bash
-scrinium workspace search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--mode hybrid|keyword|semantic] [--tag 标签]
+scrinium workspace search <名称> "<查询词>" [--top N] [--year YYYY] [--journal 期刊名] [--type 类型] [--tag 标签]
 ```
 
-搜索模式：
-- `hybrid`（默认）：融合检索（关键词 + 语义 RRF 排序；无嵌入后端时自动降级为纯关键词；`unified` 为等价别名）
-- `keyword`：FTS5 关键词检索
-- `semantic`：FAISS 语义向量检索（需嵌入后端，`embed.provider: none` 时不可用）
-
-范围限定在工作区论文内。
+关键词（FTS5）检索，范围限定在工作区论文内。召回不足时用查询扩展多改写几轮（见 `/search` skill）。
 
 ### 导出工作区 BibTeX
 
@@ -104,14 +99,11 @@ scrinium workspace export <名称> [-o 输出文件] [--year YYYY] [--journal �
 用户说："把搜索到的论文都加到工作区"
 → 执行 `workspace add drag-reduction --search "turbulent drag reduction" --top 20`
 
-用户说："把主题 3 的论文加到工作区"
-→ 执行 `workspace add drag-reduction --topic 3`
+用户说："把 enhanced-sampling 这个方向的论文都加到工作区"
+→ 执行 `workspace add drag-reduction --tag enhanced-sampling`
 
 用户说："在工作区里搜 turbulent boundary layer"
 → 执行 `workspace search drag-reduction "turbulent boundary layer"`
-
-用户说："用关键词在工作区里搜"
-→ 执行 `workspace search drag-reduction "turbulent boundary layer" --mode keyword`
 
 用户说："把工作区改个名"
 → 执行 `workspace rename drag-reduction turbulence-control`

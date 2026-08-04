@@ -1,62 +1,80 @@
 ---
 name: enrich
-description: Enrich paper metadata using LLM extraction. Extract table of contents (TOC), conclusions, and backfill abstracts. Use when the user wants to extract conclusions, build TOC, or backfill missing abstracts. For citation count updates, see the /citations skill.
+description: Enrich paper metadata — agent-written L3 conclusions (subagent reads full text and writes meta.json directly), rule-based TOC extraction, and abstract backfill (regex + DOI fetch). Use when the user wants to extract conclusions, build TOC, or backfill missing abstracts. For citation count updates, see the /citations skill.
 version: 1.0.0
 author: wszqkzqk/scrinium
 license: GPL-3.0-or-later
-tags: ["academic", "papers", "metadata", "enrichment", "llm"]
+tags: ["academic", "papers", "metadata", "enrichment"]
 ---
 # 富化论文内容
 
-通过 LLM 提取论文的目录结构（TOC）或结论段，丰富论文元数据。统一入口是 `scrinium enrich` 命令组。
+丰富论文元数据的三个职能，按接管路径分为两类：
 
-> **注意**：`import endnote` / `import zotero` 导入时默认自动执行 toc + conclusion + abstract backfill。以下命令用于**选择性富化**（如重新提取、补充特定论文、或处理全库）。
+- **结论（L3）**：需要理解——由 agent/subagent 精读全文后**直写 meta.json**（框架无 LLM，这是结论提取的正式形态）
+- **目录（TOC）/ 摘要（abstract）**：规则可解——保留 `enrich toc` / `enrich abstract` 纯规则命令；规则未命中时输出 hint，由 agent 核对直写
+
+> **写入即生效的约定**：agent 直写 meta.json 的 `l3_conclusion` / `toc` / `abstract` 字段后，运行 `scrinium index` 使其进入检索；`scrinium refresh` 不会覆盖 `toc*`/`l3_*` 键，agent 写入的内容是安全的。
 >
 > **引用量补查**：使用 `/citations` skill 中的 `scrinium refresh` 命令。
 
-## 执行逻辑
+## 结论提取（L3，agent 直写工作流）
 
-1. 解析用户意图：
-   - **提取目录**：使用 `enrich toc`
-   - **提取结论**：使用 `enrich conclusion`
-   - **补全摘要**：使用 `enrich abstract`（从 .md 提取 + LLM 校验）
+### 单篇
 
-2. 确定处理范围：
-   - 指定论文 ID → 处理单篇
-   - 用户说"全部" → 使用 `--all`
-   - 可选 `--force` 覆盖已有结果
+1. 派 subagent（或亲自）精读全文：
 
-> 批量模式说明：
-> - `--all` 会按 `config.llm.concurrency` 做多篇并发处理
-> - 并发只发生在“论文之间”，单篇内部提取逻辑不拆分并发
-> - 批量模式会对单篇失败自动做指数退避重试
+```bash
+scrinium show "<paper-id>" --layer 4
+```
 
-3. 执行命令：
+2. 提炼结论段（研究结论、核心发现、局限性），用 Edit 工具写入论文目录 `meta.json`：
 
-**提取目录：**
+```json
+"l3_conclusion": "This study demonstrates that ...",
+"l3_extraction_method": "agent"
+```
+
+`l3_extraction_method: agent` 必须成对写入，标记结论来源。
+
+3. 重建索引使结论可检索：
+
+```bash
+scrinium index
+```
+
+4. 验证：
+
+```bash
+scrinium show "<paper-id>" --layer 3
+```
+
+5. 结论提炼过程中的关键发现，按 T2 纪律同时沉淀到 notes（见 `/show` skill 的 `--append-notes`）。
+
+### 批量
+
+参照 `/curate` skill 的并行 subagent 模板：每批 15-20 篇、批次间论文集互不重叠，每个 subagent 对每篇执行「读 L4 → 提炼 → 直写 meta.json（含 `l3_extraction_method: agent`）」，只带回 T1 结论（成功/失败 + 一句话摘要）。全部批次完成后主 agent 统一跑一次 `scrinium index`。
+
+批量打标式纪律同样适用：subagent prompt 必须含 paper-id 列表、写入字段约定、T2 notes 指令。
+
+## 目录提取（TOC，纯规则命令）
+
 ```bash
 scrinium enrich toc [<paper-id> | --all] [--force] [--inspect]
 ```
 
-**提取结论：**
-```bash
-scrinium enrich conclusion [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
-```
+- 纯规则从 Markdown heading 结构推断 TOC，写入 meta.json 的 `toc` 字段
+- 规则未命中时 CLI 输出 hint：`建议 agent 阅读全文后直接写 meta.json 的 toc 字段`——**见到 hint 即接管**：agent 读全文后自行整理章节结构直写 `toc`，然后 `scrinium index`
+- agent 也可以对规则产出的 TOC 做核对修订（直写覆盖即可）
 
-**补全摘要：**
+## 摘要补全（abstract，命令 + agent 核对）
+
 ```bash
 scrinium enrich abstract [--dry-run] [--doi-fetch]
 ```
 
-参数说明：
-- `--inspect` — 展示提取过程详情（调试用）
-- `--max-retries N` — 结论单篇提取最大重试次数（默认 2）；`--all` 时也作为每篇论文的批量重试预算
-- `--doi-fetch` — 从出版商网页抓取官方 abstract（覆盖现有，需联网）
-
-4. 展示处理结果。
-   - `enrich toc` 会显示开始提取、是否成功、以及提取出的 TOC 节数
-   - 单篇处理会打印该篇的提取进度与结果
-   - 批量处理会显示并发 worker 数，以及最终的成功 / 失败 / 跳过汇总
+- 纯正则从 paper.md 提取缺失的 abstract；`--doi-fetch` 从出版商网页抓取官方 abstract（覆盖现有，需联网）
+- 正则未命中的论文会列出并附 hint：`建议 agent 阅读原文后直接写 meta.json 的 abstract 字段`——按 hint 逐篇接管：读 L4 开头 → 直写 `abstract` → 全部完成后 `scrinium index`
+- 对命令提取结果存疑的（截断、错位），agent 读原文核对后直写覆盖
 
 ## Legacy 别名
 
@@ -65,22 +83,21 @@ scrinium enrich abstract [--dry-run] [--doi-fetch]
 | 旧命令 | 等价形式 |
 |---|---|
 | `enrich-toc` | `enrich toc` |
-| `enrich-l3` | `enrich conclusion` |
 | `backfill-abstract` | `enrich abstract` |
 
 ## 示例
 
 用户说："帮我提取所有论文的结论"
-→ 执行 `enrich conclusion --all`
+→ 批量 agent 直写工作流：分批派 subagent 读 L4 → 直写 `l3_conclusion`（+`l3_extraction_method: agent`）→ 完成后 `scrinium index`
 
 用户说："重新提取 Smith-2023-Survey 的目录"
-→ 执行 `enrich toc "Smith-2023-Survey" --force`
-
-用户说："帮我看看这篇论文 TOC 提取成功没有"
-→ 执行 `enrich toc "<paper-id>" --force`，并根据终端输出确认 `TOC 提取完成: N 节`
+→ 执行 `scrinium enrich toc "Smith-2023-Survey" --force`，确认输出 TOC 节数；规则未命中则按 hint 直写
 
 用户说："补全摘要"
-→ 执行 `enrich abstract`，然后提示 `embed --rebuild`
+→ 执行 `scrinium enrich abstract`；对输出中列出的未命中论文，逐篇读原文直写 `abstract`，最后 `scrinium index`
+
+用户说："这篇论文的结论是什么"
+→ 先 `scrinium show "<paper-id>" --layer 3`；缺失（输出带 hint）时读 L4 提炼并直写，`index` 后再展示
 
 用户说："补查引用量"
 → 转交 `/citations` skill（使用 `refresh` 命令）

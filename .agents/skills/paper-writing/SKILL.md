@@ -93,7 +93,7 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <workspace> | paper-w
 - **所有引用必须来自工作区中的真实论文**，绝不编造引用
 - 如发现工作区缺少需要引用的论文，提醒用户补充：
   ```bash
-  scrinium search "<关键词>" --mode hybrid  # 全库搜索候选
+  scrinium search "<关键词>"                # 全库搜索候选
   scrinium workspace add <name> <paper-id>  # 添加到工作区
   ```
 - 最终导出：

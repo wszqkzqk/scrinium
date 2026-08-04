@@ -118,7 +118,7 @@ scrinium toolref search openfoam q criterion
 
 ### 知识库协作模式
 
-1. 用 `scrinium search "<流动问题>" --mode hybrid` 检索相关论文
+1. 用 `scrinium search "<流动问题>"` 检索相关论文
 2. 从论文提取：几何参数、流动条件（Re, Ma）、湍流模型选择依据、验证数据
 3. Case 设置中标注参数来源
 4. 计算完成后与实验/DNS 数据定量对比（速度剖面、阻力系数、压力分布）

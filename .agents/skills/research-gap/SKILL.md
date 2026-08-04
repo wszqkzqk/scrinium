@@ -23,7 +23,7 @@ tags: ["academic", "research", "gap-analysis", "discovery"]
 
 ```bash
 scrinium workspace show <name>               # 论文列表
-scrinium topics                             # 主题聚类（如已建模）
+scrinium topics                             # 主题（标签）分布总览
 ```
 
 对工作区论文做 L2 扫描（标题 + 摘要），建立领域地图。`show` 命令会自动展示已有的 `notes.md` 历史笔记，优先复用已有发现。
@@ -32,8 +32,8 @@ scrinium topics                             # 主题聚类（如已建模）
 
 #### 维度 1：主题覆盖度
 ```bash
-scrinium topics                             # 全库主题分布
-scrinium topics --topic <ID>                # 各主题下的论文
+scrinium topics                             # 全库主题（标签）分布
+scrinium topics <tag>                       # 某主题下的论文
 ```
 工作区论文是否集中在某几个主题？哪些相关主题缺乏覆盖？
 
@@ -71,7 +71,7 @@ scrinium show <paper-id> --layer 3
 ```
 这些 future work 是否已有人做了？交叉搜索验证：
 ```bash
-scrinium search "<future work 关键词>" --mode hybrid
+scrinium search "<future work 关键词>"
 ```
 
 ### 3. 输出报告

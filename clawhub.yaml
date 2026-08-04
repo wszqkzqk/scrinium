@@ -11,12 +11,11 @@ keywords:
   - literature-review
   - systematic-review
   - bibtex
-  - semantic-search
 
 skills:
   - name: scrinium/search
     path: .claude/skills/search
-    description: "Search academic papers with hybrid keyword+semantic fusion (FTS5 + FAISS RRF)"
+    description: "Search academic papers via FTS5 keyword search with an agent query-expansion protocol (multi-reformulation, tag filters, citation snowballing)"
 
   - name: scrinium/show
     path: .claude/skills/show
@@ -28,15 +27,15 @@ skills:
 
   - name: scrinium/enrich
     path: .claude/skills/enrich
-    description: "Enrich paper metadata with LLM: extract TOC, conclusions (L3), backfill abstracts"
+    description: "Enrich paper metadata: agent-written L3 conclusions via subagent deep reading, rule-based TOC extraction, abstract backfill (regex + DOI fetch)"
 
   - name: scrinium/index
     path: .claude/skills/index
-    description: "Rebuild FTS5 full-text search index or FAISS semantic vector index"
+    description: "Rebuild the FTS5 full-text search index after metadata changes or direct meta.json edits"
 
   - name: scrinium/topics
     path: .claude/skills/topics
-    description: "Explore topic distribution using BERTopic clustering; merge topics and generate HTML visualizations"
+    description: "Browse topic distribution via curated tags — tag-topic overview, drill into a topic's papers, hand off untagged papers to curation, chart via /draw"
 
   - name: scrinium/explore
     path: .claude/skills/explore
@@ -68,7 +67,7 @@ skills:
 
   - name: scrinium/audit
     path: .claude/skills/audit
-    description: "Audit paper data quality: missing fields, filename issues, DOI duplicates, LLM deep diagnosis"
+    description: "Audit paper data quality with per-issue fix hints; agent/subagents verify against the original text and repair meta.json directly"
 
   - name: scrinium/literature-review
     path: .claude/skills/literature-review
@@ -96,11 +95,11 @@ skills:
 
   - name: scrinium/metrics
     path: .claude/skills/metrics
-    description: "View LLM token usage, API call timing, and runtime metrics"
+    description: "View runtime timing metrics — pipeline step durations, API call timing, search/read event history"
 
   - name: scrinium/insights
     path: .claude/skills/insights
-    description: "Analyze research behavior: search hot keywords, most-read papers, reading trends, and semantic neighbor recommendations"
+    description: "Analyze research behavior — search hot keywords, most-read papers, reading trends — plus an agent unread-recommendation workflow (tag overlap + citation snowball)"
 
   - name: scrinium/draw
     path: .claude/skills/draw
@@ -124,7 +123,7 @@ skills:
 
   - name: scrinium/translate
     path: .claude/skills/translate
-    description: "Translate paper markdown to a target language (default Chinese), preserving LaTeX formulas, code blocks, and images"
+    description: "Translate paper markdown via agent-orchestrated chunked translation with glossary reuse and resume support, preserving LaTeX formulas, code blocks, and images"
 
   - name: scrinium/bioinformatics
     path: .claude/skills/bioinformatics

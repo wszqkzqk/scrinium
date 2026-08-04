@@ -233,4 +233,4 @@ echo "# 标题\n内容..." | scrinium export docx --output workspace/doc.docx
 → 执行 `export docx --input workspace/review.md --output workspace/review.docx`
 
 用户说："导出 DNS 相关的论文引用"
-→ 先用 `search "DNS" --mode hybrid` 搜索，再用结果中的目录名 / DOI / UUID 执行 `export markdown <标识1> <标识2> ...`
+→ 先用 `search "DNS"` 搜索，再用结果中的目录名 / DOI / UUID 执行 `export markdown <标识1> <标识2> ...`

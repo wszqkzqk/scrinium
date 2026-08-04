@@ -47,10 +47,10 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 
 1. **判断输出格式**：按上表选型
 2. **收集内容**：调用其他 skill/CLI 获取数据
-   - `scrinium search`（`--mode hybrid`） — 搜索论文
+   - `scrinium search` — 搜索论文
    - `scrinium show --layer 2/3` — 获取摘要/结论
    - `scrinium top-cited` — 高引论文
-   - `scrinium topics --topic N` — 主题论文
+   - `scrinium topics <tag>` — 主题（标签）下的论文
    - `scrinium workspace show <name>` — 工作区论文列表
 3. **生成图表**（如需要）：用 draw skill 生成 PNG/SVG 到 `workspace/figures/`
 4. **编写 Python 脚本**：参照 [reference.md](reference.md) 中对应库的模板与 API 速查，在一个脚本中完成全部操作

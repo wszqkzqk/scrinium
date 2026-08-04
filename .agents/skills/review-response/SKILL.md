@@ -43,7 +43,7 @@ tags: ["academic", "writing", "peer-review", "rebuttal"]
 5. 从引用图谱中找额外支撑：
    ```bash
    scrinium references "<id>"               # 相关论文的参考文献
-   scrinium search "<补充关键词>" --mode hybrid  # 全库搜索（工作区外）
+   scrinium search "<补充关键词>"            # 全库搜索（工作区外）
    ```
 
 ### 3. 撰写回复

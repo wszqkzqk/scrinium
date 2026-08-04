@@ -27,8 +27,8 @@ scrinium setup check --lang zh
 
 默认把 setup 分成两层：
 
-- **核心配置**：依赖、`config.yaml`、LLM key、PDF 解析器选择、MinerU token、`contact_email`
-- **附加配置**：`Semantic Scholar API key`、`Zotero API key`、非默认 LLM backend / base_url 等按需项目
+- **核心配置**：依赖、`config.yaml`、PDF 解析器选择、MinerU token、`contact_email`
+- **附加配置**：`Semantic Scholar API key`、`Zotero API key` 等按需项目
 
 执行顺序要求：
 
@@ -46,9 +46,7 @@ scrinium setup check --lang zh
 ## 2. 根据缺失项引导用户
 
 ### 依赖缺失
-- 告诉用户缺少哪些依赖，解释每组依赖的用途（`setup check` 共检查 core / embed / topics / import / pdf / office / draw 七组）：
-  - `embed`: 语义向量检索（Qwen3 嵌入模型）
-  - `topics`: BERTopic 主题建模
+- 告诉用户缺少哪些依赖，解释每组依赖的用途（`setup check` 共检查 core / import / pdf / office / draw 五组）：
   - `import`: Endnote / Zotero 导入
   - `pdf`: PyMuPDF 兜底 PDF 解析（无 MinerU / Docling 时的后备解析路径）
   - `office`: MarkItDown + Office 文档生成（inbox-doc 转换、DOCX/PPTX/XLSX 生成）
@@ -60,8 +58,7 @@ scrinium setup check --lang zh
 - 运行 `scrinium setup` 交互式向导自动创建
 - 或者直接帮用户创建（默认配置即可）
 
-### API key 未配置
-- **LLM key**（DeepSeek / OpenAI / Anthropic / Google）：问用户是否有。没有也能用，但元数据提取降级为纯正则、enrich 不可用。要明确说明：**这通常由所选提供商单独计费，不要默认认为 coding agent 订阅会自动覆盖 Scrinium 的 API 调用**
+### 凭据配置
 - **PDF 解析器选择**：先问用户想用 `MinerU` 还是 `Docling`
 - 如果用户已经明确知道要用哪个解析器，**不要替用户改主意**，直接按用户选择继续配置
 - 如果用户不知道选哪个：
@@ -94,11 +91,6 @@ scrinium setup check --lang zh
   - 补充说明：Zotero 官方允许对**公开库**做匿名只读访问，但 Scrinium 当前的 Web API 导入路径按“提供 key”设计；如果用户不想配 key，优先建议本地 `zotero.sqlite` 导入
   - 做法：写入 `zotero.api_key` 或环境变量 `ZOTERO_API_KEY`
   - 开销：**按第三方政策**
-- 自定义 LLM backend / model / base_url
-  - 用途：切换到 Claude / Gemini / Ollama / 自建 OpenAI-compatible 服务
-  - 何时需要：用户明确不想用默认 DeepSeek，或已有自己的兼容后端
-  - 做法：修改 `config.yaml` 的 `llm.backend / model / base_url`
-  - 开销：**取决于所选提供商**
 
 ### MinerU 高级字段约束
 - 对用户暴露时，默认坚持“能不改就不改”，优先开箱即用
@@ -158,14 +150,12 @@ scrinium setup check --lang zh
 
 setup 过程中，agent 不要只说“需要 key”，必须同时说明：
 
-- `LLM API key`：通常单独计费；不配则降级
 - `MinerU token`：免费申请；不配仍可走本地 MinerU / Docling / PyMuPDF
 - `contact_email`：免费
 - 其他附加 API key：明确说“按第三方政策”，不要替对方做费用承诺
 
 简短答法模板：
 
-- `LLM API key`：用于元数据提取和内容富化；不配会降级为纯正则，通常单独计费
 - `MinerU token`：用于 MinerU 云端解析；免费，不配仍可走本地 MinerU / Docling / PyMuPDF
 - `contact_email`：用于 Crossref polite pool；免费，不配通常只是请求识别度和服务礼貌性更弱
 - `Semantic Scholar API key`：用于认证访问；不配多数端点仍可用，但部分端点需要 key
@@ -182,4 +172,4 @@ setup 过程中，agent 不要只说“需要 key”，必须同时说明：
 
 - 用户也可以直接运行 `scrinium setup` 进入交互式向导（bilingual EN/ZH）
 - `config.local.yaml` 存放敏感信息（API key），不进 git
-- 嵌入模型（~1.2GB）会在首次 embed / `search --mode semantic` 时自动下载，setup 不触发下载
+- 框架内无任何 LLM / embedding 调用，setup 不涉及模型 key；智能职能（结论提取、翻译、主题组织等）由 agent skill 接管

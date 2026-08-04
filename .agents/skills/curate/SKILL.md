@@ -1,6 +1,6 @@
 ---
 name: curate
-description: Curate papers with tags in batch — build and maintain a healthy tag vocabulary, tag untagged papers via subagents, and review vocabulary quality. Use when the user wants to tag papers / batch-organize the library with tags / tidy up the tag vocabulary (especially when embedding retrieval is disabled and tags are the discovery mechanism).
+description: Curate papers with tags in batch — build and maintain a healthy tag vocabulary, tag untagged papers via subagents, and review vocabulary quality. Tags are the library's topic layer (see the /topics skill). Use when the user wants to tag papers / batch-organize the library with tags / tidy up the tag vocabulary.
 version: 1.0.0
 author: wszqkzqk/scrinium
 license: GPL-3.0-or-later
@@ -8,18 +8,18 @@ tags: ["academic", "papers", "curation", "tags"]
 ---
 # 文献策展（标签）
 
-用标签词表对论文库做人工/agent 策展：批量打标、维护词表健康度。嵌入检索被禁用时，标签是替代语义发现的核心机制——打标质量直接决定后续 `search --tag` 的可用性。
+用标签词表对论文库做人工/agent 策展：批量打标、维护词表健康度。**标签就是本框架的主题层**——打标质量直接决定 `search --tag` 过滤、`scrinium topics` 主题总览和查询扩展发现协议的可用性。
 
 ## 何时使用
 
 - 用户要给论文（批量）打标签、整理标签体系
 - 用户要清理词表：合并重复标签、拆分过宽标签
-- 嵌入不可用，需要系统性建立可过滤的标签层
+- 系统性建立可过滤、可浏览的主题标签层
 
 **不适用于：**
 
 - 全文深度分析、精读——那是 `show` / `literature-review` 的事。策展只看 L1/L2（最多 L3），不为打标读全文
-- 自动主题聚类——嵌入后端可用时，BERTopic 主题建模（`topics` skill）是自动聚类的另一条路；`curate` 是人工/agent 策展路线，两者互补
+- 主题分布浏览——那是 `topics` skill 的事（`scrinium topics` 总览 + 钻取）；`curate` 负责打标与词表治理，两者共用同一套 tags 数据
 
 ## 命令速查
 
@@ -30,7 +30,7 @@ tags: ["academic", "papers", "curation", "tags"]
 | `scrinium tag "<paper-id>" <标签...>` | 加标签（别名自动归一为 canonical） |
 | `scrinium tag "<paper-id>" <标签...> --remove` | 移除标签 |
 | `scrinium show "<paper-id>" --layer 2` | 打标依据：L1 头部有"标签:"行，L2 有摘要 |
-| `scrinium search "<查询词>" --tag <标签>` | 按标签过滤（多个 --tag 为 AND）；`--mode hybrid` 同 |
+| `scrinium search "<查询词>" --tag <标签>` | 按标签过滤（多个 --tag 为 AND） |
 | `scrinium audit` | 报告 untagged（未打标）论文 |
 
 词表持久化在 `data/tags.yaml`，结构：

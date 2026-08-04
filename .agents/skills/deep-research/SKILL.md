@@ -21,7 +21,7 @@ tags: ["academic", "research", "deep-research", "survey"]
 ## 前提
 
 - 需要一个**调研主题名**（用作 `workspace/<主题>/` 目录和工作区名），用户未指定时你来拟一个简短英文 slug 并确认
-- 本部署为无嵌入（`embed.provider=none`）：`search --mode hybrid`/`workspace search` 自动降级为纯关键词，`--mode semantic` 不可用，`explore search` 必须显式 `--mode keyword`。发现文献的主路径是 **多查询关键词 + `--tag` 过滤 + 引用图滚雪球**——本 skill 的工作流正是围绕这条路径设计的
+- 检索全部是关键词（FTS5）模式，框架无嵌入召回。发现文献的主路径是**查询扩展发现协议**：多改写并行搜（中英/同义词/缩写全称，见 `/search` skill）+ `--tag` 过滤 + 引用图滚雪球——本 skill 的工作流正是围绕这条路径设计的，agent 凭理解筛排即为语义召回的接管形态
 - 全程维护一份**研究日志** `workspace/<主题>/research-log.md`：它是跨轮次、跨会话的记忆，中断续跑靠它恢复
 
 ## 工作流
@@ -62,13 +62,13 @@ tags: ["academic", "research", "deep-research", "survey"]
 对每个子问题的每个查询变体，分别在以下来源检索：
 
 ```bash
-# 主库（无嵌入时自动降级为纯关键词，属预期行为）
-scrinium search "<查询词>" --mode hybrid --top 20 --json
+# 主库（关键词检索；按查询扩展协议准备多个查询变体）
+scrinium search "<查询词>" --top 20 --json
 # 可加过滤：--year 2020-  --journal "<期刊名>"  --type review
 
 # explore 外部库（主库覆盖薄的新领域）：先拉取，再关键词检索
 scrinium explore fetch --keyword "<查询词>" --name <名称> [--year-range 2015-2025]
-scrinium explore search --name <名称> "<查询词>" --mode keyword   # 无嵌入必须显式加
+scrinium explore search --name <名称> "<查询词>"
 
 # arXiv 最新预印本（补主库的时效盲区）
 scrinium arxiv search "<查询词>" [--category cond-mat.soft] [--sort recent]
@@ -101,13 +101,12 @@ scrinium workspace add <主题> <paper-id...>
 
 ```bash
 scrinium snowball <种子1> <种子2> <种子3> --top 20 --json
-# --depth 2     沿引用图多走一层（默认 1）
-# --ws <主题>   把 ranked 候选直接写入工作区，省去手动 ws add
+# --ws <主题>   只在指定工作区范围内滚雪球（默认全库）
 ```
 
 输出按共享引用数排序——共享引用越多，越可能是该领域的核心文献。对高分候选做 L2 快筛，确认相关后入池。每轮的种子、新入核心的论文记入日志的滚雪球记录。
 
-滚雪球是无嵌入部署下最重要的召回补偿手段：关键词检索漏掉的经典文献，通常在几篇核心种子的共享引用里。
+滚雪球是关键词检索之外最重要的召回补偿手段：关键词检索漏掉的经典文献，通常在几篇核心种子的共享引用里。
 
 ### 阶段 5：批量深读
 
@@ -140,7 +139,7 @@ scrinium show "<paper-id>" --append-notes "## YYYY-MM-DD | <主题> | deep-resea
 ```bash
 scrinium tags                                   # 先看词表，优先复用已有标签，防止膨胀
 scrinium tag "<paper-id>" <调研主题标签...>      # 打标
-scrinium search "<查询词>" --mode hybrid --tag <标签>  # 池内按标签过滤
+scrinium search "<查询词>" --tag <标签>           # 池内按标签过滤
 ```
 
 批量打标遵循 `/curate` 纪律：克制造新标签，别把词表打爆。
@@ -191,7 +190,7 @@ scrinium workspace export <主题> -o workspace/<主题>/references.bib   # 导�
 → 读 `workspace/milestoning-kinetics/research-log.md`：从证据矩阵的空缺子问题和上次未饱和的判断处接着跑（回阶段 2 补检索，或用新入池论文做种子回阶段 4），不从头再来
 
 用户说："调研一下神经场势在反应动力学上的应用（我库里应该没什么相关文献）"
-→ 主库召回稀薄时：`explore fetch --keyword "neural network potential" --name nnp-reaction` 拉外部库，`explore search --name nnp-reaction ... --mode keyword` 检索，叠加 `arxiv search` 补预印本，再进入建池与滚雪球
+→ 主库召回稀薄时：`explore fetch --keyword "neural network potential" --name nnp-reaction` 拉外部库，`explore search --name nnp-reaction ...` 检索，叠加 `arxiv search` 补预印本，再进入建池与滚雪球
 
 用户说："调研到的方法 A 和方法 B 结论矛盾，怎么回事？"
 → 在证据矩阵标冲突，派 subagent 对读两篇论文的 L3/L4（实验条件、假设、体系差异），结论记入矩阵和双方论文的 notes
