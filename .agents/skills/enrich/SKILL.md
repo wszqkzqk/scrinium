@@ -27,6 +27,8 @@ tags: ["academic", "papers", "metadata", "enrichment"]
 scrinium show "<paper-id>" --layer 4
 ```
 
+> **subagent 类型**：写 meta.json 需要有写权限的 subagent（如 coder 型）；只读探索型 subagent 无法落盘——让它返回结论文本，由主 agent 写入（试点实证过的两种可行模式）。
+
 2. 提炼结论段（研究结论、核心发现、局限性），用 Edit 工具写入论文目录 `meta.json`：
 
 ```json
@@ -53,6 +55,8 @@ scrinium show "<paper-id>" --layer 3
 ### 批量
 
 参照 `/curate` skill 的并行 subagent 模板：每批 15-20 篇、批次间论文集互不重叠，每个 subagent 对每篇执行「读 L4 → 提炼 → 直写 meta.json（含 `l3_extraction_method: agent`）」，只带回 T1 结论（成功/失败 + 一句话摘要）。全部批次完成后主 agent 统一跑一次 `scrinium index`。
+
+**批量必须用有写权限的 subagent**（如 coder 型）；只读探索型 subagent 落不了盘。
 
 批量打标式纪律同样适用：subagent prompt 必须含 paper-id 列表、写入字段约定、T2 notes 指令。
 
