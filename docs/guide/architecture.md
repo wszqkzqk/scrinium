@@ -8,7 +8,7 @@ This page is the architecture reference for Scrinium. Core behavioral instructio
 - If `MinerU` is unavailable or fails, processing falls back through `pdf_fallback.py` (`Docling -> PyMuPDF`)
 - Direct `.md` ingestion is also supported, skipping PDF parsing entirely
 - Generated Markdown enters `extractor.py`
-  - Stage 1: extract fields from the Markdown header, supporting `regex`, `auto`, `robust`, and `llm`
+  - Stage 1: extract fields from the Markdown header (`regex` only — the framework makes no LLM calls)
 - Then it enters `metadata/`
   - Stage 2: API completion, abstract backfill, document metadata generation, JSON output, and rule-based renaming
 - Then it enters `pipeline.py`
@@ -16,9 +16,7 @@ This page is the architecture reference for Scrinium. Core behavioral instructio
   - With patent publication number: write to `data/papers/<Author-Year-Title>/`, deduplicated by publication number
   - Without DOI: move to `data/pending/` for manual confirmation
 - After ingestion:
-  - `index.py` writes to `data/index.db` (SQLite FTS5)
-  - `vectors.py` writes to `data/index.db` (`paper_vectors` table)
-  - `topics.py` writes to `data/topic_model/` (BERTopic, reusing `paper_vectors`)
+  - `index.py` writes to `data/index.db` (SQLite FTS5, schema v2)
 - Finally, the `cli/` package exposes everything to skills and coding agents
 
 ## Explore Flow
@@ -27,18 +25,15 @@ This page is the architecture reference for Scrinium. Core behavioral instructio
 
 - Uses the OpenAlex API for multi-dimensional filtering (ISSN / concept / author / institution / keyword / source-type, and more)
 - Writes results to `data/explore/<name>/papers.jsonl`
-- Maintains at the same time:
-  - `explore.db` (`paper_vectors` + FTS5 full-text index)
-  - `faiss.index` (FAISS semantic retrieval)
-  - `topic_model/` (BERTopic in a unified format) and `viz/` (HTML visualizations)
-- Supported search modes: semantic / keyword / hybrid
+- Maintains `explore.db` (FTS5 full-text index)
+- Supported search mode: keyword
 
 ## Workspace Layer
 
 `workspace.py` as a thin layer:
 
 - `workspace/<name>/papers.json` records paper UUIDs pointing into `data/papers/`
-- Search and export reuse existing capabilities by injecting the `paper_ids` parameter (for example `search()`, `vsearch()`, `unified_search()`, and `export_bibtex()`)
+- Search and export reuse existing capabilities by injecting the `paper_ids` parameter (for example `search()` and `export_bibtex()`)
 
 ## External Import Flow
 
@@ -46,18 +41,7 @@ This page is the architecture reference for Scrinium. Core behavioral instructio
 
 - `sources/endnote.py` / `sources/zotero.py` parse metadata and match PDFs
 - Then hand off to `pipeline.import_external()`
-- Then `pipeline.batch_convert_pdfs(enrich=True)` completes batch PDF->MD conversion, abstract backfill, TOC/L3 extraction, embeddings, and indexing
-
-## GPU-Adaptive Batching
-
-The embedding pipeline in `vectors.py` automatically adjusts batch size based on available GPU memory:
-
-1. **Initial profiling** (~10 seconds): starting from 64 tokens, it doubles step by step, measuring incremental memory usage for each length until OOM
-2. **Cache reuse**: results are written to `~/.cache/scrinium/gpu_profile.json`, keyed by `model_name::GPU_name`; changing GPU or model triggers automatic re-profiling
-3. **Runtime bucketing**: texts are bucketed by token length (64/128/.../16384), and each bucket interpolates an optimal batch size from the profile
-4. **OOM fallback**: on OOM, batch size is halved and retried automatically; if OOM still occurs at batch size 1, it falls back to CPU
-
-All paths that call `_embed_batch()` (main-library embedding, explore embedding, and BERTopic's `QwenEmbedder`) benefit automatically.
+- Then `pipeline.batch_convert_pdfs()` completes batch PDF->MD conversion and indexing; abstract/TOC backfill runs through the `enrich` preset or agent post-processing
 
 ## Layered Loading Design (L1-L4)
 
@@ -65,7 +49,7 @@ All paths that call `_embed_batch()` (main-library embedding, explore embedding,
 |----|------|------|
 | L1 | title, authors, year, journal, doi, volume, issue, pages, publisher, issn | JSON file |
 | L2 | abstract | JSON field |
-| L3 | conclusion section | JSON field (requires running `enrich conclusion` first) |
+| L3 | conclusion section | JSON field (written by the agent after reading L4 — see "Agent-Written meta.json Fields" below) |
 | L4 | full Markdown | Read `.md` directly |
 
 ## `data/papers/` Directory Structure
@@ -76,7 +60,7 @@ data/papers/
     ├── meta.json    # L1+L2+L3 metadata (includes "id": "<uuid>")
     ├── paper.md     # L4 source (MinerU output)
     ├── notes.md     # Agent analysis notes (T2 layer, optional, created/appended on demand)
-    ├── paper_{lang}.md # Translated version (such as paper_zh.md, optional)
+    ├── paper_{lang}.md # Translated version written by the agent (such as paper_zh.md, optional)
     ├── images/      # Images extracted by MinerU (referenced from md)
     ├── layout.json  # MinerU layout analysis result (optional)
     └── *_content_list.json  # MinerU structured content (optional)
@@ -85,15 +69,6 @@ data/papers/
 Each paper lives in its own directory. The UUID is the internal unique identifier (written to `meta.json["id"]` and never changed).
 The directory name is the human-readable `Author-Year-Title`; rename operations only change the directory name.
 The `papers_registry` table inside `data/index.db` provides UUID <-> DOI <-> dir_name lookup in both directions.
-
-Portable translation exports are written under:
-
-```text
-workspace/translation-ws/
-└── <Author-Year-Title>/
-    ├── paper_{lang}.md
-    └── images/
-```
 
 ## `data/inbox/` Directory
 
@@ -112,7 +87,7 @@ data/inbox-thesis/
 
 Paper types: `article` (default), `thesis`, `patent`, `book`, and `document` (including subtypes such as `technical-report` / `lecture-notes`).
 
-Note: papers without DOI in the regular inbox are automatically judged by the LLM to determine whether they are theses. If yes, they are tagged and ingested; otherwise they are sent to pending.
+Note: papers without DOI in the regular inbox are checked against title-keyword heuristics (for example "thesis" / "dissertation"). A heuristic hit tags and ingests the item as a thesis; anything else goes to `data/pending/`, where an agent (usually a subagent) can review the PDF and decide.
 The thesis inbox skips that judgment and ingests directly as thesis.
 
 ## `data/inbox-patent/` Directory
@@ -139,8 +114,7 @@ Non-paper document ingest flow:
 
 - **Office files** (`.docx` / `.xlsx` / `.pptx`): first converted to `.md` by `step_office_convert` (MarkItDown), then passed through the remaining steps
 - DOI deduplication and API queries are skipped
-- The LLM auto-generates title and abstract to ensure searchability
-- Without an LLM, it degrades to: first Markdown heading or filename -> title, first 500 words -> abstract
+- Minimal rule-based metadata keeps the document searchable: first Markdown heading or filename -> title, first 500 words -> abstract; an agent can refine title/abstract later by editing `meta.json` directly
 - `paper_type` is tagged as `document` (or a more specific type such as `technical-report` / `lecture-notes`)
 - Audit rules do not report `missing_doi` warnings for document / patent types
 
@@ -177,7 +151,9 @@ The `issue` field in `pending.json` indicates the reason:
 - `no_pub_num` - Patent inbox failed to extract a publication number; requires manual confirmation or manual entry
 - `duplicate` - The DOI or patent publication number duplicates an already ingested item (including a `duplicate_of` field pointing to the existing paper directory); the user can decide whether to overwrite
 
-Note: theses are ingested automatically (either from the thesis inbox or from LLM judgment) and do not pass through pending.
+`pending.json` also carries a `hint` field with the recommended agent takeover action (see "Agent Handoff Hints" below).
+
+Note: theses are ingested automatically (either from the thesis inbox or via title-keyword heuristics) and do not pass through pending.
 Patents are ingested automatically (from the patent inbox), deduplicated by publication number, and do not pass through pending.
 
 **Important**: the `missing_md` issue reported by `audit` means an already ingested paper in `data/papers/` is missing `paper.md`; it is a quality problem, not a `data/pending/` status. Pending only contains papers blocked during the ingestion flow (missing DOI or duplicates); `missing_md` means the item has already been ingested but not yet parsed into full text, so full-text search is unavailable.
@@ -192,17 +168,12 @@ Duplicate entries left over from ingest dedup judgments (for example, items conf
 data/explore/<name>/
 ├── papers.jsonl        # Full paper list fetched from OpenAlex (title/abstract/authors/year/doi/cited_by_count)
 ├── meta.json           # Exploration-library metadata (query parameters/count/fetched_at)
-├── explore.db          # SQLite (paper_vectors table + papers_fts FTS5 full-text index)
-├── faiss.index         # FAISS IndexFlatIP (cosine similarity)
-├── faiss_ids.json      # List of paper_ids corresponding to the FAISS index
-└── topic_model/
-    ├── bertopic_model.pkl   # BERTopic model (unified format, same as main library)
-    ├── scrinium_meta.pkl  # Additional metadata (paper_ids/metas/topics/embeddings/docs)
-    ├── info.json            # Statistics (n_topics/n_outliers/n_papers)
-    └── viz/                 # 6 HTML visualizations
+└── explore.db          # SQLite (papers_fts FTS5 full-text index)
 ```
 
-## `data/tags.yaml` — Curated Tag Vocabulary
+Leftover artifacts from pre-3.0 installs (`faiss.index`, `faiss_ids.json`, `topic_model/`) are no longer read or produced and can be deleted manually.
+
+## `data/tags.yaml` — Curated Tag Vocabulary (Tags as Topics)
 
 ```yaml
 tags:
@@ -211,7 +182,36 @@ tags:
     description: 分子力场相关
 ```
 
-Agent-curated tag taxonomy (see `scrinium/tags.py`). Canonical tags with aliases and descriptions; per-paper tags live in `meta.json["tags"]`, are indexed into FTS (schema v1), and can filter searches via `--tag`. In embedding-free deployments (`embed.provider: none`), curated tags plus the citation graph replace semantic discovery ("tags as topics").
+Agent-curated tag taxonomy (see `scrinium/tags.py`). Canonical tags with aliases and descriptions; per-paper tags live in `meta.json["tags"]`, are indexed into FTS, and can filter searches via `--tag`.
+
+Tags are the topic system: `scrinium topics` renders the topic distribution from this vocabulary (per-tag counts, shares, untagged count) and `scrinium topics <tag>` drills into a single topic. There is no second clustering layer — vocabulary merging is done through tag aliases, and distribution charts are produced by the agent's `draw` skill on demand.
+
+## Agent Handoff Hints (`hint: `)
+
+The framework makes no model calls. When a deterministic path fails or returns low confidence, the CLI emits a line prefixed with `hint: ` (in text and `--json` output alike) instead of trying to be clever. That line is the framework-to-agent handoff signal: the agent is expected to take over via the matching skill workflow. Emission points:
+
+- **Ingest results** — low-confidence extraction (missing title/authors), `no_doi`, and `duplicate` each come with a hint; `pending.json` stores the same hint in its `hint` field
+- **`scrinium pending`** — each blocked item suggests the resolution workflow (subagent review, `repair`, or re-ingest)
+- **`enrich abstract` / `enrich toc`** — when the regex misses, the hint asks the agent to read the paper and write the field directly
+- **`scrinium audit`** — each finding suggests the agent-side repair workflow (edit `meta.json`, `repair`, `rename`)
+- **`show --layer 3`** — when no conclusion exists yet, the hint asks the agent to read L4 and write `l3_conclusion`
+
+## Agent-Written meta.json Fields
+
+Several `meta.json` fields are designed to be written by the agent (usually a subagent that actually read the paper) rather than by framework code:
+
+| Field | Written by | Takes effect |
+|---|---|---|
+| `toc` | `enrich toc` (pure rules), or the agent | immediately (navigation aid; not part of the FTS index) |
+| `l3_conclusion` (+ `l3_extraction_method: agent`) | the agent, after reading L4 | `show --layer 3`; searchable after `scrinium index` |
+| `abstract` | `enrich abstract` (regex / DOI fetch), or the agent | `show --layer 2`; searchable after `scrinium index` |
+| `translations` | the agent, alongside `paper_{lang}.md` | `show --layer 4 --lang <code>` |
+
+The FTS index covers title, authors, abstract, conclusion, and tags — after editing `abstract` or `l3_conclusion`, run `scrinium index` so search picks them up.
+
+## Index Schema v2
+
+`data/index.db` carries `PRAGMA user_version = 2`. On the first index operation against a pre-3.0 database, the migration runs automatically: the legacy embedding tables (`paper_vectors`, `vector_metadata`) are dropped and the FAISS sidecar files (`faiss.index`, `faiss_ids.json`) next to `index.db` are deleted. No user action is required; other pre-3.0 artifacts (`data/topic_model/`, model caches) are never touched by the framework and can be deleted manually.
 
 ## `sources/` Abstraction Layer
 

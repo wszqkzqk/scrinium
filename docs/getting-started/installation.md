@@ -11,7 +11,7 @@
 # Core installation
 pip install scrinium
 
-# Full installation (embed + topics + import + pdf + office + draw)
+# Full installation (import + pdf + office + draw)
 pip install "scrinium[full]"
 ```
 
@@ -30,7 +30,7 @@ cd scrinium
 # Core only (search, export, audit)
 pip install -e .
 
-# Full installation (embed + topics + import + pdf + office + draw)
+# Full installation (import + pdf + office + draw)
 pip install -e ".[full]"
 ```
 
@@ -49,15 +49,16 @@ pip uninstall -y scholaraio                  # drop the old editable install
 rm -rf scholaraio.egg-info
 pip install -e ".[full]"                     # install scrinium (new CLI name)
 
-scrinium --version                           # 2.0.0
-scrinium index                               # one-time FTS schema v1 migration (adds tags column)
+scrinium --version                           # 3.0.0
+scrinium index                               # one-time index migration (schema v2: drops legacy vector tables)
 ```
 
-Compatibility fallbacks (everything old keeps working, with a deprecation warning):
+Compatibility fallbacks (with a deprecation warning):
 
-- `SCHOLARAIO_*` environment variables are still honored when the `SCRINIUM_*` name is unset
+- `SCHOLARAIO_CONFIG` is honored when `SCRINIUM_CONFIG` is unset
 - `~/.scholaraio/config.yaml` is used when `~/.scrinium/config.yaml` does not exist
-- `~/.cache/scholaraio` GPU profiles are read as fallback
+
+See [Migrating from ScholarAIO](migrating-from-scholaraio.md) for the 3.0 breaking changes and cleanup steps (removed LLM/embedding features, manual deletion of old model artifacts).
 
 Optional tidy-up: rename the checkout directory to `scrinium` (recreate the venv afterwards, or keep a `scholaraio -> scrinium` symlink so old venv shebangs keep resolving); update any `~/.agents/skills` symlinks that point at the old path; mirror the new code to other remotes you pull from (e.g. `git push <mirror> main`).
 
@@ -65,14 +66,14 @@ Optional tidy-up: rename the checkout directory to `scrinium` (recreate the venv
 
 | Extra | What it adds |
 |-------|-------------|
-| `embed` | Semantic search (sentence-transformers + FAISS) |
-| `topics` | BERTopic topic modeling |
 | `pdf` | PyMuPDF-based PDF fallback and long-PDF utilities |
 | `import` | Endnote / Zotero import |
 | `office` | DOCX / PPTX / XLSX ingest and inspection |
 | `draw` | Mermaid and Inkscape-powered diagram generation |
-| `full` | Core research workflow extras: embed + topics + import + pdf + office + draw |
+| `full` | Core research workflow extras: import + pdf + office + draw |
 | `dev` | Development tools (pytest, ruff, mypy) |
+
+The `embed` and `topics` extras were removed in 3.0 together with all in-framework embedding/LLM features; no model download is ever required.
 
 ## Setup Wizard
 
@@ -90,14 +91,13 @@ scrinium setup check
 
 `setup check` is the most complete initial diagnostic surface. It covers:
 
-- core setup items: dependency groups, `config.yaml`, LLM key, MinerU / Docling availability, parser recommendation, `contact_email`, and directory state
+- core setup items: dependency groups, `config.yaml`, MinerU / Docling availability, parser recommendation, `contact_email`, and directory state
 - optional advanced items: Semantic Scholar API key and Zotero API key
 
 Current setup guidance prefers **MinerU first** whenever a MinerU path is available (local service or `mineru-open-api` + token). `Docling` and then PyMuPDF remain the fallback chain when MinerU is not usable or when the user explicitly prefers a lighter parser path.
 
 Cost transparency:
 
-- `LLM API key`: usually billed separately by the chosen provider
 - `MINERU_TOKEN`: free to apply
 - `contact_email`: free
 - `Semantic Scholar API key`: optional; most endpoints work anonymously, but some require a key
@@ -114,7 +114,3 @@ That guide separates:
 - opening this repository directly
 - registering Scrinium for use from another project
 - choosing between native skills and plugins
-
-## Embedding Model
-
-The embedding model (Qwen3-Embedding-0.6B, ~1.2 GB) downloads automatically on first use. For users outside China, set `embed.source: huggingface` in `config.yaml`.

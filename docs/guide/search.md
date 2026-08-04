@@ -1,6 +1,6 @@
 # Search & Browse
 
-Scrinium provides multiple search modes to find papers in your knowledge base.
+Scrinium provides keyword (FTS5) full-text search over your knowledge base.
 
 ## Search Modes
 
@@ -10,23 +10,9 @@ Scrinium provides multiple search modes to find papers in your knowledge base.
 scrinium search "turbulent boundary layer"
 ```
 
-Searches title, abstract, and conclusion using SQLite FTS5 full-text search.
+Searches title, abstract, and conclusion using SQLite FTS5 full-text search. This is the only built-in retrieval mode — Scrinium makes no in-framework embedding or LLM calls.
 
-### Semantic Search
-
-```bash
-scrinium search "methods for predicting flow separation" --mode semantic
-```
-
-Uses Qwen3 embeddings + FAISS for meaning-based retrieval.
-
-### Hybrid Search (Fusion)
-
-```bash
-scrinium search "Reynolds stress modeling" --mode hybrid
-```
-
-Combines keyword and semantic results using Reciprocal Rank Fusion (RRF). `--mode unified` is an accepted alias for `hybrid`.
+Meaning-based recall is handled agent-side instead: the agent rewrites your question into several keyword variants (synonyms, translations, narrower/broader terms), runs multiple searches, filters by curated tags (`--tag`), and expands along the citation graph (`snowball`). This takeover path is more precise than vector retrieval because the agent actually understands the query.
 
 ### Federated Search
 
