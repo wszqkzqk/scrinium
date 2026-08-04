@@ -290,13 +290,20 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
     papers_dir = cfg.papers_dir
     paper_id = args.paper_id
 
+    # Resolution order: library paper dir first, then the pending queue
     paper_d = papers_dir / paper_id
     md_path = paper_d / "paper.md"
-    json_path = paper_d / "meta.json"
-
+    pending_d: Path | None = None
     if not md_path.exists():
-        _log.error("文件不存在: %s", md_path)
-        sys.exit(1)
+        candidate = cfg._root / "data" / "pending" / paper_id
+        if (candidate / "paper.md").exists():
+            pending_d = candidate
+            paper_d = candidate
+            md_path = paper_d / "paper.md"
+        else:
+            _log.error("文件不存在: %s", md_path)
+            sys.exit(1)
+    json_path = paper_d / "meta.json"
 
     # Preserve existing UUID
     existing_uuid = ""
@@ -347,8 +354,30 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
         ui(f"  DOI: {meta.doi}")
     ui(f"  方法: {meta.extraction_method}")
 
+    # Dedup guard for pending targets: refuse to ingest what the library already has
+    if pending_d is not None:
+        from scrinium.ingest.pipeline import _collect_existing_ids, _normalize_arxiv_id
+
+        index = _collect_existing_ids(papers_dir)
+        dup_of = ""
+        doi_key = (meta.doi or "").lower().strip()
+        if doi_key and doi_key in index.dois:
+            dup_of = index.dois[doi_key].parent.name
+        else:
+            arxiv_key = _normalize_arxiv_id(meta.arxiv_id)
+            if arxiv_key and arxiv_key in index.arxiv_ids:
+                dup_of = index.arxiv_ids[arxiv_key].parent.name
+        if dup_of:
+            ui(f"  拒绝入库: 已在库中: {dup_of}；该 pending 项确认为重复后可删除: {pending_d}")
+            sys.exit(1)
+        ui("  查重: 未发现库内重复")
+
     if args.dry_run:
         ui("  [dry-run] 未写入任何文件")
+        return
+
+    if pending_d is not None:
+        _ingest_pending_repair(pending_d, meta, papers_dir)
         return
 
     # Write new JSON
@@ -359,6 +388,44 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
     rename_files(md_path, json_path, new_stem, dry_run=False)
 
     _log.debug("done. consider running pipeline reindex")
+
+
+def _ingest_pending_repair(pending_d: Path, meta, papers_dir: Path) -> None:
+    """Finalize repair of a pending item: move it into the library as a new paper.
+
+    Mirrors ``step_ingest`` semantics: standard ``{LastName}-{year}-{Title}``
+    directory (``-2`` suffix on collision), meta.json + paper.md + images/,
+    then the pending directory is removed (original PDF included).
+    """
+    import shutil
+
+    from scrinium.ingest.metadata import generate_new_stem, write_metadata_json
+    from scrinium.papers import generate_uuid
+
+    papers_dir.mkdir(parents=True, exist_ok=True)
+    if not meta.id:
+        meta.id = generate_uuid()
+    new_stem = generate_new_stem(meta)
+
+    paper_d = papers_dir / new_stem
+    suffix = 2
+    while paper_d.exists():
+        paper_d = papers_dir / f"{new_stem}-{suffix}"
+        suffix += 1
+    paper_d.mkdir(parents=True)
+
+    write_metadata_json(meta, paper_d / "meta.json")
+    shutil.move(str(pending_d / "paper.md"), str(paper_d / "paper.md"))
+    images = pending_d / "images"
+    if images.is_dir():
+        shutil.move(str(images), str(paper_d / "images"))
+
+    # Pending resolved: drop the whole pending dir (original PDF, pending.json, ...)
+    shutil.rmtree(pending_d)
+
+    ui(f"  已入库: {paper_d.name}/")
+    ui(f"  pending 项已解决并移除: {pending_d}")
+    ui("hint: 下一步: 运行 `scrinium index` 更新索引")
 
 
 def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
@@ -978,9 +1045,12 @@ def register(sub) -> None:
     p_pending.set_defaults(func=cmd_pending)
 
     # --- repair ---
-    p_repair = sub.add_parser("repair", help="修复论文元数据（手动指定 title/DOI，跳过 MD 解析）")
+    p_repair = sub.add_parser(
+        "repair",
+        help="修复论文元数据（库内论文原地改名；data/pending 待确认项查重后正式入库）",
+    )
     p_repair.set_defaults(func=cmd_repair)
-    p_repair.add_argument("paper_id", help="论文 ID（文件名 stem）")
+    p_repair.add_argument("paper_id", help="论文 ID（库内目录名或 data/pending 下的 pending 项名）")
     p_repair.add_argument("--title", required=True, help="正确的论文标题")
     p_repair.add_argument("--doi", default="", help="已知 DOI（加速 API 查询）")
     p_repair.add_argument("--author", default="", help="一作全名")

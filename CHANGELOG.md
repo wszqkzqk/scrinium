@@ -23,6 +23,7 @@ Scrinium 3.0 removes **all in-framework LLM and embedding calls** — no excepti
 - **Handoff hints**: when a deterministic path fails or is low-confidence, CLI output (text and `--json` alike) carries a `hint: ` line naming the recommended agent takeover workflow; `pending.json` gains a `hint` field. Emission points: ingest results, `scrinium pending`, `enrich abstract` / `enrich toc` misses, `scrinium audit`, and `show --layer 3`
 - **Tag-based topics ("tags are topics")**: new `scrinium topics [--json]` shows the tag distribution overview (counts, shares, untagged count) and `scrinium topics <tag>` drills into one topic; `workspace add --tag` batch-adds papers by tag (replacing `--topic`). Vocabulary merging stays in `tags.yaml` aliases; distribution charts come from the `draw` skill
 - **Agent-written meta.json convention**: `toc` / `l3_conclusion` / `abstract` / `translations` fields may be written by the agent directly and become searchable after `scrinium index`
+- **`repair` accepts pending items** (with a dedup guard against papers already in the library)
 
 ### Changed
 

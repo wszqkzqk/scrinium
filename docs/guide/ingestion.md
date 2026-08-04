@@ -48,7 +48,7 @@ Already have Markdown? Place `.md` files directly in the inbox — PDF parsing i
 
 Papers without DOI go to `data/pending/` unless a title-keyword heuristic recognizes them as theses. `pending.json` records the reason plus a `hint` for the recommended takeover action, and `scrinium pending` lists everything grouped by issue.
 
-The intended resolution flow is agent-driven: a subagent reads the PDF, judges the real type (thesis / patent / genuinely missing DOI), then either runs `scrinium repair` with the corrected metadata or moves the file into the matching inbox for re-ingest.
+The intended resolution flow is agent-driven: a subagent reads the PDF, judges the real type (thesis / patent / genuinely missing DOI), then either runs `scrinium repair <pending-stem>` with the corrected metadata — `repair` accepts pending items directly, guards against duplicates already in the library (DOI / arXiv ID), ingests the item, and removes the pending directory — or moves the file into the matching inbox for re-ingest.
 
 ## Pipeline Presets
 

@@ -31,7 +31,7 @@ scrinium pending
 - `show` supports layered reading from metadata to full text.
 - `tag` / `tags` manage agent-curated paper tags and the controlled vocabulary (`data/tags.yaml`); `search` / `workspace search` accept `--tag` filters.
 - `topics` browses the tag-based topic distribution: `scrinium topics` shows the overview (tags sorted by paper count, with shares and the untagged count), `scrinium topics <tag>` drills into one topic. Tags are the only topic system.
-- `pending` lists items blocked in `data/pending/` and `data/duplicates/` with resolution hints.
+- `pending` lists items blocked in `data/pending/` and `data/duplicates/` with resolution hints; a no-DOI item can be resolved in place via `scrinium repair <pending-stem>`, which ingests it with a dedup guard against papers already in the library.
 - Read-oriented commands (`search` / `show` / `workspace show` / `top-cited`) accept `--json` for structured output.
 
 ## Ingest And Enrich
@@ -107,6 +107,7 @@ scrinium citation-check
 ```
 
 - `setup` is the environment check and setup wizard entrypoint.
+- `repair` fixes a library paper's metadata in place (standardized rename), or — given a `data/pending/` item name — ingests that pending item into the library with a dedup guard and removes the pending directory.
 - `insights` analyzes research behavior such as hot keywords and reading trends.
 - `metrics` shows runtime metrics (pipeline step / API call timing and search/read events; `--category` defaults to `step`).
 - `proceedings` provides dedicated proceedings helpers.

@@ -133,10 +133,10 @@ scrinium proceedings apply-clean <proceeding_dir> <clean_plan.json>
 3. 按判定结果分路处理：
    - **thesis** → 把源 PDF 移入 `data/inbox-thesis/`，重跑 `scrinium ingest`（该通道跳过 DOI 去重直接入库）
    - **专利** → 移入 `data/inbox-patent/` 重跑
-   - **普通论文（已找到 DOI）** → 放回 `data/inbox/` 重跑 `scrinium ingest`；或把 pending 目录移入 `data/papers/` 后用 `scrinium repair <stem> --title "..." --doi "..." [--author ...] [--year ...]` 修正元数据并规范化目录名，然后 `scrinium index`
+   - **普通论文（已找到 DOI）** → 放回 `data/inbox/` 重跑 `scrinium ingest`；或直接 `scrinium repair <pending-stem> --title "..." --doi "..." [--author ...] [--year ...]`——repair 直接支持 pending 项：带查重护栏（DOI/arXiv ID 命中库内已有论文则拒绝入库），通过后移入 `data/papers/`、自动清除 pending 目录，然后 `scrinium index`
    - **确认为非论文文档** → 移入 `data/inbox-doc/` 重跑
    - **duplicate** → subagent 对比两篇后决定去留：保留一篇，删除另一篇目录（或确认是不同版本均保留并说明理由）
-4. 处理成功后删除对应的 `data/pending/<stem>/` 目录，重跑 `scrinium pending` 确认清零
+4. 处理成功后删除对应的 `data/pending/<stem>/` 目录（repair 路径会自动移除），重跑 `scrinium pending` 确认清零
 5. 闭环后跑一次 `scrinium index`
 
 ## 低置信修复（入库后）
