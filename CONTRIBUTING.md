@@ -53,14 +53,7 @@ For new functionality that requires code:
 
 ### Commit Messages
 
-We use [Conventional Commits](https://www.conventionalcommits.org/):
-
-- `feat:` — new feature
-- `fix:` — bug fix
-- `docs:` — documentation only
-- `refactor:` — code change that neither fixes a bug nor adds a feature
-- `test:` — adding or updating tests
-- `chore:` — maintenance (CI, deps, config)
+Short English imperative subject lines (e.g. `Add snowball command for citation-graph discovery`, `Fix network-dependent test`, `Drop legacy harness wrappers`), optionally followed by a wrapped body explaining the why. Conventional Commit prefixes are not used. Large refactors land on a feature branch and merge into `main` with a descriptive merge commit.
 
 ### Test Guidelines
 
