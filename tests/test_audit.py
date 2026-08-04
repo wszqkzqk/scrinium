@@ -58,3 +58,46 @@ class TestAuditDetection:
             assert issue.severity in ("error", "warning", "info")
             assert issue.rule
             assert issue.message
+
+
+class TestArxivIdMissing:
+    def _mk(self, tmp_papers, meta):
+        d = tmp_papers / "Zhang-2025-CryoDyna-test"
+        d.mkdir(exist_ok=True)
+        (d / "meta.json").write_text(json.dumps(meta))
+        (d / "paper.md").write_text("# CryoDyna\n\nSome content here for testing purposes.")
+        return d
+
+    def test_arxiv_doi_without_arxiv_id_warns(self, tmp_papers):
+        self._mk(
+            tmp_papers,
+            {
+                "id": "dd-1",
+                "title": "CryoDyna",
+                "authors": ["Zhang"],
+                "year": 2025,
+                "doi": "10.48550/arxiv.2510.16510",
+                "paper_type": "preprint",
+                "tags": ["x"],
+            },
+        )
+        issues = audit_papers(tmp_papers)
+        hits = [i for i in issues if i.rule == "arxiv_id_missing"]
+        assert len(hits) == 1
+
+    def test_arxiv_id_present_no_issue(self, tmp_papers):
+        self._mk(
+            tmp_papers,
+            {
+                "id": "dd-2",
+                "title": "CryoDyna",
+                "authors": ["Zhang"],
+                "year": 2025,
+                "doi": "10.48550/arxiv.2510.16510",
+                "paper_type": "preprint",
+                "ids": {"arxiv": "2510.16510"},
+                "tags": ["x"],
+            },
+        )
+        issues = audit_papers(tmp_papers)
+        assert not [i for i in issues if i.rule == "arxiv_id_missing"]

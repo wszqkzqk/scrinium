@@ -10,6 +10,7 @@ audit.py — 已入库论文数据质量审计
   - 配对完整性（目录内 meta.json / paper.md 是否齐全）
   - 文件名规范性（目录名不符合 Author-Year-Title 格式）
   - DOI 重复检测
+  - arXiv DOI 与 arxiv_id 配对（缺失时预印本去重会漏）
   - MD 内容过短（可能转换失败）
   - JSON title 与 MD 首个 H1 不一致
   - 策展标签缺失（untagged，所有 paper_type 均提示）
@@ -87,6 +88,12 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
         doi = (data.get("doi") or "").strip().lower()
         if doi:
             doi_map.setdefault(doi, []).append(pid)
+
+        # -- arXiv id backfill check (preprint dedup relies on it) --
+        if "10.48550/arxiv." in doi and not (data.get("arxiv_id") or (data.get("ids") or {}).get("arxiv")):
+            issues.append(
+                Issue(pid, "warning", "arxiv_id_missing", "有 arXiv DOI 但缺 arxiv_id，预印本去重不会命中")
+            )
 
     # DOI duplicates
     for doi, pids in doi_map.items():
@@ -261,5 +268,6 @@ _RULE_HINTS = {
     "unreadable_md": "检查 paper.md 文件编码/权限",
     "nonstandard_filename": "运行 scrinium rename 规范目录名",
     "filename_year_mismatch": "确认正确年份后直写 meta.json year 并 scrinium rename",
+    "arxiv_id_missing": "从 arXiv DOI 派生 arxiv_id 直写 meta.json ids.arxiv（如 10.48550/arxiv.2510.16510 → 2510.16510），纯机械操作无需读原文",
     "untagged": "运行 curate 工作流或 scrinium tag 补充策展标签",
 }
