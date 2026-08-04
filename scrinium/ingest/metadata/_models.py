@@ -85,6 +85,21 @@ PATENT_NUMBER_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Document types that skip DOI warnings
+DOCUMENT_TYPES = frozenset(
+    {
+        "document",
+        "technical-report",
+        "lecture-notes",
+        "standard",
+        "book-chapter",
+        "manual",
+        "white-paper",
+        "presentation",
+        "meeting-notes",
+    }
+)
+
 # H1 headings that are NOT paper titles
 NON_TITLE_H1 = [
     re.compile(p, re.IGNORECASE)

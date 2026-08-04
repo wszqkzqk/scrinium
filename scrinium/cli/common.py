@@ -119,11 +119,6 @@ def _resolve_ws_paper_ids(args: argparse.Namespace, cfg) -> set[str] | None:
 
 
 _INSTALL_HINTS: dict[str, str] = {
-    "sentence_transformers": "pip install scrinium[embed]",
-    "faiss": "pip install scrinium[embed]",
-    "numpy": "pip install scrinium[embed]",
-    "bertopic": "pip install scrinium[topics]",
-    "pandas": "pip install scrinium[topics]",
     "endnote_utils": "pip install scrinium[import]",
     "pyzotero": "pip install scrinium[import]",
     "docx": "pip install scrinium[office]",
@@ -147,40 +142,6 @@ def _check_import_error(e: ImportError) -> None:
     sys.exit(1)
 
 
-def _write_all_viz(model, viz_dir: Path) -> None:
-    """Write 6 BERTopic HTML visualizations to *viz_dir*."""
-    from scrinium.topics import (
-        visualize_barchart,
-        visualize_heatmap,
-        visualize_term_rank,
-        visualize_topic_hierarchy,
-        visualize_topics_2d,
-        visualize_topics_over_time,
-    )
-
-    viz_dir.mkdir(parents=True, exist_ok=True)
-    _log.debug("generating visualizations")
-
-    charts = [
-        ("topics_2d", "2D scatter", visualize_topics_2d),
-        ("barchart", "Keywords  ", visualize_barchart),
-        ("hierarchy", "Hierarchy ", visualize_topic_hierarchy),
-        ("heatmap", "Heatmap   ", visualize_heatmap),
-        ("term_rank", "Term rank ", visualize_term_rank),
-    ]
-    for fname, label, func in charts:
-        html = func(model)
-        (viz_dir / f"{fname}.html").write_text(html, encoding="utf-8")
-        ui(f"  {label} -> {viz_dir / f'{fname}.html'}")
-
-    try:
-        html = visualize_topics_over_time(model)
-        (viz_dir / "topics_over_time.html").write_text(html, encoding="utf-8")
-        ui(f"  Over time  -> {viz_dir / 'topics_over_time.html'}")
-    except Exception as e:
-        _log.error("Topics-over-time failed: %s", e)
-
-
 def _emit_json(payload: object) -> None:
     """Print *payload* as JSON to stdout (``--json`` mode; pipe-safe)."""
     print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -200,7 +161,6 @@ def _search_result_json(r: dict) -> dict:
         "citation_count": r.get("citation_count"),
         "tags": r.get("tags") or [],
         "score": r.get("score"),
-        "match": r.get("match"),
     }
 
 
@@ -238,15 +198,6 @@ def _count_registry_papers(index_db) -> int | None:
     except sqlite3.Error:
         return None
     return row[0] if row else None
-
-
-def _format_match_tag(match: str) -> str:
-    mapping = {
-        "both": "关键词+语义",
-        "fts": "关键词",
-        "vec": "语义",
-    }
-    return mapping.get(match, match)
 
 
 def _resolve_paper(paper_id: str, cfg) -> Path:

@@ -1,16 +1,16 @@
-"""Tests for scrinium.ingest.metadata abstract/doc helpers."""
+"""Tests for scrinium.ingest.metadata abstract/doc helpers (rule-based only)."""
 
 from __future__ import annotations
 
 import json
+from argparse import Namespace
+from types import SimpleNamespace
 
+from scrinium import cli
+from scrinium.cli import ingest as cli_ingest
 from scrinium.ingest.metadata._abstract import backfill_abstracts, extract_abstract_from_md
 from scrinium.ingest.metadata._doc_extract import extract_document_metadata
-
-
-class _NoKeyConfig:
-    def resolved_api_key(self) -> str:
-        return ""
+from scrinium.ingest.pipeline import HINT_ABSTRACT_MISS
 
 
 def test_extract_abstract_from_md_heading_block(tmp_path):
@@ -64,11 +64,46 @@ def test_backfill_abstracts_writes_missing_abstract(tmp_path):
     stats = backfill_abstracts(papers_dir)
     data = json.loads((paper_dir / "meta.json").read_text(encoding="utf-8"))
 
-    assert stats == {"filled": 1, "skipped": 0, "failed": 0, "updated": 0}
+    assert stats["filled"] == 1
+    assert stats["skipped"] == 0
+    assert stats["failed"] == 0
+    assert stats["updated"] == 0
     assert "compact abstract" in data["abstract"]
 
 
-def test_extract_document_metadata_fallback_without_api_key(tmp_path):
+def test_backfill_abstracts_reports_regex_misses_in_failed_dirs(tmp_path):
+    papers_dir = tmp_path / "papers"
+    paper_dir = papers_dir / "NoAbstract-2024-Test"
+    paper_dir.mkdir(parents=True)
+    (paper_dir / "meta.json").write_text(json.dumps({"id": "uuid-2", "abstract": ""}), encoding="utf-8")
+    (paper_dir / "paper.md").write_text("# No Abstract Here\n\nBody without an abstract heading.\n", encoding="utf-8")
+
+    stats = backfill_abstracts(papers_dir)
+
+    assert stats["filled"] == 0
+    assert stats["failed_dirs"] == ["NoAbstract-2024-Test"]
+
+
+def test_cmd_backfill_abstract_emits_handoff_hint_on_regex_miss(tmp_path, monkeypatch):
+    papers_dir = tmp_path / "papers"
+    paper_dir = papers_dir / "NoAbstract-2024-Test"
+    paper_dir.mkdir(parents=True)
+    (paper_dir / "meta.json").write_text(json.dumps({"id": "uuid-2", "abstract": ""}), encoding="utf-8")
+    (paper_dir / "paper.md").write_text("# No Abstract Here\n\nBody without an abstract heading.\n", encoding="utf-8")
+
+    messages: list[str] = []
+    monkeypatch.setattr(cli_ingest, "ui", lambda msg="": messages.append(msg))
+    cfg = SimpleNamespace(papers_dir=papers_dir)
+
+    cli.cmd_backfill_abstract(Namespace(dry_run=False, doi_fetch=False), cfg)
+
+    hints = [m for m in messages if m.startswith("hint:")]
+    assert len(hints) == 1
+    assert "NoAbstract-2024-Test" in hints[0]
+    assert HINT_ABSTRACT_MISS in hints[0]
+
+
+def test_extract_document_metadata_fallback(tmp_path):
     md = tmp_path / "report.md"
     md.write_text(
         "# Internal CFD Report\n\n"
@@ -78,7 +113,7 @@ def test_extract_document_metadata_fallback_without_api_key(tmp_path):
         encoding="utf-8",
     )
 
-    meta = extract_document_metadata(md, _NoKeyConfig())
+    meta = extract_document_metadata(md)
 
     assert meta.title == "Internal CFD Report"
     assert meta.paper_type == "document"

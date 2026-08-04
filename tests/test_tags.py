@@ -18,7 +18,7 @@ import pytest
 
 from scrinium import cli
 from scrinium.audit import audit_papers
-from scrinium.index import build_index, paper_ids_for_tags, search, unified_search
+from scrinium.index import _SCHEMA_VERSION, build_index, paper_ids_for_tags, search
 from scrinium.search_common import fts_create_sql
 from scrinium.tags import (
     all_tags_with_counts,
@@ -271,10 +271,6 @@ class TestTagSearchFilter:
         assert paper_ids_for_tags(tmp_db, ["md", "force-field"]) == {"aaaa-1111"}
         assert paper_ids_for_tags(tmp_db, ["nonexistent"]) == set()
 
-    def test_unified_search_tag_filter(self, tagged_index, tmp_db):
-        results = unified_search("for", tmp_db, top_k=10, tags=["force-field"])
-        assert [r["dir_name"] for r in results] == [_SMITH]
-
     def test_cmd_search_unknown_tag_raises(self, tagged_index):
         args = Namespace(query=["for"], top=None, year=None, journal=None, paper_type=None, tags=["nope"], json=False)
         with pytest.raises(ValueError, match="未知标签"):
@@ -320,7 +316,7 @@ class TestFtsMigration:
 
         count = build_index(tmp_papers, tmp_db)
         assert count == 2  # full reindex after migration
-        assert _user_version(tmp_db) == 1
+        assert _user_version(tmp_db) == _SCHEMA_VERSION
 
         # tags column exists and is searchable
         results = search("zz-curated-tag", tmp_db, top_k=10)
@@ -332,7 +328,7 @@ class TestFtsMigration:
         _create_old_db(tmp_db)
         results = search("turbulence", tmp_db, top_k=10)
         assert results == []  # FTS table recreated empty by migration
-        assert _user_version(tmp_db) == 1
+        assert _user_version(tmp_db) == _SCHEMA_VERSION
         # A later build repopulates the migrated schema
         build_index(tmp_papers, tmp_db)
         assert len(search("turbulence", tmp_db, top_k=10)) == 1

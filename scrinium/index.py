@@ -24,14 +24,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scrinium.papers import best_citation, parse_year_range
-from scrinium.search_common import fts_create_sql, rrf_merge, sanitize_fts_query
+from scrinium.search_common import fts_create_sql, sanitize_fts_query
 
 if TYPE_CHECKING:
     from scrinium.config import Config
 
 #: FTS schema version recorded in ``PRAGMA user_version``; bump when the
-#: ``papers`` FTS table layout changes (v0 = pre-tags databases).
-_SCHEMA_VERSION = 1
+#: ``papers`` FTS table layout changes (v0 = pre-tags databases,
+#: v2 = embedding/vector storage removed).
+_SCHEMA_VERSION = 2
 
 _SCHEMA = fts_create_sql(
     "papers",
@@ -156,8 +157,10 @@ def _ensure_schema(conn: sqlite3.Connection) -> bool:
 
     Drops and recreates the ``papers`` FTS table with the current schema and
     clears ``papers_hash``/``paper_tags`` so the next ``build_index`` run
-    reindexes everything. Other tables (``paper_vectors``, ``citations``,
-    ``papers_registry``) are left untouched.
+    reindexes everything. Migration to v2 additionally drops the removed
+    embedding storage (``paper_vectors`` / ``vector_metadata`` tables and the
+    FAISS sidecar files next to the database); the ``citations`` and
+    ``papers_registry`` tables are left untouched.
 
     Returns:
         ``True`` when a migration was performed.
@@ -171,8 +174,26 @@ def _ensure_schema(conn: sqlite3.Connection) -> bool:
     conn.execute("DELETE FROM papers_hash")  # force full reindex
     conn.execute("DROP TABLE IF EXISTS paper_tags")
     conn.execute(_PAPER_TAGS_SCHEMA)
+    if version < 2:
+        _drop_vector_storage(conn)
     conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
     return True
+
+
+def _drop_vector_storage(conn: sqlite3.Connection) -> None:
+    """Remove legacy embedding storage: vector tables and FAISS sidecar files."""
+    conn.execute("DROP TABLE IF EXISTS paper_vectors")
+    conn.execute("DROP TABLE IF EXISTS vector_metadata")
+    db_files = [row[2] for row in conn.execute("PRAGMA database_list") if row[2]]
+    for db_file in db_files:
+        db_dir = Path(db_file).parent
+        for name in ("faiss.index", "faiss_ids.json"):
+            try:
+                (db_dir / name).unlink(missing_ok=True)
+            except OSError:
+                import logging
+
+                logging.getLogger(__name__).warning("failed to remove legacy vector file %s", db_dir / name)
 
 
 def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
@@ -982,95 +1003,6 @@ def lookup_paper(db_path: Path, user_input: str) -> dict | None:
     finally:
         conn.close()
     return None
-
-
-def unified_search(
-    query: str,
-    db_path: Path,
-    top_k: int | None = None,
-    cfg: Config | None = None,
-    *,
-    year: str | None = None,
-    journal: str | None = None,
-    paper_type: str | None = None,
-    paper_ids: set[str] | None = None,
-    tags: list[str] | None = None,
-) -> list[dict]:
-    """融合检索：FTS5 关键词 + FAISS 语义向量，合并去重排序。
-
-    两路并行检索，各取 ``top_k`` 条候选，按 ``paper_id`` 去重后
-    以综合得分排序返回。FTS5 命中的论文获得排名加分，向量检索的
-    论文按余弦相似度得分。同时命中的论文得分叠加，排名更靠前。
-
-    当向量索引不可用时（未运行 ``embed``），自动降级为纯 FTS5 检索。
-
-    Args:
-        query: 自然语言查询文本。
-        db_path: SQLite 数据库路径。
-        top_k: 最多返回条数，为 ``None`` 时从配置读取。
-        cfg: 可选的 :class:`~scrinium.config.Config` 实例。
-        year: 年份过滤。
-        journal: 期刊名过滤。
-        paper_type: 论文类型过滤。
-        paper_ids: 论文 UUID 白名单，仅返回集合内的结果。
-        tags: 策展标签（canonical 名）列表，AND 语义精确过滤
-            （两路检索统一生效）。
-
-    Returns:
-        论文字典列表，按综合得分降序。每项包含 ``paper_id``, ``title``,
-        ``authors``, ``year``, ``journal``, ``score``, ``match``
-        （``"fts"`` / ``"vec"`` / ``"both"``）。
-    """
-    if top_k is None:
-        top_k = cfg.search.top_k if cfg is not None else 20
-
-    # Tag filter: restrict both legs to papers carrying all requested tags
-    if tags:
-        tag_ids = paper_ids_for_tags(db_path, tags)
-        paper_ids = tag_ids if paper_ids is None else (paper_ids & tag_ids)
-        if not paper_ids:
-            return []
-
-    # -- FTS5 leg --
-    fts_results: list[dict] = []
-    try:
-        fts_results = search(
-            query,
-            db_path,
-            top_k=top_k,
-            cfg=cfg,
-            year=year,
-            journal=journal,
-            paper_type=paper_type,
-            paper_ids=paper_ids,
-        )
-    except FileNotFoundError:
-        pass
-
-    # -- Vector leg (graceful degradation) --
-    vec_results: list[dict] = []
-    try:
-        from scrinium.vectors import vsearch
-
-        vec_results = vsearch(
-            query,
-            db_path,
-            top_k=top_k,
-            cfg=cfg,
-            year=year,
-            journal=journal,
-            paper_type=paper_type,
-            paper_ids=paper_ids,
-        )
-    except (FileNotFoundError, ImportError):
-        pass
-    except Exception:
-        # Runtime vector initialization can fail in restricted/offline
-        # environments; unified search must still return FTS results.
-        pass
-
-    # -- Merge via Reciprocal Rank Fusion (shared implementation) --
-    return rrf_merge(fts_results, vec_results, top_k=top_k)
 
 
 # ============================================================================

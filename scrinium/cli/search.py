@@ -12,9 +12,7 @@ from scrinium.log import ui
 from .common import (
     _add_filter_args,
     _add_tag_arg,
-    _check_import_error,
     _emit_json,
-    _format_match_tag,
     _record_search_metrics,
     _resolve_paper,
     _resolve_tag_filters,
@@ -23,6 +21,12 @@ from .common import (
 )
 
 _log = logging.getLogger(__package__)
+
+# Handoff hint shown when a paper has no L3 conclusion yet (agent writes it).
+_L3_MISSING_HINT = (
+    "该论文尚无结论。hint: 建议 agent（或派 subagent）阅读全文（--layer 4）后写入 "
+    "meta.json 的 l3_conclusion 字段，并运行 scrinium index 使其可检索"
+)
 
 
 def cmd_index(args: argparse.Namespace, cfg) -> None:
@@ -39,7 +43,7 @@ def cmd_index(args: argparse.Namespace, cfg) -> None:
     ui(f"{action}: {papers_dir} -> {db_path}")
     count = build_index(papers_dir, db_path, rebuild=args.rebuild)
     ui(f"完成：已索引 {count} 篇论文。")
-    ui("下一步：运行 `scrinium search <关键词>` 或 `scrinium search <关键词> --mode hybrid` 开始检索。")
+    ui("下一步：运行 `scrinium search <关键词>` 开始检索。")
 
 
 def cmd_search_author(args: argparse.Namespace, cfg) -> None:
@@ -70,18 +74,9 @@ def cmd_search_author(args: argparse.Namespace, cfg) -> None:
 
 
 def cmd_search(args: argparse.Namespace, cfg) -> None:
-    # Unified entry point: --scope delegates to federated search, --mode picks
-    # the retrieval engine. Delegating to the existing cmd_* functions keeps
-    # behavior and metrics event names identical to the legacy commands.
+    # --scope delegates to federated search; keyword is the only retrieval mode.
     if getattr(args, "scope", None):
         cmd_fsearch(args, cfg)
-        return
-    mode = getattr(args, "mode", "keyword") or "keyword"
-    if mode in ("hybrid", "unified"):
-        cmd_usearch(args, cfg)
-        return
-    if mode == "semantic":
-        cmd_vsearch(args, cfg)
         return
 
     import time
@@ -148,7 +143,7 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
     elif args.layer == 3:
         conclusion = load_l3(json_path)
         if conclusion is None:
-            _log.error("尚未提取结论。请先运行：scrinium enrich conclusion %s", args.paper_id)
+            _log.error(_L3_MISSING_HINT)
             sys.exit(1)
         payload["conclusion"] = conclusion
     elif args.layer == 4:
@@ -157,7 +152,7 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
             sys.exit(1)
         lang = getattr(args, "lang", None)
         if lang:
-            from scrinium.translate import validate_lang
+            from scrinium.loader import validate_lang
 
             try:
                 lang = validate_lang(lang)
@@ -250,7 +245,7 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
     if args.layer == 3:
         conclusion = load_l3(json_path)
         if conclusion is None:
-            _log.error("尚未提取结论。请先运行：scrinium enrich conclusion %s", args.paper_id)
+            _log.error(_L3_MISSING_HINT)
             sys.exit(1)
         ui("\n--- 结论 ---\n")
         ui(conclusion)
@@ -263,7 +258,7 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
             sys.exit(1)
         lang = getattr(args, "lang", None)
         if lang:
-            from scrinium.translate import validate_lang
+            from scrinium.loader import validate_lang
 
             try:
                 lang = validate_lang(lang)
@@ -280,110 +275,6 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
         ui(load_l4(md_path, lang=lang))
         _record_read()
         return
-
-
-def cmd_embed(args: argparse.Namespace, cfg) -> None:
-    try:
-        from scrinium.vectors import build_vectors
-    except ImportError as e:
-        _check_import_error(e)
-
-    papers_dir = cfg.papers_dir
-    if not papers_dir.exists():
-        _log.error("论文目录不存在: %s", papers_dir)
-        sys.exit(1)
-
-    provider = (getattr(cfg.embed, "provider", "local") or "local").strip().lower()
-    action = "重建向量索引" if args.rebuild else "更新向量索引"
-    ui(f"{action}: {papers_dir} -> {cfg.index_db}")
-    count = build_vectors(papers_dir, cfg.index_db, rebuild=args.rebuild, cfg=cfg)
-    if provider == "none":
-        ui("当前 embed.provider=none：已禁用向量生成，系统将使用关键词检索。")
-        ui("如需语义检索，请将 embed.provider 改为 local 或 openai-compat 后重新运行 `scrinium embed`。")
-        return
-    label = "总计" if args.rebuild else "新增"
-    ui(f"完成：{label} {count} 条向量。")
-    ui("下一步：运行 `scrinium search <问题> --mode semantic` 或 `scrinium search <问题> --mode hybrid` 试试检索效果。")
-
-
-def cmd_vsearch(args: argparse.Namespace, cfg) -> None:
-    import time
-
-    try:
-        from scrinium.vectors import vsearch
-    except ImportError as e:
-        _check_import_error(e)
-
-    from scrinium.metrics import get_store
-
-    query = " ".join(args.query)
-    t0 = time.monotonic()
-    try:
-        results = vsearch(
-            query,
-            cfg.index_db,
-            top_k=_resolve_top(args, cfg.embed.top_k),
-            cfg=cfg,
-            year=args.year,
-            journal=args.journal,
-            paper_type=args.paper_type,
-        )
-    except FileNotFoundError as e:
-        _log.error("%s", e)
-        sys.exit(1)
-
-    elapsed = time.monotonic() - t0
-    store = get_store()
-    _record_search_metrics(store, "vsearch", query, results, elapsed, args)
-
-    if not results:
-        ui(f'未找到与 "{query}" 相关的结果。')
-        return
-
-    ui(f'语义检索结果（"{query}"，共 {len(results)} 条）\n')
-    for i, r in enumerate(results, start=1):
-        score = r.get("score", 0.0)
-        _print_search_result(i, r, extra=f"分数: {score:.3f}")
-    _print_search_next_steps()
-
-
-def cmd_usearch(args: argparse.Namespace, cfg) -> None:
-    import time
-
-    from scrinium.index import unified_search
-    from scrinium.metrics import get_store
-
-    query = " ".join(args.query)
-    tags = _resolve_tag_filters(args, cfg)
-    t0 = time.monotonic()
-    results = unified_search(
-        query,
-        cfg.index_db,
-        top_k=_resolve_top(args, cfg.search.top_k),
-        cfg=cfg,
-        year=args.year,
-        journal=args.journal,
-        paper_type=args.paper_type,
-        tags=tags,
-    )
-    elapsed = time.monotonic() - t0
-    store = get_store()
-    _record_search_metrics(store, "usearch", query, results, elapsed, args)
-
-    if getattr(args, "json", False):
-        _emit_json({"query": query, "count": len(results), "results": [_search_result_json(r) for r in results]})
-        return
-
-    if not results:
-        ui(f'未找到与 "{query}" 相关的结果。')
-        return
-
-    ui(f'融合检索结果（"{query}"，共 {len(results)} 条）\n')
-    for i, r in enumerate(results, start=1):
-        score = r.get("score", 0.0)
-        match = r.get("match", "?")
-        _print_search_result(i, r, extra=f"{_format_match_tag(match)} {score:.3f}")
-    _print_search_next_steps()
 
 
 def cmd_top_cited(args: argparse.Namespace, cfg) -> None:
@@ -492,10 +383,10 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
                 ui("  主库索引不存在，请先运行 scrinium index")
                 results = []
             else:
-                from scrinium.index import unified_search
+                from scrinium.index import search
 
                 try:
-                    results = unified_search(query, cfg.index_db, top_k=top_k, cfg=cfg)
+                    results = search(query, cfg.index_db, top_k=top_k, cfg=cfg)
                 except Exception as e:
                     ui(f"  主库搜索失败：{e}")
                     results = []
@@ -503,8 +394,7 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
                 ui("  无结果")
             else:
                 for i, r in enumerate(results, 1):
-                    score = r.get("score", 0.0)
-                    _print_search_result(i, r, extra=f"{_format_match_tag(r.get('match', '?'))} {score:.3f}")
+                    _print_search_result(i, r)
             ui()
 
         elif scope.startswith("explore:"):
@@ -528,7 +418,7 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
 
             for name in names:
                 ui(f"── [explore: {name}] ──")
-                from scrinium.explore import explore_db_path, explore_unified_search
+                from scrinium.explore import explore_db_path, explore_search
 
                 db = explore_db_path(name, cfg)
                 if not db.exists():
@@ -536,7 +426,7 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
                     ui()
                     continue
                 try:
-                    results = explore_unified_search(name, query, top_k=top_k, cfg=cfg)
+                    results = explore_search(name, query, top_k=top_k, cfg=cfg)
                 except Exception as e:
                     ui(f"  搜索失败: {e}")
                     ui()
@@ -678,16 +568,10 @@ def register(sub) -> None:
     # --- search ---
     p_search = sub.add_parser(
         "search",
-        help="检索论文（--mode 选检索模式，--scope 跨库联邦搜索）",
+        help="关键词检索论文（--scope 跨库联邦搜索）",
     )
     p_search.set_defaults(func=cmd_search)
     p_search.add_argument("query", nargs="+", help="检索词")
-    p_search.add_argument(
-        "--mode",
-        choices=["hybrid", "keyword", "semantic", "unified"],
-        default="keyword",
-        help="检索模式：hybrid=关键词+语义融合（unified 为其等价别名）/ keyword=FTS5 关键词（默认）/ semantic=语义向量",
-    )
     p_search.add_argument(
         "--scope",
         type=str,
@@ -726,27 +610,6 @@ def register(sub) -> None:
         metavar="TEXT",
         help="向论文笔记 notes.md 追加内容（T2 层，跨会话复用）",
     )
-
-    # --- embed ---
-    p_embed = sub.add_parser("embed", help="生成语义向量写入 index.db")
-    p_embed.set_defaults(func=cmd_embed)
-    p_embed.add_argument("--rebuild", action="store_true", help="清空后重建")
-
-    # --- vsearch (legacy alias of `search --mode semantic`; no help => hidden) ---
-    p_vsearch = sub.add_parser("vsearch")
-    p_vsearch.set_defaults(func=cmd_vsearch)
-    p_vsearch.add_argument("query", nargs="+", help="检索词")
-    p_vsearch.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config embed.top_k）")
-    _add_filter_args(p_vsearch)
-
-    # --- usearch (legacy alias of `search --mode unified`; no help => hidden) ---
-    p_usearch = sub.add_parser("usearch")
-    p_usearch.set_defaults(func=cmd_usearch)
-    p_usearch.add_argument("query", nargs="+", help="检索词")
-    p_usearch.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
-    p_usearch.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
-    _add_filter_args(p_usearch)
-    _add_tag_arg(p_usearch)
 
     # --- top-cited ---
     p_tc = sub.add_parser("top-cited", help="按引用量排序查看论文")

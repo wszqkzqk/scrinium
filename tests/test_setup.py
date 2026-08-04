@@ -29,18 +29,18 @@ def test_check_dep_group_treats_runtime_import_failure_as_missing(monkeypatch):
     original = importlib.import_module
 
     def fake_import(name: str, package=None):
-        if name == "bertopic":
-            raise RuntimeError("numba cache failure")
+        if name == "fitz":
+            raise RuntimeError("pymupdf native failure")
         if package is None:
             return original(name)
         return original(name, package)
 
     monkeypatch.setattr(importlib, "import_module", fake_import)
 
-    status = check_dep_group("topics")
+    status = check_dep_group("pdf")
 
     assert not status.installed
-    assert "bertopic" in status.missing
+    assert "pymupdf" in status.missing
 
 
 def test_check_dep_group_suppresses_import_side_effect_output(monkeypatch, capsys):
@@ -215,7 +215,7 @@ def test_check_dep_group_treats_oserror_import_failure_as_missing(monkeypatch):
     original = importlib.import_module
 
     def fake_import(name: str, package=None):
-        if name == "bertopic":
+        if name == "fitz":
             raise OSError("libstdc++.so missing")
         if package is None:
             return original(name)
@@ -223,26 +223,10 @@ def test_check_dep_group_treats_oserror_import_failure_as_missing(monkeypatch):
 
     monkeypatch.setattr(importlib, "import_module", fake_import)
 
-    status = check_dep_group("topics")
+    status = check_dep_group("pdf")
 
     assert not status.installed
-    assert "bertopic" in status.missing
-
-
-def test_check_dep_group_uses_spec_probe_for_embed_deps(monkeypatch):
-    original = importlib.util.find_spec
-
-    def fake_find_spec(name: str, package=None):
-        if name == "faiss":
-            return None
-        return original(name, package)
-
-    monkeypatch.setattr(importlib.util, "find_spec", fake_find_spec)
-
-    status = check_dep_group("embed")
-
-    assert not status.installed
-    assert "faiss-cpu" in status.missing
+    assert "pymupdf" in status.missing
 
 
 def test_check_mineru_reports_actionable_failure(monkeypatch):
@@ -383,7 +367,7 @@ def test_wizard_deps_does_not_auto_install_when_input_stream_hits_eof(monkeypatc
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: (_ for _ in ()).throw(EOFError()))
     monkeypatch.setattr(
         "scrinium.setup.check_dep_group",
-        lambda group: type("Status", (), {"installed": group != "topics", "missing": ["bertopic"]})(),
+        lambda group: type("Status", (), {"installed": group != "pdf", "missing": ["pymupdf"]})(),
     )
 
     called = []
@@ -468,17 +452,6 @@ def test_wizard_keys_handles_non_mapping_local_config(tmp_path, monkeypatch):
     assert "pdf_preferred_parser: docling" in local_cfg
 
 
-def test_wizard_keys_handles_null_llm_section(tmp_path, monkeypatch):
-    (tmp_path / "config.local.yaml").write_text("llm: null\n", encoding="utf-8")
-    answers = iter(["test-key", ""])
-    monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
-
-    _wizard_keys(tmp_path, "zh", ParserChoice(parser="docling", needs_mineru_key=False))
-
-    local_cfg = (tmp_path / "config.local.yaml").read_text(encoding="utf-8")
-    assert "api_key: test-key" in local_cfg
-
-
 def test_wizard_keys_skips_creating_local_config_when_default_parser_and_no_new_values(tmp_path, monkeypatch, capsys):
     answers = iter(["", "", ""])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
@@ -514,9 +487,13 @@ def test_config_template_stays_in_sync_with_config_yaml():
     shipped = yaml.safe_load((repo_root / "config.yaml").read_text(encoding="utf-8"))
 
     assert set(shipped) <= set(template), f"template missing sections: {set(shipped) - set(template)}"
-    for section in ("llm", "ingest"):
+    for section in ("paths", "ingest", "search", "logging", "zotero"):
         missing = set(shipped[section]) - set(template[section])
         assert not missing, f"template {section} section missing keys: {missing}"
+    # Removed sections must not reappear in either file.
+    for removed in ("llm", "translate", "embed", "topics"):
+        assert removed not in template, f"template still has removed section: {removed}"
+        assert removed not in shipped, f"config.yaml still has removed section: {removed}"
 
 
 class _FakeDist:

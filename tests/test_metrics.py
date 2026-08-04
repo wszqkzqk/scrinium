@@ -8,7 +8,6 @@ import time
 import pytest
 
 from scrinium.metrics import (
-    LLMResult,
     MetricsStore,
     TimerResult,
     get_store,
@@ -32,17 +31,6 @@ def _reset_global():
     """Ensure global store is reset between tests."""
     yield
     reset()
-
-
-class TestLLMResult:
-    def test_defaults(self):
-        r = LLMResult(content="hello")
-        assert r.content == "hello"
-        assert r.tokens_in == 0
-        assert r.tokens_out == 0
-        assert r.tokens_total == 0
-        assert r.model == ""
-        assert r.duration_s == 0.0
 
 
 class TestTimerResult:
@@ -86,23 +74,6 @@ class TestMetricsStore:
         store.record("llm", "second")
         results = store.query(category="llm")
         assert results[0]["name"] == "second"  # most recent first
-
-    def test_summary_aggregation(self, store):
-        store.record("llm", "a", tokens_in=100, tokens_out=50, duration_s=1.0)
-        store.record("llm", "b", tokens_in=200, tokens_out=80, duration_s=2.0)
-        store.record("step", "c", tokens_in=999)  # different category
-        s = store.summary()
-        assert s["call_count"] == 2
-        assert s["total_tokens_in"] == 300
-        assert s["total_tokens_out"] == 130
-        assert s["total_duration_s"] == 3.0
-
-    def test_summary_by_session(self, store):
-        store.record("llm", "a", tokens_in=10)
-        s = store.summary(session_id="test-session")
-        assert s["call_count"] == 1
-        s2 = store.summary(session_id="other-session")
-        assert s2["call_count"] == 0
 
     def test_query_distinct_names(self, store):
         store.record("read", "paper-A")

@@ -5,13 +5,6 @@
 # config.yaml — only fill in the fields you actually want to override.
 # 警告：本文件中的非注释值会覆盖 config.yaml 同名字段，只填需要覆盖的项。
 
-# LLM API key — for metadata extraction & content enrichment
-# LLM API 密钥——用于元数据提取和内容富化
-# DeepSeek: https://platform.deepseek.com/
-# Or any OpenAI-compatible API 或任意 OpenAI 兼容 API
-llm:
-  api_key: ""
-
 # MinerU token — for `mineru-open-api extract`
 # MinerU token——用于 `mineru-open-api extract`
 # Free tier 免费申请: https://mineru.net/apiManage/token
@@ -22,19 +15,6 @@ ingest:
   s2_api_key: "" # Semantic Scholar API key — higher rate limits S2 API 密钥（提升限速）
                # Apply at: https://www.semanticscholar.org/product/api#api-key
                # 申请地址：https://www.semanticscholar.org/product/api#api-key
-
-# Embedding backend override (optional) Embedding 后端覆盖（可选）
-# provider: local | openai-compat | none
-# If using cloud embedding API, set api_key/api_base/model here.
-# 如果使用云端 embedding API，可在这里设置 api_key/api_base/model。
-# provider/api_base/model are commented out so they do not silently override
-# config.yaml; uncomment only when you really want to change them.
-# provider/api_base/model 默认注释掉，避免静默覆盖 config.yaml；确需修改时再取消注释。
-embed:
-  api_key: ""
-  # provider: "openai-compat"
-  # api_base: "https://api.openai.com/v1"
-  # model: "text-embedding-3-small"
 
 # Zotero integration (optional) Zotero 集成（可选）
 # API key: https://www.zotero.org/settings/keys

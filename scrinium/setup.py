@@ -35,14 +35,11 @@ _S: dict[str, dict[Lang, str]] = {
     # -- check labels --
     "python_ver": {"en": "Python version", "zh": "Python 版本"},
     "core_deps": {"en": "Core deps", "zh": "核心依赖"},
-    "embed_deps": {"en": "Embed deps", "zh": "嵌入依赖"},
-    "topics_deps": {"en": "Topics deps", "zh": "主题依赖"},
     "import_deps": {"en": "Import deps", "zh": "导入依赖"},
     "pdf_deps": {"en": "PDF deps", "zh": "PDF 依赖"},
     "office_deps": {"en": "Office deps", "zh": "Office 依赖"},
     "draw_deps": {"en": "Draw deps", "zh": "绘图依赖"},
     "config_yaml": {"en": "config.yaml", "zh": "config.yaml"},
-    "llm_key": {"en": "LLM API key", "zh": "LLM API key"},
     "mineru": {"en": "MinerU", "zh": "MinerU"},
     "docling": {"en": "Docling", "zh": "Docling"},
     "huggingface": {"en": "Hugging Face", "zh": "Hugging Face"},
@@ -89,8 +86,8 @@ _S: dict[str, dict[Lang, str]] = {
         "zh": "步骤 3: 选择 PDF 解析器",
     },
     "step_keys_followup": {
-        "en": "Step 4: API keys & embedding backend (stored in config.local.yaml, not tracked by git)",
-        "zh": "步骤 4: API 密钥与 embedding 后端（保存在 config.local.yaml，不进 git）",
+        "en": "Step 4: API keys (stored in config.local.yaml, not tracked by git)",
+        "zh": "步骤 4: API 密钥（保存在 config.local.yaml，不进 git）",
     },
     "step_verify": {"en": "Step 5: Verification", "zh": "步骤 5: 验证"},
     "install_prompt": {
@@ -109,16 +106,6 @@ _S: dict[str, dict[Lang, str]] = {
     "config_created": {
         "en": "  Created config.yaml with default settings.",
         "zh": "  已创建 config.yaml（默认配置）。",
-    },
-    "llm_key_prompt": {
-        "en": "  LLM API key (DeepSeek / OpenAI / Anthropic / Google).\n"
-        "  This is usually billed separately by your provider; do not assume an agent subscription covers it.\n"
-        "  Without it: metadata extraction degrades to regex-only, enrich unavailable.\n"
-        "  Press Enter to skip.",
-        "zh": "  LLM API key（DeepSeek / OpenAI / Anthropic / Google）。\n"
-        "  这通常需要由所选提供商单独计费；不要默认认为 agent 订阅会自动覆盖它。\n"
-        "  不配置：元数据提取降级为纯正则，enrich 不可用。\n"
-        "  按 Enter 跳过。",
     },
     "mineru_key_prompt": {
         "en": "  MinerU token for `mineru-open-api extract` (free to apply at https://mineru.net/apiManage/token).\n"
@@ -224,34 +211,6 @@ _S: dict[str, dict[Lang, str]] = {
         "en": "  Contact email (free; used for the Crossref polite pool so API responses are faster).\n  Press Enter to skip.",
         "zh": "  联系邮箱（免费；用于 Crossref polite pool，配置后 API 更快）。\n  按 Enter 跳过。",
     },
-    "embed_backend_prompt": {
-        "en": "  Embedding backend:\n"
-        "    1) Local model (default, may download model on first use)\n"
-        "    2) Cloud API (OpenAI-compatible /v1/embeddings)\n"
-        "    3) Disable embeddings (keyword search only)\n"
-        "  Choose [1/2/3], press Enter for default.",
-        "zh": "  Embedding 后端：\n"
-        "    1) 本地模型（默认，首次使用可能下载模型）\n"
-        "    2) 云端 API（OpenAI-compatible /v1/embeddings）\n"
-        "    3) 禁用 embedding（仅关键词检索）\n"
-        "  请选择 [1/2/3]，直接回车使用默认。",
-    },
-    "embed_model_prompt": {
-        "en": "  Embedding model name (e.g. text-embedding-3-small). Press Enter for default.",
-        "zh": "  Embedding 模型名（例如 text-embedding-3-small）。回车使用默认值。",
-    },
-    "embed_api_base_prompt": {
-        "en": "  Embedding API base URL (e.g. https://api.openai.com/v1). Press Enter for default.",
-        "zh": "  Embedding API base URL（例如 https://api.openai.com/v1）。回车使用默认值。",
-    },
-    "embed_api_key_prompt": {
-        "en": "  Embedding API key. Press Enter to reuse llm.api_key / env fallback.",
-        "zh": "  Embedding API key。回车可复用 llm.api_key / 环境变量回退。",
-    },
-    "embed_saved": {
-        "en": "  Embedding backend settings saved.",
-        "zh": "  Embedding 后端配置已保存。",
-    },
     "key_saved": {"en": "  Saved to config.local.yaml.", "zh": "  已保存到 config.local.yaml。"},
     "no_keys": {
         "en": "  No keys configured. You can add them later in config.local.yaml.",
@@ -331,8 +290,6 @@ def _prompt_text(prompt: str) -> str:
 # (import_name, pip_name)
 _DEP_GROUPS: dict[str, list[tuple[str, str]]] = {
     "core": [("requests", "requests"), ("yaml", "pyyaml"), ("mineru_open_api", "mineru-open-api")],
-    "embed": [("sentence_transformers", "sentence-transformers"), ("faiss", "faiss-cpu"), ("numpy", "numpy")],
-    "topics": [("bertopic", "bertopic"), ("pandas", "pandas")],
     "import": [("endnote_utils", "endnote-utils"), ("pyzotero", "pyzotero")],
     "pdf": [("fitz", "pymupdf")],
     "office": [
@@ -343,8 +300,6 @@ _DEP_GROUPS: dict[str, list[tuple[str, str]]] = {
     ],
     "draw": [("mermaid", "mermaid-py"), ("cli_anything", "cli-anything-inkscape")],
 }
-
-_SPEC_ONLY_IMPORTS = {"sentence_transformers", "faiss", "numpy"}
 
 
 @dataclass
@@ -360,7 +315,7 @@ def check_dep_group(group: str) -> DepGroupStatus:
     """Check if all packages in a dependency group are importable.
 
     Args:
-        group: Dependency group name (core/embed/topics/import/pdf/office/draw).
+        group: Dependency group name (core/import/pdf/office/draw).
 
     Returns:
         DepGroupStatus with installed flag and list of missing pip package names.
@@ -369,10 +324,6 @@ def check_dep_group(group: str) -> DepGroupStatus:
     missing = []
     for import_name, pip_name in pairs:
         try:
-            if import_name in _SPEC_ONLY_IMPORTS:
-                if importlib.util.find_spec(import_name) is None:
-                    missing.append(pip_name)
-                continue
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 importlib.import_module(import_name)
         except Exception:
@@ -462,8 +413,6 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
     # Dependency groups
     for group, label_key in [
         ("core", "core_deps"),
-        ("embed", "embed_deps"),
-        ("topics", "topics_deps"),
         ("import", "import_deps"),
         ("pdf", "pdf_deps"),
         ("office", "office_deps"),
@@ -493,14 +442,6 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
             t("found", lang) if config_path.exists() else t("not_found", lang),
         )
     )
-
-    # LLM API key
-    key = cfg.resolved_api_key()
-    if key:
-        masked = key[:3] + "***" + key[-3:] if len(key) > 8 else "***"
-        results.append(CheckResult(t("llm_key", lang), True, f"{t('configured', lang)} ({masked})"))
-    else:
-        results.append(CheckResult(t("llm_key", lang), False, t("not_set", lang)))
 
     # MinerU
     mineru_status = _detect_mineru(cfg, lang)
@@ -822,7 +763,7 @@ def run_wizard(cfg: Config | None = None) -> None:
 def _wizard_deps(lang: Lang) -> None:
     """Check and optionally install missing dependency groups."""
     editable_root = _editable_project_root()
-    for group in ("core", "embed", "topics", "import", "pdf", "office", "draw"):
+    for group in ("core", "import", "pdf", "office", "draw"):
         status = check_dep_group(group)
         label_key = f"{group}_deps"
         if status.installed:
@@ -954,11 +895,6 @@ def _wizard_keys(root: Path, lang: Lang, parser_choice: ParserChoice | None = No
     if ingest_local_raw is not None and not isinstance(ingest_local_raw, dict):
         changed = True
 
-    llm_local_raw = local_data.get("llm")
-    llm_local: dict[str, object] = llm_local_raw if isinstance(llm_local_raw, dict) else {}
-    if llm_local_raw is not None and not isinstance(llm_local_raw, dict):
-        changed = True
-
     if parser_choice is not None:
         existing_parser = ingest_local.get("pdf_preferred_parser")
         desired_parser = parser_choice.parser
@@ -969,13 +905,6 @@ def _wizard_keys(root: Path, lang: Lang, parser_choice: ParserChoice | None = No
         elif "pdf_preferred_parser" in ingest_local:
             ingest_local.pop("pdf_preferred_parser", None)
             changed = True
-
-    # LLM key
-    print(t("llm_key_prompt", lang))
-    key = _prompt_text("  > ")
-    if key:
-        llm_local["api_key"] = key
-        changed = True
 
     # MinerU token
     if parser_choice is None or parser_choice.needs_mineru_key:
@@ -991,56 +920,6 @@ def _wizard_keys(root: Path, lang: Lang, parser_choice: ParserChoice | None = No
     if email:
         ingest_local["contact_email"] = email
         changed = True
-
-    if llm_local:
-        local_data["llm"] = llm_local
-    else:
-        local_data.pop("llm", None)
-
-    # Embedding backend
-    print(t("embed_backend_prompt", lang))
-    embed_choice = _prompt_text("  > ")
-
-    embed_cfg_raw = local_data.get("embed")
-    embed_cfg: dict[str, object] = embed_cfg_raw if isinstance(embed_cfg_raw, dict) else {}
-    if embed_cfg_raw is not None and not isinstance(embed_cfg_raw, dict):
-        changed = True
-    local_data["embed"] = embed_cfg
-
-    if not embed_choice:
-        pass
-    elif embed_choice == "1":
-        if embed_cfg.get("provider") != "local":
-            embed_cfg["provider"] = "local"
-            changed = True
-    elif embed_choice == "2":
-        embed_cfg["provider"] = "openai-compat"
-
-        print(t("embed_model_prompt", lang))
-        model = _prompt_text("  > ")
-        embed_cfg["model"] = model or "text-embedding-3-small"
-
-        print(t("embed_api_base_prompt", lang))
-        api_base = _prompt_text("  > ")
-        if api_base:
-            embed_cfg["api_base"] = api_base
-
-        print(t("embed_api_key_prompt", lang))
-        embed_key = _prompt_text("  > ")
-        if embed_key:
-            embed_cfg["api_key"] = embed_key
-
-        changed = True
-    elif embed_choice == "3":
-        if embed_cfg.get("provider") != "none":
-            embed_cfg["provider"] = "none"
-            changed = True
-
-    if embed_choice in ("1", "2", "3"):
-        print(t("embed_saved", lang))
-
-    if not embed_cfg:
-        local_data.pop("embed", None)
 
     if ingest_local:
         local_data["ingest"] = ingest_local
@@ -1077,23 +956,8 @@ paths:
   papers_dir: data/papers
   index_db: data/index.db
 
-# LLM backend (multi-provider support)
-# API key: set in config.local.yaml or env var
-#   SCRINIUM_LLM_API_KEY (generic fallback), or provider-specific:
-#   DEEPSEEK_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY / GEMINI_API_KEY
-llm:
-  backend: openai-compat   # openai-compat | anthropic | google
-  model: deepseek-chat
-  base_url: https://api.deepseek.com
-  api_key: null            # -> config.local.yaml or env SCRINIUM_LLM_API_KEY
-  timeout: 30
-  timeout_toc: 120
-  timeout_clean: 90
-  concurrency: 32          # max concurrent LLM calls for enrich (toc/l3); also caps batch translate
-
 # Ingestion pipeline
 ingest:
-  extractor: robust         # auto | regex | llm | robust
   pdf_preferred_parser: mineru       # mineru | docling | pymupdf
   mineru_endpoint: http://localhost:8000
   mineru_cloud_url: https://mineru.net/api/v4  # mineru-open-api --base-url override for private deployments
@@ -1104,7 +968,6 @@ ingest:
   mineru_parse_method: auto           # auto | txt | ocr; mineru-open-api only maps ocr -> --ocr
   mineru_enable_formula: true         # only effective for pipeline / vlm
   mineru_enable_table: true           # only effective for pipeline / vlm
-  abstract_llm_mode: verify # off | fallback | verify
   contact_email: null       # Crossref polite pool email -> config.local.yaml
   s2_api_key: null          # Semantic Scholar API key -> config.local.yaml or env S2_API_KEY
   mineru_batch_size: 20     # cloud batch size per request (1-200, official limit)
@@ -1116,21 +979,6 @@ ingest:
   pdf_fallback_order: [auto] # fallback parser chain when MinerU is unavailable; auto = detect installed parsers
   pdf_fallback_auto_detect: true # auto-detect locally installed fallback parsers
 
-# Semantic embeddings (Qwen3-Embedding-0.6B, ~1.2 GB, auto-downloaded)
-embed:
-  provider: local          # local | openai-compat | none
-  model: Qwen/Qwen3-Embedding-0.6B
-  cache_dir: ~/.cache/modelscope/hub/models
-  device: auto              # auto | cpu | cuda
-  top_k: 10
-  source: modelscope        # modelscope | huggingface
-  hf_endpoint: null         # optional HuggingFace mirror endpoint
-  api_base: null            # OpenAI-compatible endpoint, e.g. https://api.openai.com/v1
-  api_key: null             # -> config.local.yaml or env SCRINIUM_EMBED_API_KEY
-  api_timeout: 30
-  batch_size: 64
-  max_retries: 3
-
 search:
   top_k: 20
 
@@ -1140,17 +988,6 @@ logging:
   max_bytes: 10000000
   backup_count: 3
   metrics_db: data/metrics.db
-
-topics:
-  min_topic_size: 5
-  nr_topics: 0              # 0=auto, -1=no merging, positive=target count
-  model_dir: data/topic_model
-
-translate:
-  auto_translate: false
-  target_lang: zh
-  chunk_size: 4000
-  concurrency: 20
 
 zotero:
   library_type: user

@@ -120,7 +120,7 @@ def test_batch_convert_pdfs_falls_back_without_cloud_key(tmp_path, monkeypatch):
 
     monkeypatch.setattr(pdf_fallback, "convert_pdf_with_fallback", _fallback)
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert calls == [(pdf, paper_dir / "paper.md")]
@@ -156,7 +156,7 @@ def test_batch_convert_pdfs_fallback_cleans_noncanonical_source_pdf(tmp_path, mo
         )[1:],
     )
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "fallback batch ok\n"
@@ -195,7 +195,7 @@ def test_batch_convert_pdfs_cloud_splits_items_that_exceed_new_limits(tmp_path, 
 
     monkeypatch.setattr(mineru, "_convert_long_pdf_cloud", fake_convert_long)
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert captured["chunk_size"] == 320
@@ -237,7 +237,7 @@ def test_batch_convert_pdfs_cloud_split_importerror_falls_back(tmp_path, monkeyp
         )[1:],
     )
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "fallback batch split ok\n"
@@ -270,7 +270,7 @@ def test_batch_convert_pdfs_cloud_batch_success_counts_each_result(tmp_path, mon
         lambda *_args, **_kwargs: [ConvertResult(pdf_path=pdf, md_path=tmp_md, success=True)],
     )
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "batch ok\n"
@@ -312,7 +312,7 @@ def test_batch_convert_pdfs_cloud_batch_missing_md_falls_back(tmp_path, monkeypa
         )[1:],
     )
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "fallback batch ok\n"
@@ -348,7 +348,7 @@ def test_batch_convert_pdfs_cloud_batch_moves_markdown_relative_images(tmp_path,
         lambda *_args, **_kwargs: [ConvertResult(pdf_path=pdf, md_path=tmp_md, success=True)],
     )
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "![img](images/fig.png)\n"
@@ -393,7 +393,7 @@ def test_batch_convert_pdfs_cloud_batch_does_not_skip_duplicate_source_stems(tmp
         ],
     )
 
-    stats = batch_convert_pdfs(cfg, enrich=False)
+    stats = batch_convert_pdfs(cfg)
 
     assert stats == {"converted": 2, "failed": 0, "skipped": 0}
     assert (paper_a / "paper.md").read_text(encoding="utf-8") == "alpha\n"

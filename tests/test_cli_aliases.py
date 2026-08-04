@@ -1,8 +1,8 @@
 """Contract tests for the CLI naming ergonomics refactor.
 
-Covers the unified ``search`` entry point (``--mode`` / ``--scope`` dispatch,
-``hybrid`` ≡ ``unified``), the grouped ``enrich`` and ``import`` commands,
-full-word aliases (``workspace`` / ``ingest`` / ``references`` / ``cited-by`` /
+Covers the unified ``search`` entry point (keyword-only retrieval, ``--scope``
+dispatch), the grouped ``enrich`` and ``import`` commands, full-word aliases
+(``workspace`` / ``ingest`` / ``references`` / ``cited-by`` /
 ``shared-references`` / ``refresh`` / ``citation-styles``), the hidden legacy
 aliases, and the top-level ``--help`` listing.
 """
@@ -28,7 +28,6 @@ from scrinium.workspace import add, create
 def _search_ns(**overrides) -> Namespace:
     base = {
         "query": ["turbulence"],
-        "mode": "keyword",
         "scope": None,
         "top": None,
         "year": None,
@@ -41,52 +40,19 @@ def _search_ns(**overrides) -> Namespace:
     return Namespace(**base)
 
 
-class TestSearchModeDispatch:
-    """cmd_search delegates --mode / --scope to the existing implementations."""
+class TestSearchDispatch:
+    """cmd_search is keyword-only; --scope delegates to federated search."""
 
-    def test_mode_unified_delegates_to_usearch(self, monkeypatch):
-        seen = []
-        monkeypatch.setattr(cli_search, "cmd_usearch", lambda args, cfg: seen.append(args))
-        args = _search_ns(mode="unified")
-
-        cli.cmd_search(args, SimpleNamespace())
-
-        assert seen == [args]
-
-    def test_mode_hybrid_delegates_to_usearch(self, monkeypatch):
-        # `hybrid` is the primary term; `unified` is its accepted alias.
-        seen = []
-        monkeypatch.setattr(cli_search, "cmd_usearch", lambda args, cfg: seen.append(args))
-        args = _search_ns(mode="hybrid")
-
-        cli.cmd_search(args, SimpleNamespace())
-
-        assert seen == [args]
-
-    def test_mode_semantic_delegates_to_vsearch(self, monkeypatch):
-        seen = []
-        monkeypatch.setattr(cli_search, "cmd_vsearch", lambda args, cfg: seen.append(args))
-        args = _search_ns(mode="semantic")
-
-        cli.cmd_search(args, SimpleNamespace())
-
-        assert seen == [args]
-
-    def test_scope_delegates_to_fsearch_regardless_of_mode(self, monkeypatch):
+    def test_scope_delegates_to_fsearch(self, monkeypatch):
         seen = []
         monkeypatch.setattr(cli_search, "cmd_fsearch", lambda args, cfg: seen.append(args))
-        monkeypatch.setattr(
-            cli_search,
-            "cmd_usearch",
-            lambda *_: pytest.fail("--scope must win over --mode"),
-        )
-        args = _search_ns(mode="unified", scope="main,arxiv")
+        args = _search_ns(scope="main,arxiv")
 
         cli.cmd_search(args, SimpleNamespace())
 
         assert seen == [args]
 
-    def test_keyword_mode_keeps_original_behavior(self, tmp_papers, tmp_db, capsys):
+    def test_keyword_search_keeps_original_behavior(self, tmp_papers, tmp_db, capsys):
         build_index(tmp_papers, tmp_db)
         cfg = SimpleNamespace(index_db=tmp_db, search=SimpleNamespace(top_k=10))
 
@@ -96,7 +62,7 @@ class TestSearchModeDispatch:
         assert payload["count"] == 1
         assert payload["results"][0]["dir_name"] == "Smith-2023-Turbulence"
 
-    def test_namespace_without_mode_or_scope_still_works(self, tmp_papers, tmp_db, capsys):
+    def test_namespace_without_scope_still_works(self, tmp_papers, tmp_db, capsys):
         # Back-compat for programmatic callers building Namespace by hand.
         build_index(tmp_papers, tmp_db)
         cfg = SimpleNamespace(index_db=tmp_db, search=SimpleNamespace(top_k=10))
@@ -108,19 +74,19 @@ class TestSearchModeDispatch:
 
 
 class TestSearchMetricsCompat:
-    """Delegating to the legacy implementations preserves metrics event names."""
+    """Keyword search records a ``search`` metrics event."""
 
-    def test_mode_unified_records_usearch_event(self, tmp_papers, tmp_db, tmp_path):
+    def test_search_records_search_event(self, tmp_papers, tmp_db, tmp_path):
         build_index(tmp_papers, tmp_db)
         cfg = SimpleNamespace(index_db=tmp_db, search=SimpleNamespace(top_k=10))
         store = metrics.init(tmp_path / "metrics.db", "test-session")
         try:
-            cli.cmd_search(_search_ns(mode="unified", json=True), cfg)
+            cli.cmd_search(_search_ns(json=True), cfg)
             rows = store.query(category="search")
         finally:
             metrics.reset()
 
-        assert [r["name"] for r in rows] == ["usearch"]
+        assert [r["name"] for r in rows] == ["search"]
 
 
 class TestSearchParserShape:
@@ -128,22 +94,15 @@ class TestSearchParserShape:
     def parser(self):
         return cli._build_parser()
 
-    def test_mode_choices_and_default(self, parser):
-        args = parser.parse_args(["search", "q"])
-        assert args.mode == "keyword"
-        assert args.scope is None
-        assert parser.parse_args(["search", "q", "--mode", "hybrid"]).mode == "hybrid"
-        assert parser.parse_args(["search", "q", "--mode", "unified"]).mode == "unified"
-        assert parser.parse_args(["search", "q", "--mode", "semantic"]).mode == "semantic"
-
     def test_scope_passthrough(self, parser):
         args = parser.parse_args(["search", "q", "--scope", "main,arxiv"])
         assert args.func is cli.cmd_search
         assert args.scope == "main,arxiv"
 
-    def test_invalid_mode_rejected(self, parser):
+    def test_mode_option_is_gone(self, parser):
+        # --mode was removed together with semantic/hybrid retrieval.
         with pytest.raises(SystemExit):
-            parser.parse_args(["search", "q", "--mode", "bogus"])
+            parser.parse_args(["search", "q", "--mode", "hybrid"])
 
 
 class TestLegacyAliasSmoke:
@@ -152,28 +111,6 @@ class TestLegacyAliasSmoke:
     @pytest.fixture()
     def parser(self):
         return cli._build_parser()
-
-    def test_usearch_alias_runs(self, tmp_papers, tmp_db, capsys):
-        build_index(tmp_papers, tmp_db)
-        cfg = SimpleNamespace(index_db=tmp_db, search=SimpleNamespace(top_k=10))
-        args = cli._build_parser().parse_args(["usearch", "turbulence", "--json"])
-        assert args.func is cli.cmd_usearch
-
-        args.func(args, cfg)
-
-        assert json.loads(capsys.readouterr().out)["count"] == 1
-
-    def test_vsearch_alias_runs(self, monkeypatch):
-        monkeypatch.setattr("scrinium.vectors.vsearch", lambda *a, **k: [])
-        messages = []
-        monkeypatch.setattr(cli_search, "ui", lambda msg="": messages.append(msg))
-        cfg = SimpleNamespace(index_db="unused.db", embed=SimpleNamespace(top_k=10))
-        args = cli._build_parser().parse_args(["vsearch", "turbulence"])
-        assert args.func is cli.cmd_vsearch
-
-        args.func(args, cfg)
-
-        assert any("未找到" in m for m in messages)
 
     def test_fsearch_alias_runs(self, tmp_papers, tmp_db, monkeypatch):
         build_index(tmp_papers, tmp_db)
@@ -193,14 +130,6 @@ class TestLegacyAliasSmoke:
         monkeypatch.setattr(cli_ingest, "ui", lambda *_a, **_k: None)
         args = cli._build_parser().parse_args(["enrich-toc", "Smith-2023-Turbulence"])
         assert args.func is cli.cmd_enrich_toc
-
-        args.func(args, SimpleNamespace(papers_dir=tmp_papers))
-
-    def test_enrich_l3_alias_runs(self, tmp_papers, monkeypatch):
-        monkeypatch.setattr("scrinium.loader.enrich_l3", lambda *a, **k: True)
-        monkeypatch.setattr(cli_ingest, "ui", lambda *_a, **_k: None)
-        args = cli._build_parser().parse_args(["enrich-l3", "Smith-2023-Turbulence"])
-        assert args.func is cli.cmd_enrich_l3
 
         args.func(args, SimpleNamespace(papers_dir=tmp_papers))
 
@@ -274,12 +203,6 @@ class TestEnrichGroup:
         assert args.paper_id == "Smith-2023-Turbulence"
         assert args.force is True
 
-    def test_conclusion_subcommand(self, parser):
-        args = parser.parse_args(["enrich", "conclusion", "--all", "--max-retries", "3"])
-        assert args.func is cli.cmd_enrich_l3
-        assert args.all is True
-        assert args.max_retries == 3
-
     def test_abstract_subcommand(self, parser):
         args = parser.parse_args(["enrich", "abstract", "--doi-fetch", "--dry-run"])
         assert args.func is cli.cmd_backfill_abstract
@@ -290,12 +213,35 @@ class TestEnrichGroup:
         with pytest.raises(SystemExit):
             parser.parse_args(["enrich"])
 
+    def test_conclusion_subcommand_is_gone(self, parser):
+        # enrich conclusion (LLM-based L3 extraction) was removed; agent writes l3_conclusion.
+        with pytest.raises(SystemExit):
+            parser.parse_args(["enrich", "conclusion", "--all"])
+
     def test_toc_subcommand_runs(self, tmp_papers, monkeypatch):
         monkeypatch.setattr("scrinium.loader.enrich_toc", lambda *a, **k: True)
         monkeypatch.setattr(cli_ingest, "ui", lambda *_a, **_k: None)
         args = cli._build_parser().parse_args(["enrich", "toc", "Smith-2023-Turbulence"])
 
         args.func(args, SimpleNamespace(papers_dir=tmp_papers))
+
+
+class TestTopicsCommand:
+    @pytest.fixture()
+    def parser(self):
+        return cli._build_parser()
+
+    def test_topics_overview_parses(self, parser):
+        args = parser.parse_args(["topics"])
+        assert args.func is cli.cmd_topics
+        assert args.tag is None
+        assert args.json is False
+
+    def test_topics_tag_drilldown_parses(self, parser):
+        args = parser.parse_args(["topics", "force-field", "--json"])
+        assert args.func is cli.cmd_topics
+        assert args.tag == "force-field"
+        assert args.json is True
 
 
 class TestIngestAlias:
@@ -375,11 +321,8 @@ class TestHiddenAliasesHelp:
     """Legacy aliases work but stay out of the top-level --help listing."""
 
     _HIDDEN = (
-        "usearch",
-        "vsearch",
         "fsearch",
         "enrich-toc",
-        "enrich-l3",
         "backfill-abstract",
         "shared-refs",
         "import-endnote",
@@ -387,11 +330,13 @@ class TestHiddenAliasesHelp:
         "refetch",
     )
     _HIDDEN_WORDS = ("ws", "refs", "citing", "style")
+    # Deleted commands must not reappear in the help listing either.
+    _REMOVED = ("usearch", "vsearch", "enrich-l3", "translate")
 
     def test_hidden_aliases_absent_from_top_level_help(self):
         help_text = cli._build_parser().format_help()
 
-        for name in self._HIDDEN:
+        for name in self._HIDDEN + self._REMOVED:
             assert name not in help_text
         for name in self._HIDDEN_WORDS:
             assert not re.search(rf"(?<![\w-]){name}(?![\w-])", help_text)
@@ -411,6 +356,7 @@ class TestHiddenAliasesHelp:
             "cited-by",
             "shared-references",
             "citation-styles",
+            "topics",
         ]:
             assert re.search(rf"(?<![\w-]){name}(?![\w-])", help_text)
 
@@ -421,31 +367,10 @@ class TestHiddenAliasesHelp:
         assert "proceedings" in fsearch_parser.format_help()
 
 
-class TestHybridModeEquivalence:
-    """`--mode hybrid` is the primary term and behaves exactly like `unified`."""
+class TestWorkspaceSearchKeywordOnly:
+    """workspace search is keyword-only (retrieval modes were removed)."""
 
-    def test_search_hybrid_output_matches_unified(self, tmp_papers, tmp_db, capsys):
-        build_index(tmp_papers, tmp_db)
-        cfg = SimpleNamespace(index_db=tmp_db, search=SimpleNamespace(top_k=10))
-
-        cli.cmd_search(_search_ns(mode="unified", json=True), cfg)
-        unified_out = capsys.readouterr().out
-        cli.cmd_search(_search_ns(mode="hybrid", json=True), cfg)
-        hybrid_out = capsys.readouterr().out
-
-        assert json.loads(hybrid_out) == json.loads(unified_out)
-
-    def test_ws_search_mode_choices_and_default(self):
-        parser = cli._build_parser()
-        for argv, expected in (
-            (["workspace", "search", "w", "q"], "hybrid"),
-            (["workspace", "search", "w", "q", "--mode", "unified"], "unified"),
-            (["workspace", "search", "w", "q", "--mode", "hybrid"], "hybrid"),
-            (["ws", "search", "w", "q"], "hybrid"),
-        ):
-            assert parser.parse_args(argv).mode == expected, argv
-
-    def test_ws_search_hybrid_runs_unified_path(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
+    def test_ws_search_runs_keyword_path(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
         build_index(tmp_papers, tmp_db)
         ws_dir = tmp_path / "workspace" / "w"
         create(ws_dir)
@@ -456,17 +381,19 @@ class TestHybridModeEquivalence:
         monkeypatch.setattr(cli_ws, "ui", lambda msg="": messages.append(msg))
         monkeypatch.setattr(cli_search, "ui", lambda msg="": messages.append(msg))
         cfg = SimpleNamespace(_root=tmp_path, index_db=tmp_db, search=SimpleNamespace(top_k=10))
-        args = cli._build_parser().parse_args(["workspace", "search", "w", "turbulence", "--mode", "hybrid"])
+        args = cli._build_parser().parse_args(["workspace", "search", "w", "turbulence"])
 
         args.func(args, cfg)
 
         assert any("Smith-2023-Turbulence" in m for m in messages)
 
-    def test_explore_search_accepts_hybrid(self):
-        args = cli._build_parser().parse_args(["explore", "search", "--name", "lib", "q", "--mode", "hybrid"])
-        assert args.mode == "hybrid"
-        args = cli._build_parser().parse_args(["explore", "search", "--name", "lib", "q", "--mode", "unified"])
-        assert args.mode == "unified"
+    def test_ws_search_mode_option_is_gone(self):
+        with pytest.raises(SystemExit):
+            cli._build_parser().parse_args(["workspace", "search", "w", "q", "--mode", "hybrid"])
+
+    def test_explore_search_mode_option_is_gone(self):
+        with pytest.raises(SystemExit):
+            cli._build_parser().parse_args(["explore", "search", "--name", "lib", "q", "--mode", "hybrid"])
 
 
 class TestImportGroup:

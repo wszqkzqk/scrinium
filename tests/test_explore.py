@@ -13,8 +13,7 @@ from scrinium.explore import (
     _build_filter,
     build_explore_fts,
     explore_db_path,
-    explore_unified_search,
-    explore_vsearch,
+    explore_search,
     fetch_explore,
     validate_explore_name,
 )
@@ -85,49 +84,34 @@ def _make_explore_lib(tmp_path: Path, name: str = "demo") -> Path:
     return lib_dir
 
 
-class TestExploreSearchWithoutVectors:
-    """Regression: explore silo with FTS only (embed never ran) must not crash."""
+class TestExploreKeywordSearch:
+    """Explore silo search is FTS5 keyword-only (vectors were removed)."""
 
-    def test_unified_search_degrades_to_keyword(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("SCRINIUM_EMBED_PROVIDER", raising=False)
+    def test_fts_schema_has_no_vector_tables(self, tmp_path):
         cfg = _build_config({}, tmp_path)
         _make_explore_lib(tmp_path)
         build_explore_fts("demo", cfg=cfg)
 
-        # explore.db has papers_fts but no paper_vectors table
         conn = sqlite3.connect(explore_db_path("demo", cfg))
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         conn.close()
         assert "papers_fts" in tables
         assert "paper_vectors" not in tables
 
-        results = explore_unified_search("demo", "turbulent drag", cfg=cfg)
-        assert results
-        assert results[0]["title"] == "Turbulent drag reduction"
-
-    def test_vsearch_raises_clean_error_without_table(self, tmp_path, monkeypatch):
-        pytest.importorskip("faiss", reason="embed extra not installed")
-        monkeypatch.delenv("SCRINIUM_EMBED_PROVIDER", raising=False)
+    def test_keyword_search_hits(self, tmp_path):
         cfg = _build_config({}, tmp_path)
         _make_explore_lib(tmp_path)
         build_explore_fts("demo", cfg=cfg)
 
-        with pytest.raises(FileNotFoundError, match="向量库为空"):
-            explore_vsearch("demo", "turbulent drag", cfg=cfg)
+        results = explore_search("demo", "turbulent drag", cfg=cfg)
+        assert results
+        assert results[0]["title"] == "Turbulent drag reduction"
 
-    def test_vsearch_provider_none_reports_disabled(self, tmp_path):
-        cfg = _build_config({"embed": {"provider": "none"}}, tmp_path)
+    def test_keyword_search_second_hit(self, tmp_path):
+        cfg = _build_config({}, tmp_path)
         _make_explore_lib(tmp_path)
         build_explore_fts("demo", cfg=cfg)
 
-        with pytest.raises(FileNotFoundError, match="已禁用"):
-            explore_vsearch("demo", "turbulent drag", cfg=cfg)
-
-    def test_unified_search_provider_none_keyword_only(self, tmp_path):
-        cfg = _build_config({"embed": {"provider": "none"}}, tmp_path)
-        _make_explore_lib(tmp_path)
-        build_explore_fts("demo", cfg=cfg)
-
-        results = explore_unified_search("demo", "boundary layer", cfg=cfg)
+        results = explore_search("demo", "boundary layer", cfg=cfg)
         assert results
         assert results[0]["title"] == "Boundary layer stability"

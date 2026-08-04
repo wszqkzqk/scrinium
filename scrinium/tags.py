@@ -187,3 +187,70 @@ def all_tags_with_counts(cfg: Config) -> dict[str, int]:
         for tag in dict.fromkeys(tags):
             counts[tag] = counts.get(tag, 0) + 1
     return counts
+
+
+def papers_with_tag(cfg: Config, tag: str) -> list[tuple[Path, dict]]:
+    """返回带有指定标签的论文目录与 meta（别名自动归一）。
+
+    标签先经 :func:`resolve_tag` 解析为 canonical 名；词表中不存在时
+    回退到 :func:`normalize_tag`（论文可能带有未注册进词表的标签）。
+
+    Args:
+        cfg: 全局配置。
+        tag: 标签名（canonical 或别名）。
+
+    Returns:
+        ``[(paper_dir, meta), ...]``，按目录名排序。
+    """
+    canonical = resolve_tag(cfg, tag) or normalize_tag(tag)
+    if not canonical:
+        return []
+    results: list[tuple[Path, dict]] = []
+    for pdir in iter_paper_dirs(cfg.papers_dir):
+        try:
+            tags = paper_tags(pdir)
+        except (ValueError, FileNotFoundError):
+            continue
+        if canonical in tags:
+            results.append((pdir, read_meta(pdir)))
+    return sorted(results, key=lambda item: item[0].name)
+
+
+def topic_overview(cfg: Config) -> dict:
+    """聚合标签主题总览：词表 + 计数 + 占比 + 未打标论文数。
+
+    标签即主题——不做第二个主题系统。词表 canonical 名与论文实际使用
+    的标签取并集。
+
+    Returns:
+        ``{"total_papers": int, "untagged_papers": int, "topics": [...]}``；
+        每个主题含 ``tag`` / ``description`` / ``aliases`` / ``count`` /
+        ``share``（占全库论文比例），按 ``count`` 降序、同名按字典序。
+    """
+    tax = load_taxonomy(cfg).get("tags") or {}
+    counts = all_tags_with_counts(cfg)
+    total = 0
+    untagged = 0
+    for pdir in iter_paper_dirs(cfg.papers_dir):
+        try:
+            tags = paper_tags(pdir)
+        except (ValueError, FileNotFoundError):
+            continue
+        total += 1
+        if not tags:
+            untagged += 1
+    topics = []
+    for name in sorted(set(tax) | set(counts)):
+        entry = tax.get(name) or {}
+        count = counts.get(name, 0)
+        topics.append(
+            {
+                "tag": name,
+                "description": entry.get("description") or "",
+                "aliases": entry.get("aliases") or [],
+                "count": count,
+                "share": (count / total) if total else 0.0,
+            }
+        )
+    topics.sort(key=lambda t: (-t["count"], t["tag"]))
+    return {"total_papers": total, "untagged_papers": untagged, "topics": topics}

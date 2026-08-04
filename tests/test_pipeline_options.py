@@ -30,7 +30,6 @@ class TestPipelineOptions:
         assert opts.inbox_dir is None
         assert opts.papers_dir is None
         assert opts.include_aux_inboxes is True
-        assert opts.translate_lang is None
         assert opts.office_path is None
 
     def test_from_mapping_roundtrip(self):
@@ -47,7 +46,7 @@ class TestPipelineOptions:
 
 class TestPipelineErrorBoundary:
     def test_run_pipeline_unknown_step_raises_instead_of_exit(self, tmp_path):
-        cfg = SimpleNamespace(translate=SimpleNamespace(auto_translate=False))
+        cfg = SimpleNamespace(_root=tmp_path)
         with pytest.raises(PipelineError, match="未知步骤"):
             run_pipeline(["no_such_step"], cfg, {})
 
@@ -98,7 +97,6 @@ class TestCollectExistingIdsFailures:
 
     def test_run_pipeline_warns_when_dedup_incomplete(self, tmp_path, monkeypatch):
         cfg = SimpleNamespace(
-            translate=SimpleNamespace(auto_translate=False),
             _root=tmp_path,
             papers_dir=tmp_path / "papers",
         )
@@ -121,7 +119,6 @@ class TestCollectExistingIdsFailures:
 
     def test_run_pipeline_no_warning_when_all_readable(self, tmp_path, monkeypatch):
         cfg = SimpleNamespace(
-            translate=SimpleNamespace(auto_translate=False),
             _root=tmp_path,
             papers_dir=tmp_path / "papers",
         )

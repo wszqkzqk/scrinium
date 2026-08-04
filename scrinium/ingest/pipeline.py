@@ -4,19 +4,19 @@ pipeline.py — 可组合步骤流水线
 
 步骤（scope）：
   inbox  — 每个 PDF 依次执行：mineru → extract → dedup → ingest
-  papers — 每篇已入库论文执行：toc → l3
+  papers — 每篇已入库论文执行：abstract → toc（纯规则）
   global — 全局执行一次：index
 
 预设：
-  full    = mineru, extract, dedup, ingest, toc, l3, embed, index
-  ingest  = mineru, extract, dedup, ingest, embed, index
-  enrich  = toc, l3, embed, index
-  reindex = embed, index
+  full    = mineru, extract, dedup, ingest, index
+  ingest  = mineru, extract, dedup, ingest, index
+  enrich  = abstract, toc
+  reindex = index
 
 用法（CLI）：
   scrinium pipeline full
   scrinium pipeline enrich --force
-  scrinium pipeline --steps toc,l3
+  scrinium pipeline --steps abstract,toc
   scrinium pipeline full --dry-run
 """
 
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import time
@@ -36,7 +37,6 @@ from typing import Any
 from scrinium.config import Config
 from scrinium.log import ui
 from scrinium.metrics import timer
-from scrinium.prompts import DETECT_TYPE_PARAMS, parse_llm_json, render_detect_prompt
 
 _log = logging.getLogger(__name__)
 
@@ -66,7 +66,6 @@ class PipelineOptions:
     inbox_dir: Path | None = None
     papers_dir: Path | None = None
     include_aux_inboxes: bool = True
-    translate_lang: str | None = None
     office_path: Path | None = None
 
     @classmethod
@@ -96,6 +95,33 @@ class StepResult(Enum):
     OK = "ok"
     SKIP = "skip"
     FAIL = "fail"
+
+
+# ============================================================================
+#  Handoff hints (framework → agent)
+#
+#  Deterministic paths emit these actionable hints when they fail or produce
+#  low-confidence results; an agent seeing a hint takes over per the
+#  corresponding skill workflow (ingest pending review, audit repair, ...).
+# ============================================================================
+
+HINT_LOW_CONFIDENCE = (
+    "元数据置信度低（缺 title/authors）；建议派 subagent 读原文核对后用 scrinium repair 修正"
+)
+HINT_NO_DOI = (
+    "建议派 subagent 读原文判定类型并核对元数据，然后 scrinium repair 修正或放回 data/inbox/ 重新入库"
+)
+HINT_NO_PUB_NUM = "建议派 subagent 确认公开号后 scrinium repair 修正，或放回 data/inbox-patent/ 重新入库"
+HINT_DUPLICATE = "建议派 subagent 对比两篇论文后决定去留"
+HINT_ABSTRACT_MISS = "建议 agent 阅读原文后直接写 meta.json 的 abstract 字段"
+HINT_TOC_MISS = "建议 agent 阅读全文后直接写 meta.json 的 toc 字段"
+
+# Recommended takeover action per pending.json issue type
+_PENDING_HINTS = {
+    "no_doi": HINT_NO_DOI,
+    "no_pub_num": HINT_NO_PUB_NUM,
+    "duplicate": HINT_DUPLICATE,
+}
 
 
 @dataclass
@@ -144,7 +170,7 @@ class InboxCtx:
     meta: Any = None  # PaperMeta instance after extraction
     status: str = "pending"  # pending | ingested | duplicate | needs_review | failed | skipped
     ingested_json: Path | None = None  # set by step_ingest on success
-    is_thesis: bool = False  # thesis inbox or LLM-detected thesis
+    is_thesis: bool = False  # thesis inbox or heuristically detected thesis
     is_patent: bool = False  # patent inbox or detected patent
     existing_pub_nums: dict[str, Path] | None = None  # patent publication number dedup
     existing_arxiv_ids: dict[str, Path] | None = None  # arXiv preprint dedup
@@ -394,9 +420,10 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
 
 
 def step_extract_doc(ctx: InboxCtx) -> StepResult:
-    """从非论文文档提取/生成元数据（LLM 生成标题和摘要）。
+    """从非论文文档提取元数据（纯规则：regex + 最小回退元数据）。
 
-    对于缺少标题/摘要的普通文档，使用 LLM 从全文生成，确保检索可用。
+    以首标题/文件名 + 前 500 词作为最小元数据入库；正式标题/摘要
+    由 agent 后处理直写 meta.json。
 
     Args:
         ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
@@ -435,9 +462,10 @@ def step_extract_doc(ctx: InboxCtx) -> StepResult:
 
 
 def step_extract(ctx: InboxCtx) -> StepResult:
-    """从 Markdown 头部提取论文元数据。
+    """从 Markdown 头部提取论文元数据（纯正则）。
 
-    使用配置指定的提取器（regex/auto/robust/llm），结果存入 ``ctx.meta``。
+    结果存入 ``ctx.meta``；低置信结果（缺 title/authors）在入库时
+    附 handoff hint，由 agent/subagent 核对。
 
     Args:
         ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
@@ -537,7 +565,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
         ctx.meta.extraction_method = "local_only"
         _log.debug("skipping API query (offline mode)")
 
-    # DOI dedup (guard against LLM returning "null"/"None" strings)
+    # DOI dedup (guard against extractors returning "null"/"None" strings)
     doi = ctx.meta.doi
     if doi and doi.strip().lower() in ("null", "none", "n/a"):
         ctx.meta.doi = ""
@@ -580,13 +608,13 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
                 return StepResult.FAIL
             ui("检测为专利，无 DOI 直接入库")
             return StepResult.OK
-        # No DOI -> LLM thesis detection
+        # No DOI -> heuristic thesis detection (miss -> pending for agent review)
         if _detect_thesis(ctx):
             ctx.meta.paper_type = "thesis"
             ctx.is_thesis = True
             ui("检测为学位论文，无 DOI 直接入库")
             return StepResult.OK
-        # No DOI -> LLM book detection
+        # No DOI -> heuristic book detection (miss -> pending for agent review)
         if _detect_book(ctx):
             ctx.meta.paper_type = "book"
             ui("检测为书籍，无 DOI 直接入库")
@@ -666,7 +694,7 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
     if not ctx.meta.abstract and ctx.md_path and ctx.md_path.exists():
         from scrinium.ingest.metadata import extract_abstract_from_md
 
-        abstract = extract_abstract_from_md(ctx.md_path, ctx.cfg)
+        abstract = extract_abstract_from_md(ctx.md_path)
         if abstract:
             ctx.meta.abstract = abstract
             _log.debug("abstract backfilled from MD (%d chars)", len(abstract))
@@ -726,6 +754,10 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
             _log.warning("could not delete office source %s: %s", office_src.name, exc)
     ctx.ingested_json = new_json
     ctx.status = "ingested"
+
+    # Low-confidence handoff: regex extraction missing key fields
+    if not (ctx.meta.title or "").strip() or not ctx.meta.authors:
+        ui(f"  hint: {HINT_LOW_CONFIDENCE}")
     return StepResult.OK
 
 
@@ -735,7 +767,10 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
 
 
 def step_toc(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """LLM 提取 TOC 写入 JSON（papers 作用域封装）。
+    """纯规则提取 TOC 写入 JSON（papers 作用域封装）。
+
+    规则未命中时返回 FAIL，调用方输出 handoff hint，由 agent 直接
+    阅读全文后写 ``meta.json`` 的 ``toc`` 字段。
 
     Args:
         json_path: 论文 JSON 路径（meta.json）。
@@ -767,8 +802,12 @@ def step_toc(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any
     return StepResult.OK if ok else StepResult.FAIL
 
 
-def step_l3(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """LLM 提取结论段写入 JSON（papers 作用域封装）。
+def step_abstract(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
+    """纯正则从 paper.md 补全缺失的 abstract（papers 作用域封装）。
+
+    已有 abstract 且未 ``--force`` 时跳过。规则未命中时返回 FAIL，
+    调用方输出 handoff hint，由 agent 阅读原文后直写 ``meta.json``
+    的 ``abstract`` 字段。
 
     Args:
         json_path: 论文 JSON 路径（meta.json）。
@@ -778,7 +817,7 @@ def step_l3(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]
     Returns:
         ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败, ``StepResult.SKIP`` 跳过。
     """
-    from scrinium.loader import enrich_l3
+    from scrinium.papers import read_meta, write_meta
 
     opts = _coerce_opts(opts)
     md_path = json_path.parent / "paper.md"
@@ -786,101 +825,29 @@ def step_l3(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]
         _log.debug("skipping (no paper.md): %s", json_path.parent.name)
         return StepResult.SKIP
 
+    data = read_meta(json_path.parent)
+    if data.get("abstract") and not opts.force:
+        _log.debug("existing abstract, skipping: %s", json_path.parent.name)
+        return StepResult.SKIP
+
     if opts.dry_run:
-        _log.debug("would run l3: %s", json_path.stem)
+        _log.debug("would run abstract: %s", json_path.stem)
         return StepResult.OK
 
-    ok = enrich_l3(
-        json_path,
-        md_path,
-        cfg,
-        force=opts.force,
-        max_retries=opts.max_retries,
-        inspect=opts.inspect,
-    )
-    return StepResult.OK if ok else StepResult.FAIL
+    from scrinium.ingest.metadata import extract_abstract_from_md
+
+    abstract = extract_abstract_from_md(md_path)
+    if not abstract:
+        _log.debug("regex found no abstract: %s", json_path.parent.name)
+        return StepResult.FAIL
+    data["abstract"] = abstract
+    write_meta(json_path.parent, data)
+    return StepResult.OK
 
 
 # ============================================================================
 #  Global steps
 # ============================================================================
-
-
-def step_translate(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """翻译论文 Markdown 到目标语言（papers 作用域）。
-
-    Args:
-        json_path: 论文 JSON 路径（meta.json）。
-        cfg: 全局配置。
-        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
-
-    Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败, ``StepResult.SKIP`` 跳过。
-    """
-    from scrinium.translate import SKIP_ALL_CHUNKS_FAILED, translate_paper
-
-    opts = _coerce_opts(opts)
-    paper_d = json_path.parent
-    md_path = paper_d / "paper.md"
-    if not md_path.exists():
-        _log.debug("skipping translate (no paper.md): %s", paper_d.name)
-        return StepResult.SKIP
-
-    if opts.dry_run:
-        _log.debug("would translate: %s", paper_d.name)
-        return StepResult.OK
-
-    target_lang = opts.translate_lang or cfg.translate.target_lang
-    try:
-        from scrinium.translate import validate_lang
-
-        target_lang = validate_lang(target_lang)
-    except ValueError as exc:
-        ui(f"  跳过翻译（语言无效: {exc}）")
-        return StepResult.SKIP
-    tr = translate_paper(paper_d, cfg, target_lang=target_lang, force=opts.force)
-    if tr.partial:
-        ui(f"  翻译中断: 已完成 {tr.completed_chunks}/{tr.total_chunks} 块，可稍后继续续翻")
-        return StepResult.FAIL
-    if tr.skip_reason == SKIP_ALL_CHUNKS_FAILED:
-        ui("  翻译失败: 全部分块翻译失败")
-        return StepResult.FAIL
-    if not tr.ok:
-        return StepResult.SKIP
-    ui(f"  已翻译: {tr.path.name}")  # type: ignore[union-attr]
-    return StepResult.OK
-
-
-def step_embed(papers_dir: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """生成语义向量写入 index.db（global 作用域）。
-
-    Args:
-        papers_dir: 论文目录。
-        cfg: 全局配置。
-        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
-
-    Returns:
-        ``StepResult.OK``；缺少 embed 依赖时跳过并返回 ``StepResult.SKIP``。
-        ``embed.provider=none`` 时 ``build_vectors`` 静默返回 0（不生成向量），
-        本步仍返回 ``StepResult.OK``。
-    """
-    try:
-        from scrinium.vectors import build_vectors
-    except ImportError:
-        ui("跳过 embed 步骤：缺少依赖，安装: pip install scrinium[embed]")
-        return StepResult.SKIP
-
-    opts = _coerce_opts(opts)
-    db_path = cfg.index_db
-    rebuild = opts.rebuild
-
-    if opts.dry_run:
-        _log.debug("would %s vectors: %s -> %s", "rebuild" if rebuild else "update", papers_dir, db_path)
-        return StepResult.OK
-
-    count = build_vectors(papers_dir, db_path, rebuild=rebuild, cfg=cfg)
-    ui(f"Vector index done, {count} new.")
-    return StepResult.OK
 
 
 def step_index(papers_dir: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
@@ -964,15 +931,13 @@ STEPS: dict[str, StepDef] = {
         fn=step_office_convert, scope="inbox", desc="Office 文档（DOCX/XLSX/PPTX）→ Markdown（MarkItDown）"
     ),
     "mineru": StepDef(fn=step_mineru, scope="inbox", desc="PDF → Markdown（MinerU）"),
-    "extract": StepDef(fn=step_extract, scope="inbox", desc="Markdown → 元数据提取"),
-    "extract_doc": StepDef(fn=step_extract_doc, scope="inbox", desc="文档 → LLM 元数据提取"),
+    "extract": StepDef(fn=step_extract, scope="inbox", desc="Markdown → 元数据提取（纯正则）"),
+    "extract_doc": StepDef(fn=step_extract_doc, scope="inbox", desc="文档 → 元数据提取（纯规则）"),
     "dedup": StepDef(fn=step_dedup, scope="inbox", desc="API 查询 + DOI 去重"),
     "ingest": StepDef(fn=step_ingest, scope="inbox", desc="写入 data/papers/"),
-    "toc": StepDef(fn=step_toc, scope="papers", desc="LLM 提取 TOC 写入 JSON"),
-    "l3": StepDef(fn=step_l3, scope="papers", desc="LLM 提取结论写入 JSON"),
-    "translate": StepDef(fn=step_translate, scope="papers", desc="翻译论文 Markdown 到目标语言"),
+    "abstract": StepDef(fn=step_abstract, scope="papers", desc="纯正则补全缺失的 abstract"),
+    "toc": StepDef(fn=step_toc, scope="papers", desc="纯规则提取 TOC 写入 JSON"),
     "refetch": StepDef(fn=step_refetch, scope="papers", desc="重新查询 API 补全引用量等字段"),
-    "embed": StepDef(fn=step_embed, scope="global", desc="生成语义向量写入 index.db"),
     "index": StepDef(fn=step_index, scope="global", desc="更新 SQLite FTS5 索引"),
 }
 
@@ -985,10 +950,10 @@ _DOC_INBOX_STEPS = ["office_convert", "mineru", "extract_doc", "ingest"]
 _OFFICE_EXTENSIONS = (".docx", ".xlsx", ".pptx")
 
 PRESETS: dict[str, list[str]] = {
-    "full": ["mineru", "extract", "dedup", "ingest", "toc", "l3", "embed", "index"],
-    "ingest": ["mineru", "extract", "dedup", "ingest", "embed", "index"],
-    "enrich": ["toc", "l3", "embed", "index"],
-    "reindex": ["embed", "index"],
+    "full": ["mineru", "extract", "dedup", "ingest", "index"],
+    "ingest": ["mineru", "extract", "dedup", "ingest", "index"],
+    "enrich": ["abstract", "toc"],
+    "reindex": ["index"],
 }
 
 
@@ -1275,7 +1240,7 @@ def _process_inbox(
         f"\n{label_prefix}inbox done: {stats['ingested']} ingested | {stats['duplicate']} duplicate | {stats['needs_review']} review | {stats['failed']} failed | {stats['skipped']} skipped"
     )
     if stats["needs_review"]:
-        ui("提示: 运行 `scrinium pending` 查看待确认项")
+        ui("提示: 运行 `scrinium pending` 查看待确认项；建议按 hint 派 subagent 审查处理")
     if step_times:
         ui("Step timing:")
         for sn, st in step_times.items():
@@ -1292,11 +1257,8 @@ def run_pipeline(
 
     按 scope 分三阶段依次执行:
       1. **inbox** — 逐个文件: mineru → extract → dedup → ingest
-      2. **papers** — 逐篇已入库论文: toc → l3 → translate（auto_translate 开启时自动注入）
-      3. **global** — 全局执行一次: embed → index
-
-    当 ``config.translate.auto_translate`` 为 ``True`` 且 pipeline 包含 inbox 步骤时，
-    会在 papers scope 阶段自动注入 translate 步骤（位于 embed/index 之前）。
+      2. **papers** — 逐篇已入库论文: abstract → toc（纯规则）
+      3. **global** — 全局执行一次: index
 
     Args:
         step_names: 步骤名称列表，如 ``["extract", "dedup", "ingest"]``。
@@ -1310,17 +1272,6 @@ def run_pipeline(
         PipelineError: 步骤名未知，或 inbox 中的 PDF 需要 MinerU 但本地与云端均不可用。
     """
     opts = _coerce_opts(opts)
-    # Auto-inject translate step when config.translate.auto_translate is enabled.
-    # Only inject when the pipeline includes inbox steps (i.e. new papers are being ingested),
-    # to avoid triggering LLM translation on unrelated runs like reindex/embed.
-    has_inbox = any(n in STEPS and STEPS[n].scope == "inbox" for n in step_names)
-    if cfg.translate.auto_translate and has_inbox and "translate" not in step_names and "translate" in STEPS:
-        # Insert translate before global-scope steps (embed/index)
-        first_global = next(
-            (i for i, n in enumerate(step_names) if n in STEPS and STEPS[n].scope == "global"),
-            len(step_names),
-        )
-        step_names = [*step_names[:first_global], "translate", *step_names[first_global:]]
 
     # Validate steps
     for name in step_names:
@@ -1459,19 +1410,10 @@ def run_pipeline(
             ok_total = fail_total = skip_total = 0
             step_times: dict[str, float] = {}
 
-            # Concurrent execution for papers_steps when LLM-bound steps
-            # (toc, l3, translate) are present. All papers_steps run per-paper
-            # inside _process_one_paper(); different papers execute in parallel.
-            llm_steps = {"toc", "l3", "translate"}
-            has_llm_steps = bool(set(papers_steps) & llm_steps)
-            if has_llm_steps and "translate" in papers_steps:
-                # When translate coexists with other LLM steps (toc/l3), use the
-                # lower of the two limits to avoid exceeding backend rate limits.
-                workers = min(cfg.translate.concurrency, cfg.llm.concurrency)
-            elif has_llm_steps:
-                workers = cfg.llm.concurrency
-            else:
-                workers = 1
+            # Papers steps are LLM-free (regex or API-bound); run a fixed
+            # concurrency across papers. All papers_steps run per-paper inside
+            # _process_one_paper(); different papers execute in parallel.
+            workers = min(8, os.cpu_count() or 1)
 
             def _process_one_paper(json_path: Path) -> tuple[str, dict[str, float]]:
                 """Process all papers_steps for one paper. Returns (status, timings)."""
@@ -1557,7 +1499,7 @@ def import_external(
 ) -> dict[str, int]:
     """从外部来源（Endnote 等）批量导入论文。
 
-    对每条记录运行 dedup + ingest，最后一次性 embed + index。
+    对每条记录运行 dedup + ingest，最后一次性重建 index。
     如提供 ``pdf_paths``（与 records 索引对齐），入库时自动复制
     PDF 到论文目录。
 
@@ -1638,11 +1580,10 @@ def import_external(
         f"\n导入完成: {stats['ingested']} 入库 | {stats['duplicate']} 重复 | {stats['needs_review']} 待审 | {stats['failed']} 失败"
     )
     if stats["needs_review"]:
-        ui("提示: 运行 `scrinium pending` 查看待确认项")
+        ui("提示: 运行 `scrinium pending` 查看待确认项；建议按 hint 派 subagent 审查处理")
 
-    # Batch embed + index
+    # Batch index
     if not dry_run and ingested_jsons:
-        step_embed(papers_dir, cfg, PipelineOptions())
         step_index(papers_dir, cfg, PipelineOptions())
 
     return stats
@@ -1720,21 +1661,16 @@ def _flatten_cloud_batch_output(inbox_dir: Path, stem: str, md_src: Path) -> Pat
     return flat_md
 
 
-def batch_convert_pdfs(
-    cfg: Config,
-    *,
-    enrich: bool = False,
-) -> dict[str, int]:
-    """批量转换已入库论文的 PDF 为 paper.md，可选 enrich。
+def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
+    """批量转换已入库论文的 PDF 为 paper.md。
 
     扫描 ``data/papers/`` 中有 PDF 无 paper.md 的论文，
     云端模式使用 ``convert_pdfs_cloud_batch()`` 真正批量转换，
-    本地模式逐篇调用。转换后可选运行 toc + l3 + abstract backfill，
-    最后一次性 embed + index。
+    本地模式逐篇调用。转换后补全缺失的 abstract（纯正则），
+    最后一次性重建 index。
 
     Args:
         cfg: 全局配置。
-        enrich: 转换后是否运行 toc + l3 + abstract backfill。
 
     Returns:
         统计字典 ``{"converted": N, "failed": N, "skipped": N}``。
@@ -1957,9 +1893,9 @@ def batch_convert_pdfs(
 
     ui(f"批量转换完成: {stats['converted']} 成功 / {stats['failed']} 失败 / {stats['skipped']} 跳过")
 
-    # Post-processing: abstract backfill + optional enrich (toc + l3)
+    # Post-processing: abstract backfill + index
     if converted_dirs:
-        _batch_postprocess(converted_dirs, cfg, enrich=enrich)
+        _batch_postprocess(converted_dirs, cfg)
 
     return stats
 
@@ -1993,14 +1929,13 @@ def _postprocess_convert(pdir: Path, pdf_path: Path, result) -> None:
 def _batch_postprocess(
     converted_dirs: list[Path],
     cfg: Config,
-    *,
-    enrich: bool = False,
 ) -> None:
-    """Abstract backfill + optional toc/l3 enrich + embed/index for converted papers."""
+    """Abstract backfill (regex) + index for converted papers."""
     from scrinium.papers import read_meta, write_meta
 
     # Abstract backfill
     backfilled = 0
+    missed: list[str] = []
     for pdir in converted_dirs:
         paper_md = pdir / "paper.md"
         if not paper_md.exists():
@@ -2010,36 +1945,21 @@ def _batch_postprocess(
             if not data.get("abstract"):
                 from scrinium.ingest.metadata import extract_abstract_from_md
 
-                abstract = extract_abstract_from_md(paper_md, cfg)
+                abstract = extract_abstract_from_md(paper_md)
                 if abstract:
                     data["abstract"] = abstract
                     write_meta(pdir, data)
                     backfilled += 1
+                else:
+                    missed.append(pdir.name)
         except (ValueError, FileNotFoundError) as e:
             _log.debug("failed to backfill abstract for %s: %s", pdir.name, e)
     if backfilled:
         ui(f"Abstract 已补全: {backfilled} 篇")
+    if missed:
+        ui(f"hint: {len(missed)} 篇正则未提取到摘要（{', '.join(missed[:5])}）；" + HINT_ABSTRACT_MISS)
 
-    # Enrich: toc + l3
-    if enrich:
-        enriched = 0
-        failed = 0
-        opts = PipelineOptions()
-        for pdir in converted_dirs:
-            json_path = pdir / "meta.json"
-            if not json_path.exists():
-                continue
-            ui(f"  enrich: {pdir.name}")
-            toc_res = step_toc(json_path, cfg, opts)
-            l3_res = step_l3(json_path, cfg, opts)
-            if toc_res == StepResult.FAIL or l3_res == StepResult.FAIL:
-                failed += 1
-            else:
-                enriched += 1
-        ui(f"Enrich 完成: {enriched} ok | {failed} failed")
-
-    # Re-embed + re-index once
-    step_embed(cfg.papers_dir, cfg, PipelineOptions())
+    # Re-index once
     step_index(cfg.papers_dir, cfg, PipelineOptions())
 
 
@@ -2112,11 +2032,6 @@ def _normalize_arxiv_id(arxiv_id: str) -> str:
         key = key.split(":", 1)[1]
     key = key.strip().lower()
     return re.sub(r"v\d+$", "", key)
-
-
-def _parse_detect_json(text: str) -> dict:
-    """Tolerant JSON extraction from LLM response (handles fences/extra text)."""
-    return parse_llm_json(text) or {}
 
 
 def _detect_patent(ctx: InboxCtx) -> bool:
@@ -2194,10 +2109,10 @@ _DETECT_HEURISTICS: dict[str, dict] = {
 
 
 def _detect_type(ctx: InboxCtx, kind: str, cfg: Config) -> bool:
-    """LLM 判断无 DOI 文档是否属于指定类型（thesis/book）。
+    """启发式判断无 DOI 文档是否属于指定类型（thesis/book）。
 
-    读取 MD 前 30000 字符，让 LLM 判断文档类型。
-    LLM 不可用时退回 False（走 pending 流程）。
+    只使用确定性信号：API 返回的 paper_type 与标题关键词。
+    未命中时返回 False（文档转入 pending，由 agent/subagent 审查接管）。
 
     Args:
         ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
@@ -2207,9 +2122,6 @@ def _detect_type(ctx: InboxCtx, kind: str, cfg: Config) -> bool:
     Returns:
         ``True`` 如果判定为对应类型。
     """
-    if not ctx.md_path or not ctx.md_path.exists():
-        return False
-
     heuristics = _DETECT_HEURISTICS[kind]
 
     # Fast heuristic: paper_type already set (e.g. by API metadata)
@@ -2225,41 +2137,11 @@ def _detect_type(ctx: InboxCtx, kind: str, cfg: Config) -> bool:
             _log.debug("%s detected by title keyword: %s", kind, keyword)
             return True
 
-    try:
-        with open(ctx.md_path, encoding="utf-8") as f:
-            text = f.read(30000)
-    except Exception as e:
-        _log.debug("failed to read md for %s detection: %s", kind, e)
-        return False
-
-    # LLM detection
-    try:
-        api_key = cfg.resolved_api_key()
-    except Exception as e:
-        _log.debug("failed to resolve API key: %s", e)
-        api_key = None
-    if not api_key:
-        _log.debug("no LLM API key, skipping %s detection", kind)
-        return False
-
-    from scrinium.metrics import call_llm
-
-    json_key = DETECT_TYPE_PARAMS[kind]["json_key"]
-    try:
-        result = call_llm(render_detect_prompt(kind, text), cfg, purpose=f"detect_{kind}", max_tokens=200)
-        data = _parse_detect_json(result.content)
-        is_kind = bool(data.get(json_key, False))
-        if is_kind:
-            _log.debug("%s detected by LLM: %s", kind, data.get("reason", ""))
-        return is_kind
-    except Exception as e:
-        _log.debug("%s detection LLM call failed: %s", kind, e)
-
     return False
 
 
 def _detect_thesis(ctx: InboxCtx) -> bool:
-    """LLM 判断无 DOI 论文是否为学位论文（``_detect_type`` 的薄包装）。"""
+    """启发式判断无 DOI 论文是否为学位论文（``_detect_type`` 的薄包装）。"""
     return _detect_type(ctx, "thesis", ctx.cfg)
 
 
@@ -2289,7 +2171,7 @@ def _ingest_proceedings_ctx(ctx: InboxCtx, *, force: bool) -> bool:
 
 
 def _detect_book(ctx: InboxCtx) -> bool:
-    """LLM 判断无 DOI 论文是否为书籍/专著（``_detect_type`` 的薄包装）。"""
+    """启发式判断无 DOI 论文是否为书籍/专著（``_detect_type`` 的薄包装）。"""
     return _detect_type(ctx, "book", ctx.cfg)
 
 
@@ -2382,16 +2264,19 @@ def _move_to_pending(
     # Move MinerU assets (images, layout.json, etc.)
     _move_assets(ctx.inbox_dir, paper_d, pdf_stem or md_stem, md_stem)
 
-    # Write marker JSON with extracted metadata + issue description
+    # Write marker JSON with extracted metadata + issue description + handoff hint
+    hint = _PENDING_HINTS.get(issue, "建议派 subagent 审查后处理")
     marker: dict[str, Any] = {
         "issue": issue,
         "message": message,
+        "hint": hint,
     }
     if extra:
         marker.update(extra)
     if ctx.meta:
         marker["extracted_metadata"] = metadata_to_dict(ctx.meta)
     (paper_d / "pending.json").write_text(json.dumps(marker, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    ui(f"  hint: {hint}")
     _log.debug("-> pending/%s/ (%s)", dir_name, issue)
 
 
@@ -2405,7 +2290,7 @@ def _repair_abstract(json_path: Path, md_path: Path, cfg: Config) -> None:
         return
     from scrinium.ingest.metadata import extract_abstract_from_md
 
-    abstract = extract_abstract_from_md(md_path, cfg)
+    abstract = extract_abstract_from_md(md_path)
     if abstract:
         data["abstract"] = abstract
         write_meta(paper_d, data)

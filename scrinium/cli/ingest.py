@@ -6,6 +6,7 @@ import argparse
 import concurrent.futures
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -142,13 +143,61 @@ def cmd_tags(args: argparse.Namespace, cfg) -> None:
     ui(f"\n总计: {len(entries)} 个标签，{sum(counts.values())} 次标注")
 
 
-# Suggested remediation per pending.json issue type.
+def cmd_topics(args: argparse.Namespace, cfg) -> None:
+    from scrinium.tags import load_taxonomy, papers_with_tag, resolve_tag, topic_overview
 
+    json_mode = getattr(args, "json", False)
+    tag = getattr(args, "tag", None)
+
+    if tag is None:
+        overview = topic_overview(cfg)
+        if json_mode:
+            _emit_json(overview)
+            return
+        topics = overview["topics"]
+        if not topics:
+            ui("主题词表为空（可用 scrinium tag <论文> <标签...> 创建）")
+            return
+        ui(f"主题总览：{overview['total_papers']} 篇论文，{len(topics)} 个主题\n")
+        for t in topics:
+            desc_str = f"  {t['description']}" if t["description"] else ""
+            ui(f"  {t['tag']}（{t['count']} 篇, {t['share']:.1%}）{desc_str}")
+        if overview["untagged_papers"]:
+            ui(f"\n未打标: {overview['untagged_papers']} 篇（可用 scrinium tag 或 curate 工作流打标）")
+        return
+
+    canonical = resolve_tag(cfg, tag)
+    tagged = papers_with_tag(cfg, tag)
+    if not tagged:
+        if canonical is None:
+            known = sorted((load_taxonomy(cfg).get("tags") or {}).keys())
+            hint = f"；当前词表: {', '.join(known)}" if known else "（词表为空，可先用 scrinium tag 打标）"
+            raise ValueError(f"未知标签: {tag}{hint}")
+        ui(f"主题 {canonical} 下没有论文")
+        return
+    papers = [{"dir_name": pdir.name, "title": meta.get("title") or "", "year": meta.get("year")} for pdir, meta in tagged]
+    # Newest first; stable sort keeps dir-name order within the same year
+    papers.sort(key=lambda p: str(p["year"] or ""), reverse=True)
+    name = canonical or tag
+    if json_mode:
+        _emit_json({"topic": name, "count": len(papers), "papers": papers})
+        return
+    ui(f"主题 {name}: {len(papers)} 篇论文\n")
+    for i, p in enumerate(papers, 1):
+        title = p["title"]
+        if len(title) > 70:
+            title = title[:67] + "..."
+        ui(f"  {i:3d}. [{p['year'] or '?'}] {title}")
+        ui(f"       {p['dir_name']}")
+
+
+# Suggested takeover action per pending.json issue type (handoff hints for agents).
+from scrinium.ingest.pipeline import HINT_ABSTRACT_MISS, HINT_DUPLICATE, HINT_NO_DOI, HINT_NO_PUB_NUM, HINT_TOC_MISS
 
 _PENDING_SUGGESTIONS = {
-    "no_doi": "补全 DOI 后将文件放回 data/inbox/ 重新 ingest",
-    "no_pub_num": "确认公开号后将文件放回 data/inbox-patent/ 重新 ingest",
-    "duplicate": "确认重复后可删除该目录；若需覆盖请先移除原论文",
+    "no_doi": HINT_NO_DOI,
+    "no_pub_num": HINT_NO_PUB_NUM,
+    "duplicate": HINT_DUPLICATE,
 }
 
 
@@ -166,12 +215,14 @@ def _collect_pending_items(cfg) -> list[dict]:
             except json.JSONDecodeError:
                 data = {}
             meta = data.get("extracted_metadata") or {}
+            issue = data.get("issue", "unknown")
             items.append(
                 {
                     "path": d,
-                    "issue": data.get("issue", "unknown"),
+                    "issue": issue,
                     "title": meta.get("title", ""),
                     "duplicate_of": data.get("duplicate_of", ""),
+                    "hint": data.get("hint") or _PENDING_SUGGESTIONS.get(issue, "建议派 subagent 审查后处理"),
                 }
             )
     dup_root = cfg._root / "data" / "duplicates"
@@ -186,7 +237,15 @@ def _collect_pending_items(cfg) -> list[dict]:
                     title = json.loads(meta_path.read_text(encoding="utf-8")).get("title", "")
                 except json.JSONDecodeError:
                     pass
-            items.append({"path": d, "issue": "duplicate", "title": title, "duplicate_of": ""})
+            items.append(
+                {
+                    "path": d,
+                    "issue": "duplicate",
+                    "title": title,
+                    "duplicate_of": "",
+                    "hint": _PENDING_SUGGESTIONS["duplicate"],
+                }
+            )
     return items
 
 
@@ -202,7 +261,6 @@ def cmd_pending(args: argparse.Namespace, cfg) -> None:
         groups.setdefault(item["issue"], []).append(item)
     for issue in sorted(groups):
         group = groups[issue]
-        suggestion = _PENDING_SUGGESTIONS.get(issue, "人工确认后处理")
         ui(f"[{issue}] {len(group)} 项")
         for item in group:
             ui(f"  {item['path']}")
@@ -210,10 +268,11 @@ def cmd_pending(args: argparse.Namespace, cfg) -> None:
                 ui(f"    标题: {item['title']}")
             if item["duplicate_of"]:
                 ui(f"    重复于: {item['duplicate_of']}")
-            ui(f"    建议: {suggestion}")
+            ui(f"    hint: {item['hint']}")
         ui("")
     summary = " | ".join(f"{issue} {len(groups[issue])}" for issue in sorted(groups))
     ui(f"汇总: {summary}（共 {len(items)} 项）")
+    ui("hint: 以上条目建议派 subagent 按对应 skill 工作流接管处理（ingest pending 审查 / audit 修复）")
 
 
 def cmd_repair(args: argparse.Namespace, cfg) -> None:
@@ -328,7 +387,7 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
                 inspect=args.inspect,
             ),
             success_message=_toc_success_message,
-            failure_message="  TOC 提取失败",
+            failure_message=f"  TOC 提取失败；hint: {HINT_TOC_MISS}",
             max_retries=2,
         )
     else:
@@ -354,7 +413,7 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
                 ui(_toc_success_message(json_path))
             else:
                 fail += 1
-                ui("  TOC 提取失败")
+                ui(f"  TOC 提取失败；hint: {HINT_TOC_MISS}")
 
     if args.all or len(targets) > 1:
         ui(f"\n完成: {ok} 成功 | {fail} 失败 | {skip} 跳过")
@@ -398,65 +457,6 @@ def cmd_pipeline(args: argparse.Namespace, cfg) -> None:
     run_pipeline(step_names, cfg, opts)
 
 
-def cmd_enrich_l3(args: argparse.Namespace, cfg) -> None:
-    from scrinium.loader import enrich_l3
-    from scrinium.papers import iter_paper_dirs
-
-    papers_dir = cfg.papers_dir
-
-    if args.all:
-        targets = sorted(d / "meta.json" for d in iter_paper_dirs(papers_dir))
-    elif args.paper_id:
-        targets = [papers_dir / args.paper_id / "meta.json"]
-    else:
-        _log.error("请指定 <paper-id> 或 --all")
-        sys.exit(1)
-
-    if args.all:
-        ok, fail, skip = _run_batch_enrich(
-            targets,
-            cfg,
-            worker_fn=lambda json_path, md_path: enrich_l3(
-                json_path,
-                md_path,
-                cfg,
-                force=args.force,
-                max_retries=args.max_retries,
-                inspect=args.inspect,
-            ),
-            success_message="  结论提取完成",
-            failure_message="  结论提取失败",
-            max_retries=args.max_retries,
-        )
-    else:
-        ok = fail = skip = 0
-        for json_path in targets:
-            md_path = json_path.parent / "paper.md"
-            if not md_path.exists():
-                _log.error("已跳过（缺少 paper.md）: %s", json_path.parent.name)
-                skip += 1
-                continue
-
-            ui(f"\n{json_path.parent.name}")
-            success = enrich_l3(
-                json_path,
-                md_path,
-                cfg,
-                force=args.force,
-                max_retries=args.max_retries,
-                inspect=args.inspect,
-            )
-            if success:
-                ok += 1
-                ui("  结论提取完成")
-            else:
-                fail += 1
-                ui("  结论提取失败")
-
-    if args.all or len(targets) > 1:
-        ui(f"\n完成: {ok} 成功 | {fail} 失败 | {skip} 跳过")
-
-
 def _toc_success_message(json_path: Path) -> str:
     try:
         data = json.loads(json_path.read_text(encoding="utf-8"))
@@ -490,7 +490,7 @@ def _run_batch_enrich(
     if not queued:
         return 0, 0, skip
 
-    workers = min(max(1, int(getattr(cfg.llm, "concurrency", 1))), len(queued))
+    workers = min(min(8, os.cpu_count() or 1), len(queued))
     ui(f"并发处理（{workers} workers，共 {len(queued)} 篇）...")
 
     def _retry_one(json_path: Path, md_path: Path) -> tuple[Path, bool, int]:
@@ -625,15 +625,18 @@ def cmd_backfill_abstract(args: argparse.Namespace, cfg) -> None:
 
     action = "预览补全" if args.dry_run else "补全摘要"
     doi_fetch = getattr(args, "doi_fetch", False)
-    source = "DOI 官方来源" if doi_fetch else "本地 .md + LLM 回退"
+    source = "DOI 官方来源" if doi_fetch else "本地 .md 纯正则"
     ui(f"{action}摘要（{source}）...\n")
-    stats = backfill_abstracts(papers_dir, dry_run=args.dry_run, doi_fetch=doi_fetch, cfg=cfg)
+    stats = backfill_abstracts(papers_dir, dry_run=args.dry_run, doi_fetch=doi_fetch)
     parts = [f"{stats['filled']} 已补全", f"{stats['skipped']} 跳过", f"{stats['failed']} 失败"]
     if stats.get("updated"):
         parts.insert(1, f"{stats['updated']} 已更新为官方摘要")
     ui(f"\n完成: {' | '.join(parts)}")
+    failed_dirs = stats.get("failed_dirs") or []
+    if failed_dirs:
+        ui(f"hint: {len(failed_dirs)} 篇正则未提取到摘要（{', '.join(failed_dirs[:5])}）；{HINT_ABSTRACT_MISS}")
     if stats["filled"] and not args.dry_run:
-        _log.debug("consider rebuilding vector index: scrinium embed --rebuild")
+        _log.debug("consider rebuilding index: scrinium index --rebuild")
 
 
 def cmd_rename(args: argparse.Namespace, cfg) -> None:
@@ -689,7 +692,7 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
         ui(f"[dry-run] 目标 paper.md: {paper_d / 'paper.md'}")
         if existing_md.exists():
             ui("[dry-run] 警告：已有 paper.md，实际运行时将被覆盖")
-        ui("[dry-run] 将执行: MinerU 转换 → 摘要补全 → 重新嵌入 → 重建索引")
+        ui("[dry-run] 将执行: MinerU 转换 → 摘要补全 → 重建索引")
         ui("[dry-run] 如确认无误，去掉 --dry-run 参数再运行")
         return
 
@@ -850,16 +853,17 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
     if not data.get("abstract"):
         from scrinium.ingest.metadata import extract_abstract_from_md
 
-        abstract = extract_abstract_from_md(existing_md, cfg)
+        abstract = extract_abstract_from_md(existing_md)
         if abstract:
             data["abstract"] = abstract
             write_meta(paper_d, data)
             ui(f"abstract 已补全 ({len(abstract)} chars)")
+        else:
+            ui(f"hint: 正则未提取到摘要；{HINT_ABSTRACT_MISS}")
 
-    # Incremental re-embed + re-index
-    from scrinium.ingest.pipeline import PipelineOptions, step_embed, step_index
+    # Incremental re-index
+    from scrinium.ingest.pipeline import PipelineOptions, step_index
 
-    step_embed(cfg.papers_dir, cfg, PipelineOptions())
     step_index(cfg.papers_dir, cfg, PipelineOptions())
 
 
@@ -870,16 +874,6 @@ def _add_enrich_toc_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
     p.add_argument("--force", action="store_true", help="强制重新提取")
     p.add_argument("--inspect", action="store_true", help="展示过滤过程")
-
-
-def _add_enrich_l3_args(p: argparse.ArgumentParser) -> None:
-    """Arguments shared by ``enrich conclusion`` and its legacy alias ``enrich-l3``."""
-    p.set_defaults(func=cmd_enrich_l3)
-    p.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
-    p.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
-    p.add_argument("--force", action="store_true", help="强制重新提取（覆盖已有结果）")
-    p.add_argument("--inspect", action="store_true", help="展示提取过程详情")
-    p.add_argument("--max-retries", type=int, default=2, help="最大重试次数（默认 2）")
 
 
 def _add_backfill_abstract_args(p: argparse.ArgumentParser) -> None:
@@ -898,13 +892,13 @@ def _add_pipeline_args(p: argparse.ArgumentParser, *, preset_default: str | None
         default=preset_default,
         help="预设名称：full | ingest | enrich | reindex" + (f"（默认 {preset_default}）" if preset_default else ""),
     )
-    p.add_argument("--steps", help="自定义步骤序列（逗号分隔），如 toc,l3,index")
+    p.add_argument("--steps", help="自定义步骤序列（逗号分隔），如 abstract,toc,index")
     p.add_argument("--list", dest="list_steps", action="store_true", help="列出所有步骤和预设")
     p.add_argument("--dry-run", action="store_true", help="预览，不写文件")
     p.add_argument("--no-api", action="store_true", help="离线模式，跳过外部 API")
-    p.add_argument("--force", action="store_true", help="强制重新处理（toc/l3）")
+    p.add_argument("--force", action="store_true", help="强制重新处理（abstract/toc）")
     p.add_argument("--inspect", action="store_true", help="展示处理详情")
-    p.add_argument("--max-retries", type=int, default=2, help="l3 最大重试次数（默认 2）")
+    p.add_argument("--max-retries", type=int, default=2, help="步骤最大重试次数（默认 2）")
     p.add_argument("--rebuild", action="store_true", help="重建索引（index 步骤）")
     p.add_argument("--inbox", help="inbox 目录（默认 data/inbox）")
     p.add_argument("--papers", help="papers 目录（默认配置值）")
@@ -922,11 +916,10 @@ def _add_refetch_args(p: argparse.ArgumentParser) -> None:
 def register(sub) -> None:
     """Register ingest-domain subcommands."""
     # --- enrich (grouped entry point) ---
-    p_enrich = sub.add_parser("enrich", help="内容富化：提取目录 / 结论 / 补全摘要")
+    p_enrich = sub.add_parser("enrich", help="内容富化：提取目录 / 补全摘要")
     p_enrich_sub = p_enrich.add_subparsers(dest="enrich_action", required=True)
-    _add_enrich_toc_args(p_enrich_sub.add_parser("toc", help="LLM 过滤标题噪声，提取论文 TOC 写入 JSON"))
-    _add_enrich_l3_args(p_enrich_sub.add_parser("conclusion", help="LLM 提取结论段写入 JSON"))
-    _add_backfill_abstract_args(p_enrich_sub.add_parser("abstract", help="补全缺失的 abstract（支持 DOI 官方抓取）"))
+    _add_enrich_toc_args(p_enrich_sub.add_parser("toc", help="纯规则提取论文 TOC 写入 JSON"))
+    _add_backfill_abstract_args(p_enrich_sub.add_parser("abstract", help="补全缺失的 abstract（纯正则，支持 DOI 官方抓取）"))
 
     # --- enrich-toc (legacy alias of `enrich toc`; no help => hidden) ---
     _add_enrich_toc_args(sub.add_parser("enrich-toc"))
@@ -974,6 +967,12 @@ def register(sub) -> None:
     p_tags.set_defaults(func=cmd_tags)
     p_tags.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
 
+    # --- topics ---
+    p_topics = sub.add_parser("topics", help="主题浏览：标签主题分布总览与钻取（标签即主题）")
+    p_topics.set_defaults(func=cmd_topics)
+    p_topics.add_argument("tag", nargs="?", default=None, help="主题（标签）名，支持别名；省略时显示总览")
+    p_topics.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
+
     # --- pending ---
     p_pending = sub.add_parser("pending", help="列出待确认项（data/pending 与 data/duplicates）")
     p_pending.set_defaults(func=cmd_pending)
@@ -995,6 +994,3 @@ def register(sub) -> None:
     p_ap.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
     p_ap.add_argument("pdf_path", help="PDF 文件路径")
     p_ap.add_argument("--dry-run", action="store_true", help="预览将要执行的操作，不实际运行")
-
-    # --- enrich-l3 (legacy alias of `enrich conclusion`; no help => hidden) ---
-    _add_enrich_l3_args(sub.add_parser("enrich-l3"))

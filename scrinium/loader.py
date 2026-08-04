@@ -1,24 +1,17 @@
 """
-loader.py — 分层内容加载 + TOC 提取 + L3 结论提取
+loader.py — 分层内容加载 + TOC 提取（纯规则）
 ====================================================
 
 L1: title / authors / year / journal / doi  ← JSON 字段
 L2: abstract                                ← JSON 字段
-L3: conclusion                              ← JSON 字段（需先运行 enrich_l3 提取）
+L3: conclusion                              ← JSON 字段（由 agent 分析后写入）
 L4: full markdown                           ← 读 .md 文件
 
 TOC 提取（enrich_toc）
 -----------------------
-1. regex 提取所有 # 标题 + 行号
-2. LLM 过滤 noise（author running headers、期刊名、论文标题重复等），
-   并为每个真实节标题分配层级（level）
-3. 写入 JSON["toc"]：[{"line": N, "level": N, "title": "..."}]
-
-L3 提取（enrich_l3）
----------------------
-若 JSON 已有 TOC，直接从中定位结论节（跳过第一次 LLM 调用）。
-否则走 Primary path：LLM 从原始标题列表选出结论节 → Python 截取 → LLM 校验。
-Fallback path：LLM 直接给出起止行号 → Python 截取 → LLM 校验。
+纯规则提取：regex 提取所有 # 标题 + 行号，过滤 running headers、
+期刊名、论文标题重复等噪声，并按编号推断层级（level）。
+结果写入 JSON["toc"]：[{"line": N, "level": N, "title": "..."}]
 """
 
 from __future__ import annotations
@@ -30,33 +23,31 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scrinium.prompts import PROMPTS, parse_llm_json
-
 if TYPE_CHECKING:
     from scrinium.config import Config
 
 _log = logging.getLogger(__name__)
 
-# Paper types for which L3 conclusion extraction is skipped.
-# These long-form or non-article documents don't have a standard
-# conclusion section suitable for the current extraction strategy.
-L3_SKIP_TYPES = frozenset(
-    {
-        "thesis",
-        "dissertation",
-        "book",
-        "monograph",
-        "edited-book",
-        "reference-book",
-        "book-chapter",
-        "book-section",
-        "book-part",
-        "document",
-        "technical-report",
-        "lecture-notes",
-        "patent",
-    }
-)
+# Strict pattern for language codes — prevents path traversal via lang parameter
+_LANG_CODE_RE = re.compile(r"^[a-z]{2,5}$")
+
+
+def validate_lang(lang: str) -> str:
+    """Validate, normalize, and return a safe language code.
+
+    Normalizes to lowercase and strips whitespace before validation,
+    so config values like ``"ZH"`` or ``" zh "`` are accepted.
+
+    Raises:
+        ValueError: If ``lang`` is not a string, or doesn't match the
+            ``[a-z]{2,5}`` pattern (ISO 639-1/3) after normalization.
+    """
+    if not isinstance(lang, str):
+        raise ValueError(f"invalid language code type: {type(lang).__name__} (expected string)")
+    lang = lang.lower().strip()
+    if not _LANG_CODE_RE.match(lang):
+        raise ValueError(f"invalid language code: {lang!r} (expected 2-5 lowercase letters)")
+    return lang
 
 
 # ============================================================================
@@ -104,13 +95,13 @@ def load_l2(json_path: Path) -> str:
 def load_l3(json_path: Path) -> str | None:
     """加载 L3 层结论文本。
 
-    需先运行 :func:`enrich_l3` 提取结论段到 JSON。
+    结论由 agent 阅读全文后写入 ``l3_conclusion`` 字段。
 
     Args:
         json_path: 论文 JSON 元数据文件路径。
 
     Returns:
-        结论文本，尚未提取时返回 ``None``。
+        结论文本，尚未写入时返回 ``None``。
     """
     data = json.loads(json_path.read_text(encoding="utf-8"))
     return data.get("l3_conclusion") or None
@@ -132,20 +123,14 @@ def load_l4(md_path: Path, *, lang: str | None = None) -> str:
     if lang:
         # Normalize + validate lang to prevent path traversal
         try:
-            from scrinium.translate import validate_lang
-        except ImportError:
-            _log.warning("failed to import validate_lang, falling back to original", exc_info=True)
+            lang = validate_lang(lang)
+        except ValueError:
+            _log.warning("invalid lang code %r, falling back to original", lang)
             lang = None
         else:
-            try:
-                lang = validate_lang(lang)
-            except ValueError:
-                _log.warning("invalid lang code %r, falling back to original", lang)
-                lang = None
-            else:
-                translated = md_path.parent / f"paper_{lang}.md"
-                if translated.exists():
-                    return translated.read_text(encoding="utf-8", errors="replace")
+            translated = md_path.parent / f"paper_{lang}.md"
+            if translated.exists():
+                return translated.read_text(encoding="utf-8", errors="replace")
     return md_path.read_text(encoding="utf-8", errors="replace")
 
 
@@ -215,7 +200,7 @@ def append_notes(paper_dir: Path, section: str) -> None:
 
 
 # ============================================================================
-#  TOC extraction
+#  TOC extraction (rule-based)
 # ============================================================================
 
 
@@ -227,15 +212,15 @@ def enrich_toc(
     force: bool = False,
     inspect: bool = False,
 ) -> bool:
-    """用 LLM 提取论文目录结构，写入 ``JSON["toc"]``。
+    """纯规则提取论文目录结构，写入 ``JSON["toc"]``。
 
-    从 Markdown 中提取所有 ``#`` 标题，通过 LLM 过滤 running headers、
-    期刊名、作者名等噪声，为真实节标题分配层级。
+    从 Markdown 中提取所有 ``#`` 标题，用规则过滤 running headers、
+    期刊名、作者名等噪声，并按编号推断层级。
 
     Args:
         json_path: 论文 JSON 元数据文件路径（结果写回此文件）。
         md_path: 论文 Markdown 文件路径。
-        config: 全局配置（用于 LLM 调用）。
+        config: 全局配置（保留参数，当前规则路径不使用）。
         force: 为 ``True`` 时覆盖已有 TOC。
         inspect: 为 ``True`` 时打印过滤过程详情。
 
@@ -256,36 +241,13 @@ def enrich_toc(
 
     _log.debug("regex found %d headers", len(raw_headers))
 
-    # Threshold: if many headers, rules are more reliable than LLM
-    # (LLM struggles to output 100+ JSON entries without format errors)
-    _RULE_THRESHOLD = 80
-
     title = data.get("title", "")
-    toc: list[dict] | None = None
-
-    if len(raw_headers) >= _RULE_THRESHOLD:
-        _log.debug("header count %d >= %d, using rule-based extraction", len(raw_headers), _RULE_THRESHOLD)
-        toc = _toc_from_rules(raw_headers, title)
-        if toc:
-            _log.debug("rule-based extraction: %d entries", len(toc))
-
-    if toc is None:
-        # LLM path for normal papers
-        _log.debug("sending %d headers to LLM", len(raw_headers))
-        prompt = PROMPTS["loader.toc"].render(
-            headers="\n".join(f"Line {h['line']}: {'#' * h['level']} {h['text']}" for h in raw_headers)
-        )
-
-        try:
-            result = _parse_json(_call_llm(prompt, config, timeout=config.llm.timeout_toc))
-            toc = result.get("toc") or []
-        except Exception as e:
-            _log.error("TOC extraction failed: %s", e)
-            # fallback: try rules even for small docs
-            toc = _toc_from_rules(raw_headers, title)
+    toc = _toc_from_rules(raw_headers, title)
+    if toc:
+        _log.debug("rule-based extraction: %d entries", len(toc))
 
     if not toc:
-        _log.error("could not extract TOC (both rules and LLM failed)")
+        _log.error("could not extract TOC (rule-based extraction failed)")
         return False
 
     _log.debug("final TOC: %d entries", len(toc))
@@ -300,169 +262,6 @@ def enrich_toc(
     return True
 
 
-# ============================================================================
-#  L3 extraction entry point
-# ============================================================================
-
-
-def enrich_l3(
-    json_path: Path,
-    md_path: Path,
-    config: Config,
-    *,
-    force: bool = False,
-    max_retries: int = 2,
-    inspect: bool = False,
-) -> bool:
-    """用 LLM 提取结论段，写入 ``JSON["l3_conclusion"]``。
-
-    提取策略（按优先级）:
-      1. 从已有 TOC 定位结论节 → Python 截取 → LLM 校验清洗
-      2. Primary path: LLM 从标题列表选出结论节 → 截取 → 校验
-      3. Fallback path: LLM 直接给出起止行号 → 截取 → 校验
-
-    Args:
-        json_path: 论文 JSON 元数据文件路径（结果写回此文件）。
-        md_path: 论文 Markdown 文件路径。
-        config: 全局配置（用于 LLM 调用）。
-        force: 为 ``True`` 时覆盖已有结论。
-        max_retries: 每条路径的最大重试次数。
-        inspect: 为 ``True`` 时打印提取过程详情。
-
-    Returns:
-        提取成功返回 ``True``，失败返回 ``False``。
-    """
-    from scrinium.papers import read_meta, write_meta
-
-    paper_d = json_path.parent
-    data = read_meta(paper_d)
-
-    # Skip L3 for non-article types (thesis, book, document, etc.)
-    paper_type = (data.get("paper_type") or "").lower().strip()
-    if paper_type in L3_SKIP_TYPES:
-        if data.get("l3_extraction_method") == "skipped":
-            return True  # already marked, idempotent
-        _log.debug("skipping L3 for paper_type=%s: %s", paper_type, paper_d.name)
-        data.pop("l3_conclusion", None)  # clear stale conclusion if any
-        data["l3_extraction_method"] = "skipped"
-        data["l3_extracted_at"] = datetime.now().isoformat(timespec="seconds")
-        write_meta(paper_d, data)
-        return True
-
-    if data.get("l3_conclusion") and not force:
-        _log.debug("existing L3 (method: %s), skipping", data.get("l3_extraction_method", "?"))
-        return True
-
-    lines = md_path.read_text(encoding="utf-8", errors="replace").splitlines()
-
-    conclusion = method = None
-
-    # --- Try locating conclusion via existing TOC (skip first LLM call) ---
-    toc = data.get("toc")
-    if toc:
-        conclusion, method = _l3_from_toc(lines, toc, config, max_retries, inspect)
-
-    # --- Primary path (when TOC is unavailable) ---
-    if conclusion is None:
-        headers = _extract_headers(lines)
-        _log.debug("[Primary] found %d headers", len(headers))
-        for h in headers:
-            _log.debug("  line %4d  %s %s", h["line"], "#" * h["level"], h["text"])
-        if headers:
-            conclusion, method = _primary_path(lines, headers, config, max_retries, inspect)
-
-    # --- Fallback path ---
-    if conclusion is None:
-        _log.debug("[Fallback] Primary path failed, switching to fallback")
-        conclusion, method = _fallback_path(lines, config, max_retries, inspect)
-
-    if conclusion is None:
-        _log.error("all paths failed to extract conclusion")
-        return False
-
-    # Write back
-    data["l3_conclusion"] = conclusion
-    data["l3_extraction_method"] = method
-    data["l3_extracted_at"] = datetime.now().isoformat(timespec="seconds")
-    write_meta(paper_d, data)
-    _log.debug("L3 written to JSON (method: %s, %d chars)", method, len(conclusion))
-    return True
-
-
-# ============================================================================
-#  L3 from TOC (no extra LLM call for header identification)
-# ============================================================================
-
-_CONCLUSION_KEYWORDS = re.compile(r"\b(conclusion|conclusions|concluding|summary|closing)\b", re.IGNORECASE)
-
-
-def _l3_from_toc(
-    lines: list[str],
-    toc: list[dict],
-    config: Config,
-    max_retries: int,
-    inspect: bool,
-) -> tuple[str | None, str | None]:
-    """用已有 TOC 定位结论节，Python 截取，LLM 校验。"""
-    # Find conclusion entry in TOC
-    conclusion_entry = None
-    for entry in toc:
-        if _CONCLUSION_KEYWORDS.search(entry.get("title", "")):
-            conclusion_entry = entry
-            break
-
-    if not conclusion_entry:
-        _log.debug("[TOC] no conclusion section found in TOC, switching to Primary")
-        return None, None
-
-    start_line = conclusion_entry["line"]
-    _log.debug("[TOC] found conclusion: line %d %s", start_line, conclusion_entry["title"])
-
-    # Find end: next TOC entry after conclusion
-    end_line = None
-    found = False
-    for entry in toc:
-        if found:
-            end_line = entry["line"] - 1
-            break
-        if entry["line"] == start_line:
-            found = True
-
-    extracted = _slice_lines(lines, start_line, end_line)
-    _log.debug("[TOC] extracted lines %d-%s, %d chars", start_line, end_line or "EOF", len(extracted))
-
-    cleaned, reason = _validate_and_clean(extracted, config)
-    _log.debug("[TOC] validate: %s %s", "PASS" if cleaned else "FAIL", reason)
-    if cleaned:
-        return cleaned, "toc"
-
-    return None, None
-
-
-# ============================================================================
-#  Primary path
-# ============================================================================
-
-
-_REAL_SECTION_RE = re.compile(
-    r"^(?:"
-    r"\d[\d.]*[\s.]|"  # 阿拉伯数字编号: 1, 1.1, 2., etc.
-    r"[IVX]+[\s.)]|"  # 罗马数字: I., II., IV.
-    r"[A-F][\s.)]|"  # 字母编号: A., B.
-    r"(?:abstract|introduction|method|result|discussion|"
-    r"conclusion|concluding|summary|reference|bibliography|"
-    r"appendix|acknowledge|funding|credit|declaration|"
-    r"data\s+avail|author\s+contrib|conflict)\b"
-    r")",
-    re.IGNORECASE,
-)
-
-
-def _is_real_section(title: str) -> bool:
-    """判断标题是否为真实节标题（非 running header）。"""
-    return bool(_REAL_SECTION_RE.match(title.strip()))
-
-
 def _extract_headers(lines: list[str]) -> list[dict]:
     """提取所有 # 标题及行号（1-indexed）。"""
     headers = []
@@ -473,12 +272,12 @@ def _extract_headers(lines: list[str]) -> list[dict]:
     return headers
 
 
-# -- regex-based TOC extraction (no LLM) ------------------------------------
+# -- regex-based TOC extraction ----------------------------------------------
 
 # Numbered section pattern: "1", "1.2", "1.2.3", with optional trailing dot
 # Also matches "1.", "2.1.", "1.2.3." (common in some journals/books)
 # Allows number followed by space, CJK char, or dot-then-space
-_RE_NUMBERED = re.compile(r"^(\d+(?:\.\d+)*)\.?(?:\s|(?=[\u4e00-\u9fff]))")
+_RE_NUMBERED = re.compile(r"^(\d+(?:\.\d+)*)\.?(?:\s|(?=[一-鿿]))")
 # "Chapter 1 Title" or Chinese "第一章" / "第1章" pattern
 _RE_CHAPTER = re.compile(r"^Chapter\s+(\d+)\b", re.IGNORECASE)
 _RE_CHAPTER_ZH = re.compile(r"^第\s*([一二三四五六七八九十百\d]+)\s*章")
@@ -542,15 +341,6 @@ def _toc_from_rules(raw_headers: list[dict], title: str) -> list[dict] | None:
     # Advance past remaining front-matter noise until we hit a body-start
     # marker: "Chapter 1", numbered section "1" or "1.1", or known
     # front-matter sections (Preface, Foreword, Introduction, Notation).
-    _FRONT_SECTIONS = {
-        "preface",
-        "foreword",
-        "notation",
-        "symbols",
-        "acknowledgments",
-        "acknowledgements",
-        "introduction",
-    }
     for idx in range(body_start, len(raw_headers)):
         h = raw_headers[idx]
         text = h["text"]
@@ -675,155 +465,3 @@ def _similar_title(a: str, b: str) -> bool:
         return False
     overlap = len(wa & wb) / max(len(wa), len(wb))
     return overlap > 0.8
-
-
-def _primary_path(
-    lines: list[str],
-    headers: list[dict],
-    config: Config,
-    max_retries: int,
-    inspect: bool,
-) -> tuple[str | None, str | None]:
-    header_list = "\n".join(f"Line {h['line']}: {'#' * h['level']} {h['text']}" for h in headers)
-    prompt = PROMPTS["loader.l3_primary"].render(headers=header_list)
-
-    # 1 initial attempt + max_retries retries; range(1, ...) so attempt number is 1-based
-    for attempt in range(1, max_retries + 2):
-        try:
-            result = _parse_json(_call_llm(prompt, config))
-            start_line = result.get("line")
-            if not start_line:
-                _log.debug("[Primary #%d] LLM found no conclusion", attempt)
-                return None, None
-
-            # Find end: next REAL section header after start_line
-            # Skip running headers (no section number, short text)
-            end_line = None
-            for h in headers:
-                if h["line"] > start_line and _is_real_section(h["text"]):
-                    end_line = h["line"] - 1
-                    break
-
-            extracted = _slice_lines(lines, start_line, end_line)
-            _log.debug(
-                "[Primary #%d] extracted lines %d-%s, %d chars", attempt, start_line, end_line or "EOF", len(extracted)
-            )
-
-            cleaned, reason = _validate_and_clean(extracted, config)
-            _log.debug("[Primary #%d] validate: %s %s", attempt, "PASS" if cleaned else "FAIL", reason)
-            if cleaned:
-                return cleaned, f"primary-attempt{attempt}"
-
-        except Exception as e:
-            _log.debug("[Primary #%d] exception: %s", attempt, e)
-
-    return None, None
-
-
-# ============================================================================
-#  Fallback path
-# ============================================================================
-
-
-def _fallback_path(
-    lines: list[str],
-    config: Config,
-    max_retries: int,
-    inspect: bool,
-) -> tuple[str | None, str | None]:
-    n = len(lines)
-
-    # Send first 100 + last 200 lines (conclusion is usually near the end)
-    if n <= 300:
-        sample = "\n".join(f"{i + 1}: {l}" for i, l in enumerate(lines))
-    else:
-        head = "\n".join(f"{i + 1}: {l}" for i, l in enumerate(lines[:100]))
-        tail_start = max(100, n - 200)
-        tail = "\n".join(f"{tail_start + i + 1}: {l}" for i, l in enumerate(lines[tail_start:]))
-        sample = f"[Lines 1–100]\n{head}\n\n...[中间省略]...\n\n[Lines {tail_start + 1}–{n}]\n{tail}"
-
-    prompt = PROMPTS["loader.l3_fallback"].render(sample=sample)
-
-    # 1 initial attempt + max_retries retries; range(1, ...) so attempt number is 1-based
-    for attempt in range(1, max_retries + 2):
-        try:
-            result = _parse_json(_call_llm(prompt, config))
-            start_line = result.get("start_line")
-            end_line = result.get("end_line")
-            if not start_line:
-                _log.debug("[Fallback #%d] LLM found no conclusion", attempt)
-                return None, None
-
-            extracted = _slice_lines(lines, start_line, end_line)
-            _log.debug(
-                "[Fallback #%d] extracted lines %d-%s, %d chars", attempt, start_line, end_line or "EOF", len(extracted)
-            )
-
-            cleaned, reason = _validate_and_clean(extracted, config)
-            _log.debug("[Fallback #%d] validate: %s %s", attempt, "PASS" if cleaned else "FAIL", reason)
-            if cleaned:
-                return cleaned, f"fallback-attempt{attempt}"
-
-        except Exception as e:
-            _log.debug("[Fallback #%d] exception: %s", attempt, e)
-
-    return None, None
-
-
-# ============================================================================
-#  LLM validation + cleaning
-# ============================================================================
-
-
-def _validate_and_clean(text: str, config: Config) -> tuple[str | None, str]:
-    """校验并清理提取的结论文本。
-
-    返回 (cleaned_text, reason)：
-    - cleaned_text 为 None 表示文本不包含有效结论内容
-    - cleaned_text 为清理后的纯结论文本（去除标题行、Acknowledgments 等）
-    """
-    if len(text.strip()) < 100:
-        return None, "文本过短"
-
-    prompt = PROMPTS["loader.l3_validate"].render(text=text)
-    try:
-        result = _parse_json(_call_llm(prompt, config, timeout=config.llm.timeout_clean))
-        cleaned = result.get("conclusion")
-        reason = result.get("reason") or ""
-        if not cleaned or len(cleaned.strip()) < 50:
-            return None, reason or "无有效结论内容"
-        return cleaned.strip(), reason
-    except Exception as e:
-        return None, f"校验异常：{e}"
-
-
-# ============================================================================
-#  LLM + JSON utilities
-# ============================================================================
-
-
-def _call_llm(prompt: str, config: Config, timeout: int | None = None) -> str:
-    from scrinium.metrics import call_llm
-
-    result = call_llm(prompt, config, timeout=timeout, purpose="loader")
-    return result.content
-
-
-def _parse_json(text: str) -> dict:
-    """Parse an LLM JSON response; raise ``ValueError`` when unparseable.
-
-    Delegates to :func:`scrinium.prompts.parse_llm_json` (fences, bare
-    objects, and LaTeX backslash fix-up) and converts its ``None`` into an
-    exception so existing retry/except paths keep working.
-    """
-    result = parse_llm_json(text)
-    if result is None:
-        raise ValueError(f"failed to parse LLM JSON response: {text[:200]!r}")
-    return result
-
-
-def _slice_lines(lines: list[str], start: int, end: int | None) -> str:
-    """1-indexed, inclusive on both ends."""
-    s = max(0, start - 1)
-    e = end if end is not None else len(lines)
-    return "\n".join(lines[s:e]).strip()

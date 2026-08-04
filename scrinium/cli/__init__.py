@@ -4,13 +4,11 @@ cli/ — scrinium 命令行入口（按域拆分的包）
 
 命令：
     scrinium index [--rebuild]
-    scrinium embed [--rebuild]
-    scrinium search <query> [--mode keyword|hybrid|semantic] [--top N] [--year Y] [--journal J] [--type T] [--tag T]
+    scrinium search <query> [--top N] [--year Y] [--journal J] [--type T] [--tag T]
     scrinium search <query> --scope main,proceedings,explore:*,arxiv [--top N]
     scrinium search-author <query> [--top N] [--year Y] [--journal J] [--type T]
     scrinium show <paper-id> [--layer 1|2|3|4] [--lang LANG] [--json] [--append-notes TEXT]
     scrinium enrich toc [<paper-id> | --all] [--force] [--inspect]
-    scrinium enrich conclusion [<paper-id> | --all] [--force] [--inspect] [--max-retries N]
     scrinium enrich abstract [--dry-run] [--doi-fetch]
     scrinium top-cited [--top N] [--year Y] [--journal J] [--type T]
     scrinium references <paper-id>
@@ -22,26 +20,22 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium audit [--severity error|warning|info]
     scrinium tag <paper-id> [<标签> ...] [--remove] [--json]
     scrinium tags [--json]
+    scrinium topics [<标签>] [--json]
     scrinium pending
     scrinium repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]
-    scrinium topics [--build] [--rebuild] [--viz] [--topic ID]
     scrinium ingest [--dry-run] [--no-api] [--force] [--inspect] ...   (= pipeline 的 ingest 预设)
     scrinium pipeline <preset> | --steps <s1,s2,...> [--list] [--dry-run] ...
-    scrinium metrics [--summary] [--last N] [--category CAT] [--since DATE]
+    scrinium metrics [--last N] [--category CAT] [--since DATE]
     scrinium insights [--days N]
     scrinium setup [check] [--lang en|zh]
     scrinium explore fetch [--issn X] [--concept C] [--topic-id T] [--author A] [--institution I]
                               [--keyword K] [--source-type T] [--oa-type T] [--min-citations N]
                               [--name NAME] [--year-range Y] [--incremental] [--limit N]
-    scrinium explore embed --name <NAME> [--rebuild]
-    scrinium explore topics --name <NAME> [--build] [--rebuild] [--topic ID]
-    scrinium explore search --name <NAME> <query> [--mode semantic|keyword|hybrid] [--top N]
-    scrinium explore viz --name <NAME>
+    scrinium explore search --name <NAME> <query> [--top N]
     scrinium explore list
     scrinium explore info [--name NAME]
     scrinium export bibtex|ris|markdown [<paper-id> ...] [--all] [--year Y] [--journal J] [-o FILE]
     scrinium export docx [-i input.md] [-o output.docx] [--title T]
-    scrinium translate [<paper-id> | --all] [--lang LANG] [--force]
     scrinium import endnote <file.xml|file.ris> [--no-api] [--dry-run] [--no-convert]
     scrinium import zotero [--api-key KEY] [--library-id ID] [--local PATH] [--list-collections] ...
     scrinium arxiv search [<query> ...] [--category CAT] [--sort relevance|recent] [--top N]
@@ -60,20 +54,17 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium proceedings build-clean-candidates <proceeding_dir>
     scrinium proceedings apply-clean <proceeding_dir> <clean_plan.json>
     scrinium workspace init <name>
-    scrinium workspace add <name> <paper-refs...> [--search Q] [--topic ID] [--all]
+    scrinium workspace add <name> <paper-refs...> [--search Q] [--tag T] [--all]
     scrinium workspace remove <name> <paper-refs...>
     scrinium workspace list
     scrinium workspace show <name>
-    scrinium workspace search <name> <query> [--top N] [--mode hybrid|keyword|semantic]
+    scrinium workspace search <name> <query> [--top N]
     scrinium workspace rename <old-name> <new-name>
     scrinium workspace export <name> [-o FILE]
 
 Legacy aliases（仍然可用，但从 --help 顶层列表隐藏；新代码请用上方主名）：
-    usearch            -> search --mode hybrid
-    vsearch            -> search --mode semantic
     fsearch            -> search --scope ...
     enrich-toc         -> enrich toc
-    enrich-l3          -> enrich conclusion
     backfill-abstract  -> enrich abstract
     import-endnote     -> import endnote
     import-zotero      -> import zotero
@@ -83,7 +74,6 @@ Legacy aliases（仍然可用，但从 --help 顶层列表隐藏；新代码请�
     shared-refs        -> shared-references
     ws                 -> workspace
     style              -> citation-styles
-    --mode unified     -> --mode hybrid（search / workspace search / explore search 通用）
 """
 
 from __future__ import annotations
@@ -105,7 +95,6 @@ from .common import (
     _check_import_error,
     _count_registry_papers,
     _emit_json,
-    _format_match_tag,
     _record_search_metrics,
     _resolve_export_paper_ids,
     _resolve_paper,
@@ -113,7 +102,6 @@ from .common import (
     _resolve_ws_paper_ids,
     _search_result_json,
     _try_resolve_paper,
-    _write_all_viz,
 )
 from .explore import cmd_explore
 from .ingest import (
@@ -124,7 +112,6 @@ from .ingest import (
     cmd_attach_pdf,
     cmd_audit,
     cmd_backfill_abstract,
-    cmd_enrich_l3,
     cmd_enrich_toc,
     cmd_pending,
     cmd_pipeline,
@@ -133,6 +120,7 @@ from .ingest import (
     cmd_repair,
     cmd_tag,
     cmd_tags,
+    cmd_topics,
 )
 from .misc import (
     _cmd_document_inspect,
@@ -150,7 +138,6 @@ from .misc import (
     cmd_snowball,
     cmd_style,
     cmd_toolref,
-    cmd_topics,
 )
 from .search import (
     _format_citations,
@@ -161,15 +148,12 @@ from .search import (
     _query_dois_for_set,
     _search_arxiv,
     _show_json,
-    cmd_embed,
     cmd_fsearch,
     cmd_index,
     cmd_search,
     cmd_search_author,
     cmd_show,
     cmd_top_cited,
-    cmd_usearch,
-    cmd_vsearch,
 )
 from .transfer import (
     _batch_convert_pdfs,
@@ -183,7 +167,6 @@ from .transfer import (
     cmd_export,
     cmd_import_endnote,
     cmd_import_zotero,
-    cmd_translate,
 )
 from .ws import _raise_ws_not_found, cmd_ws
 
@@ -206,7 +189,6 @@ __all__ = [
     "_count_registry_papers",
     "_emit_json",
     "_format_citations",
-    "_format_match_tag",
     "_import_zotero_collections_as_workspaces",
     "_print_header",
     "_print_search_next_steps",
@@ -225,7 +207,6 @@ __all__ = [
     "_show_json",
     "_toc_success_message",
     "_try_resolve_paper",
-    "_write_all_viz",
     "cmd_arxiv_fetch",
     "cmd_arxiv_search",
     "cmd_attach_pdf",
@@ -234,8 +215,6 @@ __all__ = [
     "cmd_citation_check",
     "cmd_citing",
     "cmd_document",
-    "cmd_embed",
-    "cmd_enrich_l3",
     "cmd_enrich_toc",
     "cmd_explore",
     "cmd_export",
@@ -264,9 +243,6 @@ __all__ = [
     "cmd_toolref",
     "cmd_top_cited",
     "cmd_topics",
-    "cmd_translate",
-    "cmd_usearch",
-    "cmd_vsearch",
     "cmd_ws",
     "load_config",
     "ui",
