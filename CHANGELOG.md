@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **`explore fetch --keyword` relevance**: OpenAlex requests were hard-coded to `sort=publication_year:asc`, so keyword fetches returned the *oldest* matching records (mostly irrelevant public-domain books) instead of relevant ones. Keyword fetches now default to `relevance_score:desc`; filter-only fetches (ISSN/concept/author/institution surveys) keep chronological ascending order. New `--sort` option (`year_asc` / `year_desc` / `relevance` / `citations`) overrides the default, and the resolved sort is recorded in the explore DB `meta.json`
+- **OpenAlex 429 resilience**: retry budget raised from 3 attempts with 1–4 s waits to 5 attempts with 4–60 s waits — OpenAlex rate limiting can persist for minutes under shared-IP load
+
+### Added
+
+- **OpenAlex polite pool**: `explore fetch` sends `mailto` from `ingest.contact_email` (or the `OPENALEX_MAILTO` environment variable) for better rate limits
+
 ## [3.0.0] — 2026-08-04
 
 Scrinium 3.0 removes **all in-framework LLM and embedding calls** — no exceptions. The framework keeps only deterministic, model-free primitives (regex metadata extraction, rule-based `enrich toc`/`enrich abstract`, FTS5 indexing, tags, citation graph, pending queue, MinerU parsing). Every capability that requires understanding is taken over by the agent (usually subagents that actually read the papers), so no user-facing function is lost.

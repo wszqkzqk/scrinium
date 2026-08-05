@@ -11,7 +11,7 @@
 # Or self-host 或本地部署: https://github.com/opendatalab/MinerU
 ingest:
   mineru_api_key: ""
-  contact_email: "" # Crossref polite pool — your email 你的邮箱（加速 Crossref 查询）
+  contact_email: "" # Crossref/OpenAlex polite pool — your email 你的邮箱（加速 Crossref/OpenAlex 查询）
   s2_api_key: "" # Semantic Scholar API key — higher rate limits S2 API 密钥（提升限速）
                # Apply at: https://www.semanticscholar.org/product/api#api-key
                # 申请地址：https://www.semanticscholar.org/product/api#api-key

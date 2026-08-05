@@ -11,12 +11,28 @@ import pytest
 from scrinium.config import _build_config
 from scrinium.explore import (
     _build_filter,
+    _resolve_sort,
     build_explore_fts,
     explore_db_path,
     explore_search,
     fetch_explore,
     validate_explore_name,
 )
+
+
+class TestResolveSort:
+    def test_keyword_defaults_to_relevance(self):
+        assert _resolve_sort(None, "milestoning kinetics") == "relevance_score:desc"
+
+    def test_filter_only_defaults_to_year_asc(self):
+        assert _resolve_sort(None, None) == "publication_year:asc"
+
+    def test_explicit_option_name_mapped(self):
+        assert _resolve_sort("citations", None) == "cited_by_count:desc"
+        assert _resolve_sort("year_desc", "kw") == "publication_year:desc"
+
+    def test_raw_openalex_expression_passes_through(self):
+        assert _resolve_sort("cited_by_count:asc", None) == "cited_by_count:asc"
 
 
 class TestBuildFilter:

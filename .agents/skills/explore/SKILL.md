@@ -52,6 +52,7 @@ scrinium explore fetch --issn 0022-1120 --name jfm --incremental
 - `--oa-type` — 论文类型（article/review 等）
 - `--min-citations` — 最小引用量
 - `--year-range` — 年份过滤（如 2020-2025）
+- `--sort` — 排序（`year_asc`/`year_desc`/`relevance`/`citations`；默认：关键词检索按 relevance，纯 filter 拉取按 year_asc）
 - `--name` — 探索库名称（默认从 filter 推导）
 - `--incremental` — 增量更新模式
 

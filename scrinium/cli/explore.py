@@ -48,6 +48,7 @@ def cmd_explore(args: argparse.Namespace, cfg) -> None:
             year_range=getattr(args, "year_range", None),
             min_citations=getattr(args, "min_citations", None),
             oa_type=getattr(args, "oa_type", None),
+            sort=getattr(args, "sort", None),
             incremental=getattr(args, "incremental", False),
             limit=getattr(args, "limit", None),
             cfg=cfg,
@@ -166,6 +167,12 @@ def register(sub) -> None:
     p_ef.add_argument("--source-type", default=None, help="来源类型（journal/conference/repository）")
     p_ef.add_argument("--oa-type", default=None, help="论文类型（article/review 等）")
     p_ef.add_argument("--min-citations", type=int, default=None, help="最小引用量")
+    p_ef.add_argument(
+        "--sort",
+        default=None,
+        choices=["year_asc", "year_desc", "relevance", "citations"],
+        help="排序方式（默认：关键词检索按 relevance，纯 filter 拉取按 year_asc）",
+    )
     p_ef.add_argument("--name", help="探索库名称（默认从 filter 推导）")
     p_ef.add_argument("--year-range", help="年份过滤（如 2020-2025）")
     p_ef.add_argument("--incremental", action="store_true", help="增量更新（追加新论文）")

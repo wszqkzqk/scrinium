@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import sqlite3
 import time
@@ -165,12 +166,38 @@ def _build_filter(
     return ",".join(parts), extra
 
 
+# CLI --sort option name -> OpenAlex sort expression
+_SORT_MAP = {
+    "year_asc": "publication_year:asc",
+    "year_desc": "publication_year:desc",
+    "relevance": "relevance_score:desc",
+    "citations": "cited_by_count:desc",
+}
+
+
+def _resolve_sort(sort: str | None, keyword: str | None) -> str:
+    """Pick the OpenAlex sort expression for a fetch.
+
+    Explicit ``sort`` (CLI option name or raw OpenAlex expression) wins.
+    Otherwise: keyword searches default to relevance ranking — sorting a
+    free-text search by year surfaces irrelevant old records; filter-only
+    fetches (journal/author surveys) keep chronological ascending order.
+    """
+    if sort:
+        return _SORT_MAP.get(sort, sort)
+    if keyword:
+        return "relevance_score:desc"
+    return "publication_year:asc"
+
+
 def _fetch_page(
     filt: str,
     extra_params: dict | None = None,
     *,
     cursor: str = "*",
     keyword: str | None = None,
+    sort: str = "publication_year:asc",
+    mailto: str = "",
 ) -> tuple[list[dict], str | None]:
     """Fetch one page of results from OpenAlex.
 
@@ -179,27 +206,33 @@ def _fetch_page(
         extra_params: Additional query params (e.g. search).
         cursor: Cursor for pagination.
         keyword: Free-text search keyword (OpenAlex ``search`` param).
+        sort: OpenAlex sort expression (see ``_resolve_sort``).
+        mailto: Contact email for the OpenAlex polite pool (better rate limits).
     """
     params: dict[str, str | int] = {
         "per_page": _PER_PAGE,
         "cursor": cursor,
         "select": "id,title,publication_year,doi,authorships,abstract_inverted_index,"
         "primary_location,cited_by_count,type",
-        "sort": "publication_year:asc",
+        "sort": sort,
     }
+    if mailto:
+        params["mailto"] = mailto
     if filt:
         params["filter"] = filt
     if keyword:
         params["search"] = keyword
     if extra_params:
         params.update(extra_params)
-    # Retry with exponential backoff for transient errors
+    # Retry with exponential backoff for transient errors. 429s from OpenAlex
+    # can persist well beyond a few seconds under shared-IP load, so use longer
+    # waits and more attempts than a typical transient-failure retry.
     last_exc: Exception | None = None
-    for attempt in range(3):
+    for attempt in range(5):
+        wait = min(60, 2 ** (attempt + 2))
         try:
             resp = requests.get(_OA_WORKS, params=params, timeout=30, proxies={"http": None, "https": None})
             if resp.status_code == 429:
-                wait = 2**attempt
                 _log.warning("OpenAlex 429 rate limit, retrying in %ds", wait)
                 time.sleep(wait)
                 continue
@@ -208,13 +241,12 @@ def _fetch_page(
             break
         except (requests.ConnectionError, requests.Timeout) as e:
             last_exc = e
-            wait = 2**attempt
-            _log.warning("OpenAlex request failed (attempt %d/3): %s, retrying in %ds", attempt + 1, e, wait)
+            _log.warning("OpenAlex request failed (attempt %d/5): %s, retrying in %ds", attempt + 1, e, wait)
             time.sleep(wait)
     else:
         if last_exc:
             raise last_exc
-        raise requests.HTTPError("OpenAlex API returned 429 after 3 retries")
+        raise requests.HTTPError("OpenAlex API returned 429 after 5 retries")
 
     papers = []
     for item in data.get("results", []):
@@ -263,6 +295,7 @@ def fetch_explore(
     year_range: str | None = None,
     min_citations: int | None = None,
     oa_type: str | None = None,
+    sort: str | None = None,
     incremental: bool = False,
     limit: int | None = None,
     cfg: Config | None = None,
@@ -284,6 +317,9 @@ def fetch_explore(
         year_range: 年份过滤（如 ``"2020-2025"``）。
         min_citations: 最小引用量过滤。
         oa_type: OpenAlex work type 过滤（article / review 等）。
+        sort: 排序方式（``year_asc`` / ``year_desc`` / ``relevance`` /
+            ``citations`` 或原始 OpenAlex 表达式）。``None`` 时自动选择：
+            关键词检索按相关度，纯 filter 拉取按年份升序。
         incremental: 为 ``True`` 时追加到现有 JSONL，基于 DOI 去重。
         limit: 最多拉取的论文数量上限（``None`` 表示无限制）。
         cfg: 可选的全局配置。
@@ -293,6 +329,9 @@ def fetch_explore(
     """
     if limit is not None and limit <= 0:
         raise ValueError(f"limit 必须为正整数，当前为: {limit}")
+
+    resolved_sort = _resolve_sort(sort, keyword)
+    mailto = (cfg.ingest.contact_email if cfg else "") or os.environ.get("OPENALEX_MAILTO", "")
 
     out_dir = _explore_dir(name, cfg)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -345,6 +384,8 @@ def fetch_explore(
                     extra_params,
                     cursor=cursor,
                     keyword=keyword,
+                    sort=resolved_sort,
+                    mailto=mailto,
                 )
                 if not papers:
                     break
@@ -391,6 +432,7 @@ def fetch_explore(
         ("year_range", year_range),
         ("min_citations", min_citations),
         ("oa_type", oa_type),
+        ("sort", resolved_sort),
     ]:
         if val is not None:
             query_params[key] = val

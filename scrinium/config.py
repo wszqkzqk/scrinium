@@ -133,7 +133,7 @@ class IngestConfig:
             无对应模式，按默认处理并告警）。
         mineru_enable_formula: 是否启用公式解析。仅对云端 ``pipeline``/``vlm`` 生效。
         mineru_enable_table: 是否启用表格解析。仅对云端 ``pipeline``/``vlm`` 生效。
-        contact_email: Crossref polite pool 联系邮箱（User-Agent），建议放 config.local.yaml。
+        contact_email: Crossref / OpenAlex polite pool 联系邮箱，建议放 config.local.yaml。
         s2_api_key: Semantic Scholar API 密钥，有 key 可大幅提升限速（1 req/s vs 100 req/5min）。
             建议放 config.local.yaml 或环境变量 ``S2_API_KEY``。
         chunk_page_limit: 本地 MinerU 对超长 PDF 的自动切分页数阈值。超过此值
