@@ -169,7 +169,7 @@ scrinium workspace export <主题> -o workspace/<主题>/references.bib   # 导�
 ```
 
 - 正文中所有 author-year 引用**必须**过 `/citation-check`，避免幻觉引用和年份/作者错配
-- 产出文档（调研报告、研究日志及其他 Markdown 产出）中的公式默认用 LaTeX：行内 `$...$`、独立行 `$$...$$`；不要用代码块或纯文本符号写公式。表格单元格内注意用 `\lvert ... \rvert` 代替裸 `|`，防止撑破表格
+- 产出文档（调研报告、研究日志及其他 Markdown 产出）中的公式默认用 LaTeX
 - 一切产出文件放 `workspace/<主题>/`，研究日志补记最终产出清单后收尾
 
 ## 纪律 checklist
