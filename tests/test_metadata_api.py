@@ -2,8 +2,21 @@
 
 from __future__ import annotations
 
+import pytest
+
 from scrinium.ingest.metadata._api import enrich_metadata
 from scrinium.ingest.metadata._models import PaperMetadata
+
+
+@pytest.fixture(autouse=True)
+def _stub_relaxed_title_search(monkeypatch):
+    """Keep tests offline: default relaxed title-search helpers to empty hits.
+
+    Tests exercising the relaxed path monkeypatch these again in the test body,
+    which overrides this fixture's default.
+    """
+    monkeypatch.setattr("scrinium.ingest.metadata._api._query_crossref_relaxed", lambda title: {})
+    monkeypatch.setattr("scrinium.ingest.metadata._api._query_oa_relaxed", lambda title: {})
 
 
 def test_enrich_metadata_prefers_arxiv_year_over_s2_year_for_preprint(monkeypatch):
