@@ -484,7 +484,7 @@ def test_pipeline_routes_manual_proceedings_inbox_to_proceedings_library(tmp_pat
 
     assert any((tmp_path / "data" / "proceedings").iterdir())
     assert not any((tmp_path / "data" / "papers").iterdir())
-    proceeding_dir = next((tmp_path / "data" / "proceedings").iterdir())
+    proceeding_dir = next(d for d in (tmp_path / "data" / "proceedings").iterdir() if d.is_dir())
     meta = json.loads((proceeding_dir / "meta.json").read_text(encoding="utf-8"))
     assert meta["split_status"] == "pending_review"
 
@@ -524,7 +524,7 @@ def test_pipeline_routes_forced_proceedings_pdf_right_after_mineru(tmp_path: Pat
 
     assert any((tmp_path / "data" / "proceedings").iterdir())
     assert not any((tmp_path / "data" / "papers").iterdir())
-    proceeding_dir = next((tmp_path / "data" / "proceedings").iterdir())
+    proceeding_dir = next(d for d in (tmp_path / "data" / "proceedings").iterdir() if d.is_dir())
     meta = json.loads((proceeding_dir / "meta.json").read_text(encoding="utf-8"))
     assert meta["split_status"] == "pending_review"
 
