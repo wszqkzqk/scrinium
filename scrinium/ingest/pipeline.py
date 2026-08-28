@@ -27,8 +27,11 @@ import logging
 import os
 import re
 import shutil
+import signal
+import threading
 import time
 from collections.abc import Callable, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass, field, fields, replace
 from enum import Enum
 from pathlib import Path
@@ -499,6 +502,45 @@ def step_extract(ctx: InboxCtx) -> StepResult:
     return StepResult.OK
 
 
+# Hard wall-clock cap for one item's metadata API enrichment. Socket-level
+# timeouts do not cover every failure mode (trickling endpoints, half-dead
+# connections, retry loops honoring long Retry-After headers); without a cap,
+# one wedged call can stall the whole inbox run for hours.
+_ENRICH_TIMEOUT_S = 180
+
+
+@contextmanager
+def _hard_timeout(seconds: int, label: str):
+    """Cap any single blocking call at ``seconds`` while the block is active.
+
+    A watchdog thread re-fires SIGALRM every ``seconds``: endpoints that defeat
+    socket timeouts by trickling bytes get each wedged call killed individually
+    (the requests adapter converts the interruption to ``ConnectionError``,
+    which the metadata query functions already treat as a failed call and move
+    on), instead of one pathological call stalling the whole inbox run.
+    Unix / main thread only.
+    """
+
+    stop = threading.Event()
+
+    def _raise(_signum, _frame):
+        raise TimeoutError(f"{label} exceeded {seconds}s")
+
+    def _watch() -> None:
+        while not stop.wait(seconds):
+            signal.pthread_kill(threading.main_thread().ident, signal.SIGALRM)
+
+    old_handler = signal.signal(signal.SIGALRM, _raise)
+    watcher = threading.Thread(target=_watch, daemon=True, name="enrich-watchdog")
+    watcher.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        watcher.join(timeout=1.0)
+        signal.signal(signal.SIGALRM, old_handler)
+
+
 def step_dedup(ctx: InboxCtx) -> StepResult:
     """API 查询补全 + DOI / 公开号去重检查。
 
@@ -565,7 +607,18 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
     # API query
     if not ctx.opts.no_api:
         _log.debug("querying APIs")
-        ctx.meta = enrich_metadata(ctx.meta)
+        # getattr chains tolerate tests/dry-runs passing partial config objects
+        enrich_timeout = getattr(getattr(ctx.cfg, "ingest", None), "enrich_timeout", _ENRICH_TIMEOUT_S)
+        try:
+            with _hard_timeout(enrich_timeout, "metadata enrichment"):
+                ctx.meta = enrich_metadata(ctx.meta)
+        except TimeoutError:
+            # Keep whatever local metadata exists rather than stalling the run
+            _log.warning(
+                "metadata enrichment timed out after %ds, using local metadata",
+                enrich_timeout,
+            )
+            ctx.meta.extraction_method = ctx.meta.extraction_method or "local_timeout"
         ui(f"DOI (after API): {ctx.meta.doi or 'none'}")
     else:
         ctx.meta.extraction_method = "local_only"

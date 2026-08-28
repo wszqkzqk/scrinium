@@ -67,9 +67,14 @@ class TestBuildConfig:
         assert cfg.ingest.mineru_upload_retries == 3
         assert cfg.ingest.mineru_download_retries == 3
         assert cfg.ingest.mineru_poll_timeout == 900
+        assert cfg.ingest.enrich_timeout == 180
         assert cfg.ingest.pdf_preferred_parser == "mineru"
         assert cfg.ingest.pdf_fallback_order == ["auto"]
         assert cfg.ingest.pdf_fallback_auto_detect is True
+
+    def test_ingest_enrich_timeout_override(self, tmp_path):
+        cfg = _build_config({"ingest": {"enrich_timeout": 60}}, tmp_path)
+        assert cfg.ingest.enrich_timeout == 60
 
     def test_ingest_fallback_order_override(self, tmp_path):
         cfg = _build_config(

@@ -146,6 +146,8 @@ class IngestConfig:
             默认 3。当前用于 MinerU cloud CLI 的指数退避重试。
         mineru_download_retries: 旧云 API 下载重试配置；为兼容保留。
         mineru_poll_timeout: `mineru-open-api` 单次转换超时（秒），默认 900。
+        enrich_timeout: 元数据 API enrich 单篇硬超时（秒），默认 180。
+            超时后保留本地元数据继续（extraction_method 标记 ``local_timeout``）。
         pdf_preferred_parser: 首选 PDF 解析器。默认优先 ``mineru``，也可显式设为
             ``docling`` 或 ``pymupdf`` 跳过 MinerU。
         pdf_fallback_order: MinerU 不可用或解析失败时的替代解析器顺序。
@@ -170,6 +172,7 @@ class IngestConfig:
     mineru_upload_retries: int = 3
     mineru_download_retries: int = 3
     mineru_poll_timeout: int = 900
+    enrich_timeout: int = 180
     pdf_preferred_parser: str = "mineru"
     pdf_fallback_order: list[str] = field(default_factory=lambda: ["auto"])
     pdf_fallback_auto_detect: bool = True
@@ -560,6 +563,12 @@ def _build_config(data: dict, root: Path) -> Config:
             default=900,
             field_name="ingest.mineru_poll_timeout",
             minimum=60,
+        ),
+        enrich_timeout=_normalize_positive_int(
+            ingest_data.get("enrich_timeout"),
+            default=180,
+            field_name="ingest.enrich_timeout",
+            minimum=30,
         ),
         chunk_page_limit=int(ingest_data.get("chunk_page_limit") or 100),
         pdf_preferred_parser=_normalize_choice(

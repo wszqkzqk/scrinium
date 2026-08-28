@@ -15,6 +15,8 @@ ingest:
   s2_api_key: "" # Semantic Scholar API key — higher rate limits S2 API 密钥（提升限速）
                # Apply at: https://www.semanticscholar.org/product/api#api-key
                # 申请地址：https://www.semanticscholar.org/product/api#api-key
+  # enrich_timeout: 180  # per-paper metadata API enrichment hard timeout in seconds
+               # 元数据 API enrich 单篇硬超时（秒），超时保留本地元数据继续
 
 # Zotero integration (optional) Zotero 集成（可选）
 # API key: https://www.zotero.org/settings/keys

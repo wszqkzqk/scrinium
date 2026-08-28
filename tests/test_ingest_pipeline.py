@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 from scrinium.ingest.metadata._api import query_semantic_scholar
 from scrinium.ingest.metadata._models import PaperMetadata
@@ -13,11 +16,25 @@ from scrinium.ingest.pipeline import (
     InboxCtx,
     StepResult,
     _collect_existing_ids,
+    _hard_timeout,
     run_pipeline,
     step_dedup,
     step_extract,
     step_office_convert,
 )
+
+
+def test_hard_timeout_interrupts_wedged_call():
+    """_hard_timeout must raise TimeoutError even when the callee never returns."""
+    with pytest.raises(TimeoutError, match="wedged test"):
+        with _hard_timeout(1, "wedged test"):
+            time.sleep(30)
+
+
+def test_hard_timeout_passes_through_fast_calls():
+    with _hard_timeout(10, "fast test"):
+        result = 42
+    assert result == 42
 
 
 class _DummyResponse:
