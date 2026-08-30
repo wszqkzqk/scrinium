@@ -59,6 +59,7 @@ data/papers/
 └── <Author-Year-Title>/
     ├── meta.json    # L1+L2+L3 metadata (includes "id": "<uuid>")
     ├── paper.md     # L4 source (MinerU output)
+    ├── paper.pdf    # Source PDF (preserved after conversion)
     ├── notes.md     # Agent analysis notes (T2 layer, optional, created/appended on demand)
     ├── paper_{lang}.md # Translated version written by the agent (such as paper_zh.md, optional)
     ├── images/      # Images extracted by MinerU (referenced from md)
@@ -74,7 +75,7 @@ The `papers_registry` table inside `data/index.db` provides UUID <-> DOI <-> dir
 
 ```text
 data/inbox/
-├── paper.pdf     # PDF waiting for ingestion (deleted after pipeline processing)
+├── paper.pdf     # PDF waiting for ingestion (preserved as <paper-dir>/paper.pdf after processing)
 └── paper.md      # Or place .md directly (skip MinerU and ingest directly)
 ```
 

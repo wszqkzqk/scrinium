@@ -655,6 +655,7 @@ class TestAttachPdfFallback:
         assert calls == [(paper_dir / "input.pdf", paper_dir / "paper.md")]
         assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "fallback attach ok\n"
         assert not (paper_dir / "input.pdf").exists()
+        assert (paper_dir / "paper.pdf").exists()
 
     def test_attach_pdf_prefers_configured_fallback_without_result_object(self, tmp_path, monkeypatch):
         paper_dir = tmp_path / "papers" / "Smith-2023-Test"
@@ -979,6 +980,7 @@ class TestAttachPdfFallback:
         assert captured["chunk_size"] == 320
         assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "split ok\n"
         assert not (paper_dir / "input.pdf").exists()
+        assert (paper_dir / "paper.pdf").exists()
 
     def test_attach_pdf_cloud_split_importerror_falls_back(self, tmp_path, monkeypatch):
         paper_dir = tmp_path / "papers" / "Smith-2023-Test"

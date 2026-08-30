@@ -899,9 +899,9 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
                 shutil.rmtree(target)
             img_dir.rename(target)
 
-    # Clean up the copied PDF (we only need the markdown)
+    # Preserve the copied PDF as paper.pdf
     if dest_pdf.exists() and dest_pdf.name != "paper.pdf":
-        dest_pdf.unlink()
+        dest_pdf.replace(dest_pdf.parent / "paper.pdf")
 
     ui(f"paper.md 已生成: {paper_d.name}/")
 

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Ingest preserves the source PDF**: after a successful conversion the source PDF is kept as `paper.pdf` in the paper directory (previously it was deleted, keeping only `paper.md`). Applies to the batch MinerU/fallback/cloud conversion paths and to `attach-pdf`
+
 ### Fixed
 
 - **`explore fetch --keyword` relevance**: OpenAlex requests were hard-coded to `sort=publication_year:asc`, so keyword fetches returned the *oldest* matching records (mostly irrelevant public-domain books) instead of relevant ones. Keyword fetches now default to `relevance_score:desc`; filter-only fetches (ISSN/concept/author/institution surveys) keep chronological ascending order. New `--sort` option (`year_asc` / `year_desc` / `relevance` / `citations`) overrides the default, and the resolved sort is recorded in the explore DB `meta.json`

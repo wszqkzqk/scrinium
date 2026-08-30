@@ -1784,7 +1784,8 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
             stats["failed"] += 1
             return False
         if pdf_path.exists() and pdf_path.name != "paper.pdf":
-            pdf_path.unlink()
+            # Preserve the source PDF in the paper directory
+            pdf_path.replace(pdf_path.parent / "paper.pdf")
         ui(f"  {pdir.name}: 已降级使用 {parser_name}")
         converted_dirs.append(pdir)
         stats["converted"] += 1
@@ -1898,10 +1899,10 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
                     shutil.move(str(md_src), str(paper_md))
                     _move_batch_images(paper_md, pdir, br.pdf_path.stem, md_src, tmp_dir)
 
-                    # Clean up source PDF (keep only markdown)
+                    # Preserve source PDF as paper.pdf
                     pdf_path = br.pdf_path
                     if pdf_path.exists() and pdf_path.parent == pdir and pdf_path.name != "paper.pdf":
-                        pdf_path.unlink()
+                        pdf_path.replace(pdf_path.parent / "paper.pdf")
 
                     ui(f"  {pdir.name}: OK")
                     converted_dirs.append(pdir)
@@ -1977,9 +1978,9 @@ def _postprocess_convert(pdir: Path, pdf_path: Path, result) -> None:
                 shutil.rmtree(target)
             img_dir.rename(target)
 
-    # Clean up source PDF
+    # Preserve source PDF as paper.pdf
     if pdf_path.exists() and pdf_path.name != "paper.pdf":
-        pdf_path.unlink()
+        pdf_path.replace(pdf_path.parent / "paper.pdf")
 
 
 def _batch_postprocess(

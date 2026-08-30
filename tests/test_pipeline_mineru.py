@@ -161,6 +161,7 @@ def test_batch_convert_pdfs_fallback_cleans_noncanonical_source_pdf(tmp_path, mo
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "fallback batch ok\n"
     assert not pdf.exists()
+    assert (paper_dir / "paper.pdf").exists()
 
 
 def test_batch_convert_pdfs_cloud_splits_items_that_exceed_new_limits(tmp_path, monkeypatch):
@@ -275,6 +276,7 @@ def test_batch_convert_pdfs_cloud_batch_success_counts_each_result(tmp_path, mon
     assert stats == {"converted": 1, "failed": 0, "skipped": 0}
     assert (paper_dir / "paper.md").read_text(encoding="utf-8") == "batch ok\n"
     assert not pdf.exists()
+    assert (paper_dir / "paper.pdf").exists()
 
 
 def test_batch_convert_pdfs_cloud_batch_missing_md_falls_back(tmp_path, monkeypatch):
