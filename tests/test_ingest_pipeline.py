@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -24,13 +25,14 @@ from scrinium.ingest.pipeline import (
 )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGALRM is Unix-only")
 def test_hard_timeout_interrupts_wedged_call():
     """_hard_timeout must raise TimeoutError even when the callee never returns."""
-    with pytest.raises(TimeoutError, match="wedged test"):
-        with _hard_timeout(1, "wedged test"):
-            time.sleep(30)
+    with pytest.raises(TimeoutError, match="wedged test"), _hard_timeout(1, "wedged test"):
+        time.sleep(30)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGALRM is Unix-only")
 def test_hard_timeout_passes_through_fast_calls():
     with _hard_timeout(10, "fast test"):
         result = 42

@@ -518,8 +518,12 @@ def _hard_timeout(seconds: int, label: str):
     (the requests adapter converts the interruption to ``ConnectionError``,
     which the metadata query functions already treat as a failed call and move
     on), instead of one pathological call stalling the whole inbox run.
-    Unix / main thread only.
+    Unix / main thread only; on platforms without SIGALRM (e.g. Windows) the
+    cap is a no-op rather than an AttributeError.
     """
+    if not hasattr(signal, "SIGALRM"):
+        yield
+        return
 
     stop = threading.Event()
 
