@@ -4,13 +4,15 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.1.x   | :white_check_mark: |
+| 3.x     | :white_check_mark: |
+| 2.x     | :white_check_mark: |
+| < 2.0 (ScholarAIO) | :x: |
 
 ## Reporting a Vulnerability
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Please report security issues by emailing **zimoliao@mail.ustc.edu.cn** with:
+Please report security issues by emailing **wszqkzqk@qq.com** with:
 
 1. Description of the vulnerability
 2. Steps to reproduce

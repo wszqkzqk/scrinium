@@ -21,11 +21,11 @@ pytest
 
 ### 1. Orchestration Skills (no Python needed)
 
-Skills in `.claude/skills/` are pure-prompt definitions that combine existing CLI commands. To add one:
+Skills in `.agents/skills/` are pure-prompt definitions that combine existing CLI commands. To add one:
 
-1. Create `.claude/skills/<name>/SKILL.md` with YAML frontmatter + instructions
+1. Create `.agents/skills/<name>/SKILL.md` with YAML frontmatter + instructions
 2. Follow the [AgentSkills.io](https://agentskills.io) format
-3. Test with Claude Code: `/<name>`
+3. Test with a skill-capable agent: `/<name>`
 
 See existing skills (e.g., `literature-review`, `writing-polish`) for examples.
 
@@ -36,7 +36,7 @@ For new functionality that requires code:
 1. Implement in `scrinium/` (library module)
 2. Expose it as a subcommand in the matching domain module under `scrinium/cli/`
 3. Add contract-level tests in `tests/`
-4. Optionally create a skill in `.claude/skills/`
+4. Optionally create a skill in `.agents/skills/`
 
 ## Pull Request Process
 
@@ -76,7 +76,7 @@ Short English imperative subject lines (e.g. `Add snowball command for citation-
 | Directory | Purpose |
 |-----------|---------|
 | `scrinium/` | Python package (library + CLI) |
-| `.claude/skills/` | Agent skill definitions (SKILL.md) |
+| `.agents/skills/` | Agent skill definitions (SKILL.md) |
 | `tests/` | Contract-level test suite |
 | `data/` | User paper library (not tracked) |
 | `workspace/` | User workspace outputs (not tracked) |

@@ -43,5 +43,5 @@ See [API Reference](api/index.md) for Python module documentation.
 
 | Mode | Interface | Best for |
 |------|-----------|----------|
-| **Agent** | Claude Code CLI | Full research workflow via natural language |
+| **Agent** | Any AGENTS.md-compatible coding agent | Full research workflow via natural language |
 | **CLI** | Terminal | Scripting and automation |
