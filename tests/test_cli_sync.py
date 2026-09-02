@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import tarfile
 from types import SimpleNamespace
 
@@ -9,6 +10,8 @@ import pytest
 
 from scrinium.cli.sync import _excluded, _export, _import, _sources, cmd_sync
 from scrinium.config import Config
+
+_RSYNC_AVAILABLE = shutil.which("rsync") is not None
 
 
 def _make_cfg(tmp_path):
@@ -85,6 +88,7 @@ def test_excluded_rules(tmp_path):
     assert not _excluded(tmp_path / "data" / "tags.yaml")
 
 
+@pytest.mark.skipif(not _RSYNC_AVAILABLE, reason="rsync not available on this platform")
 def test_push_updates_old_and_keeps_extra(tmp_path):
     src = tmp_path / "src"
     dst = tmp_path / "dst"
@@ -106,6 +110,7 @@ def test_push_updates_old_and_keeps_extra(tmp_path):
     assert (dst / "data" / "papers" / "Doe-2023-Test-Paper" / "extra.txt").exists()
 
 
+@pytest.mark.skipif(not _RSYNC_AVAILABLE, reason="rsync not available on this platform")
 def test_push_pull_local_path(tmp_path):
     src = tmp_path / "src"
     dst = tmp_path / "dst"
