@@ -50,7 +50,9 @@ def register(sub) -> None:
     ):
         p = p_sync_sub.add_parser(name, help=help_text)
         p.add_argument("target", help="目标：user@host:remote/path（SSH）或 /local/path（本地路径）")
-        p.add_argument("--mirror", action="store_true", help="镜像模式：删除目标端在源端不存在的文件（需配合 --yes 确认）")
+        p.add_argument(
+            "--mirror", action="store_true", help="镜像模式：删除目标端在源端不存在的文件（需配合 --yes 确认）"
+        )
         p.add_argument("--yes", action="store_true", help="配合 --mirror 确认删除操作")
         p.set_defaults(sync_action=name)
 
@@ -91,7 +93,12 @@ def _sync_dirs(args: argparse.Namespace, cfg, action: str) -> None:
         ui("镜像模式（--mirror）将删除目标端在源端不存在的文件。先做一次 dry-run 预览：")
         for src in _sources(cfg):
             if src.exists():
-                _run_rsync(rsync, *(_pull_paths(src, target, cfg) if action == "pull" else _push_paths(src, target)), dry_run=True, mirror=True)
+                _run_rsync(
+                    rsync,
+                    *(_pull_paths(src, target, cfg) if action == "pull" else _push_paths(src, target)),
+                    dry_run=True,
+                    mirror=True,
+                )
         ui("如确认上述删除无误，请重新运行并加 --yes 执行实际镜像同步")
         return
 
