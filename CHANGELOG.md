@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **OpenAlex polite pool**: `explore fetch` sends `mailto` from `ingest.contact_email` (or the `OPENALEX_MAILTO` environment variable) for better rate limits
+- **`scrinium sync` command**: cross-device sync of the knowledge base (`data/`) and workspaces (`workspace/`) between Scrinium instances. Subcommands: `push` / `pull` / `status` (rsync over SSH or local path, `--update` by default, `--mirror` for exact mirror with dry-run preview) and `export` / `import` (tar.gz archive for offline transfer). Excludes transient staging (inbox*), runtime logs, caches, and trash by default
 
 ## [3.0.0] — 2026-08-04
 

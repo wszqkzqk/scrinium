@@ -88,7 +88,7 @@ from scrinium import __version__
 from scrinium.config import load_config
 from scrinium.log import ui
 
-from . import explore, ingest, misc, search, transfer, ws
+from . import explore, ingest, misc, search, sync, transfer, ws
 from .common import (
     _INSTALL_HINTS,
     _add_filter_args,
@@ -265,6 +265,7 @@ def _build_parser() -> argparse.ArgumentParser:
     ws.register(sub)
     transfer.register(sub)
     misc.register(sub)
+    sync.register(sub)
 
     return parser
 
