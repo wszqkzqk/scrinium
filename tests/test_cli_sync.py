@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scrinium.cli.sync import _excluded, _export, _import, _sources, cmd_sync
+from scrinium.cli.sync import _excluded, _export, _import, cmd_sync
 from scrinium.config import Config
 
 _RSYNC_AVAILABLE = shutil.which("rsync") is not None
