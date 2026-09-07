@@ -118,12 +118,17 @@ HINT_L3_MISSING = (
 )
 # Fallback takeover hint for pending issue types without a specific hint
 HINT_PENDING_FALLBACK = "建议派 subagent 审查后处理"
+HINT_SI_ORPHAN = (
+    "建议派 subagent 阅读 SI 确认主文：主文在库则用 scrinium attach-si <paper-id> <file> 挂接；"
+    "主文未入库则先入库主文（入库时按 DOI 自动对账挂接）；确认无对应主文可删除该 pending 项"
+)
 
 # Recommended takeover action per pending.json issue type
 PENDING_HINTS = {
     "no_doi": HINT_NO_DOI,
     "no_pub_num": HINT_NO_PUB_NUM,
     "duplicate": HINT_DUPLICATE,
+    "si_orphan": HINT_SI_ORPHAN,
 }
 
 # Handoff hint per failing papers-scope step (rule-based miss -> agent takeover)
@@ -697,6 +702,30 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
     doi_key = ctx.meta.doi.lower().strip()
     if doi_key in ctx.existing_dois:
         existing_json = ctx.existing_dois[doi_key]
+        # SI 钩子：DOI 与库中论文重复且新文件疑似 SI 时，挂接为已有论文的
+        # SI 而非按重复转 pending（SI 常印有主文 DOI，这是 SI 入库的主路径）
+        from scrinium.si import attach_si, looks_like_si_filename, looks_like_si_text
+
+        si_by_name = bool(ctx.pdf_path) and looks_like_si_filename(ctx.pdf_path.name)
+        si_by_text = False
+        if ctx.md_path and ctx.md_path.exists():
+            si_by_text = looks_like_si_text(ctx.md_path.read_text(encoding="utf-8", errors="replace"))
+        if si_by_name or si_by_text:
+            src = ctx.pdf_path or ctx.md_path
+            # DOI 去重命中即来源绑定，跳过内容验证（图版 SI 无文本可验）
+            res = attach_si(
+                existing_json.parent, src, ctx.cfg, md_path=ctx.md_path, attached_by="pipeline", verify=False
+            )
+            if res["ok"]:
+                ui(f"检测为已入库论文的 SI，已挂接: {existing_json.parent.name}/si/")
+                pdf_stem = ctx.pdf_path.stem if ctx.pdf_path else ""
+                md_stem = ctx.md_path.stem if ctx.md_path else ""
+                _move_si_images(ctx.inbox_dir, existing_json.parent / "si", pdf_stem, md_stem)
+                _cleanup_inbox(ctx.pdf_path, None, dry_run=False)
+                _cleanup_assets(ctx.inbox_dir, pdf_stem, md_stem)
+                ctx.status = "skipped"
+                return StepResult.FAIL
+            ui(f"疑似 SI 但挂接验证未过（{res['message']}），按重复转 pending")
         existing_md = existing_json.parent / "paper.md"
         if not existing_md.exists() and ctx.md_path and ctx.md_path.exists():
             # MD missing from existing paper: restore it automatically
@@ -1212,8 +1241,21 @@ def _process_inbox(
     step_times: dict[str, float] = {}
     if mineru_time:
         step_times["mineru"] = mineru_time
-    sorted_entries = sorted(entries.items())
-    for idx, (stem, paths) in enumerate(sorted_entries):
+
+    # SI 候选（按文件名识别）延后处理：先让主文入库，再尝试挂接；
+    # 仅在真正的入库流程中路由（转换-only 运行不触发）
+    route_si = "ingest" in inbox_steps and not (is_thesis or is_patent or is_proceedings)
+    si_entries: list[tuple[str, dict]] = []
+    normal_entries: list[tuple[str, dict]] = []
+    for stem, paths in sorted(entries.items()):
+        if route_si and _entry_looks_like_si(paths):
+            si_entries.append((stem, paths))
+        else:
+            normal_entries.append((stem, paths))
+    if si_entries:
+        ui(f"{label_prefix}检测到 {len(si_entries)} 个疑似 SI 文件，将在主文处理后单独路由")
+
+    def _run_one_entry(stem: str, paths: dict, idx: int, total: int) -> None:
         office_path = paths.get("office")
         if paths["pdf"]:
             file_label = paths["pdf"].name
@@ -1228,7 +1270,7 @@ def _process_inbox(
         else:
             file_label = paths["md"].name
             file_type = "MD"
-        ui(f"\n{label_prefix}[{idx + 1}/{len(sorted_entries)}] {file_type}: {file_label}")
+        ui(f"\n{label_prefix}[{idx + 1}/{total}] {file_type}: {file_label}")
 
         file_steps = per_file_steps
         if batch_skip_mineru:
@@ -1258,7 +1300,7 @@ def _process_inbox(
         if is_proceedings and ctx.md_path and _ingest_proceedings_ctx(ctx, force=True):
             final_status = ctx.status if ctx.status != "pending" else "skipped"
             stats[final_status] += 1
-            continue
+            return
         for step_name in file_steps:
             with timer(f"pipeline.inbox.{step_name}", "step") as t:
                 result = STEPS[step_name].fn(ctx)
@@ -1275,9 +1317,43 @@ def _process_inbox(
         stats[final_status] += 1
         if final_status == "ingested" and ctx.ingested_json:
             ingested_jsons.append(ctx.ingested_json)
+            # 新论文入库后按 DOI 对账 pending 中的 si_orphan，命中即挂接
+            if ctx.meta and ctx.meta.doi:
+                _reconcile_si_orphans(pending_dir, ctx.meta.doi, ctx.ingested_json.parent, cfg, dry_run)
 
-        if api_delay and idx < len(sorted_entries) - 1:
+        if api_delay and idx < total - 1:
             time.sleep(api_delay)
+
+    for idx, (stem, paths) in enumerate(normal_entries):
+        _run_one_entry(stem, paths, idx, len(normal_entries))
+
+    # ---- 第二遍：SI 路由（挂接到主文 / si_orphan 待审 / 误判回正常流程） ----
+    si_attached = si_orphaned = 0
+    for stem, paths in si_entries:
+        ui(f"\n{label_prefix}[SI] {(paths.get('pdf') or paths.get('md') or paths.get('office')).name}")
+        outcome = _route_si_entry(
+            stem,
+            paths,
+            inbox_dir=inbox_dir,
+            papers_dir=papers_dir,
+            pending_dir=pending_dir,
+            existing_dois=existing_dois,
+            cfg=cfg,
+            opts=opts,
+            dry_run=dry_run,
+            inbox_steps=inbox_steps,
+        )
+        if outcome == "normal":
+            _run_one_entry(stem, paths, 0, 1)
+        elif outcome == "attached":
+            si_attached += 1
+        elif outcome == "orphan":
+            si_orphaned += 1
+            stats["needs_review"] += 1
+    if si_entries:
+        ui(
+            f"SI 路由: {si_attached} 挂接 | {si_orphaned} 待审(si_orphan) | {len(si_entries) - si_attached - si_orphaned} 其他"
+        )
 
     # Clean up stray MinerU artifacts left in inbox
     for pattern in ["*_layout.json", "*_content_list.json", "*_origin.pdf", "layout.json"]:
@@ -1445,6 +1521,29 @@ def run_pipeline(
                 existing_pub_nums=existing_pub_nums,
                 existing_arxiv_ids=existing_arxiv_ids,
             )
+
+    # ---- SI auto-fetch for newly ingested papers ----
+    # 放在 papers/global 步骤之前，当次 index 即可收录 SI 内容；
+    # 失败不阻断流水线，只记录 fetch_status 供后续接管
+    if inbox_steps and ingested_jsons and not dry_run and not opts.no_api:
+        if getattr(getattr(cfg, "ingest", None), "si_fetch_on_ingest", True):
+            from scrinium.si import fetch_si_for_paper
+
+            ui(f"\n为新入库论文自动获取 SI（{len(ingested_jsons)} 篇）...")
+            si_ok = 0
+            for jp in ingested_jsons:
+                try:
+                    status = fetch_si_for_paper(jp.parent, cfg)
+                except Exception as exc:
+                    _log.debug("si fetch on ingest failed for %s: %s", jp.parent.name, exc)
+                    continue
+                if status == "ok":
+                    si_ok += 1
+                    ui(f"  {jp.parent.name} -> SI 已挂接")
+                elif status != "skip":
+                    ui(f"  {jp.parent.name} -> SI 未获取（{status}），可运行 scrinium si fetch 重试")
+            if si_ok:
+                ui(f"SI 获取完成: {si_ok}/{len(ingested_jsons)} 篇命中")
 
     # ---- Papers scope ----
     if papers_steps:
@@ -2338,6 +2437,147 @@ def _move_to_pending(
     (paper_d / "pending.json").write_text(json.dumps(marker, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     ui(f"  hint: {hint}")
     _log.debug("-> pending/%s/ (%s)", dir_name, issue)
+
+
+def _entry_looks_like_si(paths: dict) -> bool:
+    """按文件名判断 inbox 条目是否疑似 SI。"""
+    from scrinium.si import looks_like_si_filename
+
+    for key in ("pdf", "md", "office"):
+        f = paths.get(key)
+        if f is not None and looks_like_si_filename(f.name):
+            return True
+    return False
+
+
+def _route_si_entry(
+    stem: str,
+    paths: dict,
+    *,
+    inbox_dir: Path,
+    papers_dir: Path,
+    pending_dir: Path,
+    existing_dois: dict[str, Path],
+    cfg: Config,
+    opts: PipelineOptions,
+    dry_run: bool,
+    inbox_steps: list[str],
+) -> str:
+    """路由疑似 SI 的 inbox 条目。
+
+    返回 ``"attached"``（挂接到库中主文）| ``"orphan"``（转 si_orphan 待审）
+    | ``"normal"``（文件名误报，回正常入库流程）| ``"dry"``（预览）。
+    """
+    from scrinium.si import attach_si, extract_dois_from_text, looks_like_si_text
+
+    pdf = paths.get("pdf")
+    md = paths.get("md")
+
+    # SI 判定和 DOI 提取都依赖文本，先确保 md 存在
+    if md is None and pdf is not None and "mineru" in inbox_steps and not dry_run:
+        ctx = InboxCtx(
+            pdf_path=pdf,
+            inbox_dir=inbox_dir,
+            papers_dir=papers_dir,
+            existing_dois=existing_dois,
+            cfg=cfg,
+            opts=opts,
+            pending_dir=pending_dir,
+        )
+        if step_mineru(ctx) == StepResult.OK:
+            md = ctx.md_path
+
+    if dry_run:
+        ui("  [dry-run] SI 候选，将尝试 DOI 匹配主文，未命中则转 si_orphan")
+        return "dry"
+
+    if md is None or not md.exists():
+        return "normal"
+
+    text_head = md.read_text(encoding="utf-8", errors="replace")[:4000]
+    if not looks_like_si_text(text_head):
+        return "normal"
+
+    for doi in extract_dois_from_text(text_head):
+        parent_json = existing_dois.get(doi)
+        if parent_json is None:
+            continue
+        paper_d = parent_json.parent
+        # SI 文本印有主文 DOI 即来源绑定，跳过内容验证
+        res = attach_si(paper_d, pdf or md, cfg, md_path=md, attached_by="pipeline", verify=False)
+        if res["ok"]:
+            ui(f"  SI 挂接到: {paper_d.name}/si/")
+            pdf_stem = pdf.stem if pdf else ""
+            _move_si_images(inbox_dir, paper_d / "si", pdf_stem, md.stem)
+            _cleanup_inbox(pdf, md, dry_run=False)
+            _cleanup_assets(inbox_dir, pdf_stem, md.stem)
+            return "attached"
+        ui(f"  SI 与主文 {paper_d.name} 验证未过（{res['message']}），转 si_orphan")
+        break
+
+    ctx = InboxCtx(
+        pdf_path=pdf,
+        inbox_dir=inbox_dir,
+        papers_dir=papers_dir,
+        existing_dois=existing_dois,
+        cfg=cfg,
+        opts=opts,
+        pending_dir=pending_dir,
+        md_path=md,
+    )
+    _move_to_pending(ctx, issue="si_orphan", message="检测为 SI 但未匹配到库中主文（SI 文本中的 DOI 未命中）")
+    return "orphan"
+
+
+def _reconcile_si_orphans(pending_dir: Path, new_doi: str, new_paper_d: Path, cfg: Config, dry_run: bool) -> None:
+    """新论文入库后，按 DOI 对账 pending 中的 si_orphan，命中则自动挂接并移除。"""
+    from scrinium.si import attach_si, extract_dois_from_text
+
+    if not new_doi or not pending_dir.is_dir():
+        return
+    new_doi = new_doi.lower().strip()
+    for d in sorted(pending_dir.iterdir()):
+        marker = d / "pending.json"
+        if not d.is_dir() or not marker.exists():
+            continue
+        try:
+            info = json.loads(marker.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if info.get("issue") != "si_orphan":
+            continue
+        orphan_dois = [(((info.get("extracted_metadata") or {}).get("doi")) or "").lower()]
+        md = d / "paper.md"
+        if md.exists():
+            orphan_dois += extract_dois_from_text(md.read_text(encoding="utf-8", errors="replace")[:4000])
+        if new_doi not in orphan_dois:
+            continue
+        pdf = next(iter(d.glob("*.pdf")), None)
+        src = pdf or (md if md.exists() else None)
+        if src is None:
+            continue
+        if dry_run:
+            ui(f"  [dry-run] si_orphan 对账命中: {d.name} -> {new_paper_d.name}")
+            continue
+        res = attach_si(
+            new_paper_d, src, cfg, md_path=md if md.exists() else None, attached_by="pipeline", verify=False
+        )
+        if res["ok"]:
+            ui(f"  si_orphan 对账命中，已挂接: {d.name} -> {new_paper_d.name}/si/")
+            shutil.rmtree(d)
+
+
+def _move_si_images(inbox_dir: Path, si_dir: Path, pdf_stem: str, md_stem: str) -> None:
+    """把 inbox 中 SI 的 MinerU 图片合并进 ``si/images/``（图片名为哈希不冲突）。"""
+    images_dir, _, _ = _find_assets(inbox_dir, pdf_stem, md_stem)
+    if not images_dir:
+        return
+    dest = si_dir / "images"
+    dest.mkdir(parents=True, exist_ok=True)
+    for child in images_dir.iterdir():
+        if not (dest / child.name).exists():
+            shutil.move(str(child), str(dest / child.name))
+    shutil.rmtree(images_dir, ignore_errors=True)
 
 
 def _repair_abstract(json_path: Path, md_path: Path) -> None:

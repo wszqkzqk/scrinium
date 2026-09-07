@@ -115,9 +115,15 @@ scrinium proceedings apply-clean <proceeding_dir> <clean_plan.json>
    - 都不命中 → 转入 `data/pending/` 并附 hint，走下面的 pending 解决工作流
    - 已知是学位论文的 PDF 应直接放 `data/inbox-thesis/`（跳过 DOI 去重的直接入库通道）
 
-10. 待确认项查看：ingest 结束后若有 pending / duplicate 条目，运行 `scrinium pending` 查看清单（按 issue 分组，含标题、duplicate_of 和每条的处理建议 hint）。处理 pending 是 ingest 工作流的一部分——入库操作后应主动检查一次。
+10. SI（Supporting Information）的自动路由（`data/inbox/`，详见 `/si` skill）：
+   - 文件名疑似 SI 的条目（`*_si_001.pdf`、`mmc1.pdf`、`supporting-*.pdf` 等）延后处理：先等主文入库，再按 SI 文本中的 DOI 匹配挂接到主文 `si/` 目录
+   - SI 带主文 DOI 且主文已在库 → dedup 环节直接挂接，不按重复转 pending
+   - 未匹配到主文 → 转 `data/pending/` 的 `si_orphan`；主文后续入库时按 DOI 自动对账挂接
+   - 新论文入库后自动触发一次 SI 获取（配置 `ingest.si_fetch_on_ingest: false` 可关）
 
-11. 超长 PDF 会在 MinerU 转换前按需自动切分后合并：
+11. 待确认项查看：ingest 结束后若有 pending / duplicate 条目，运行 `scrinium pending` 查看清单（按 issue 分组，含标题、duplicate_of 和每条的处理建议 hint）。处理 pending 是 ingest 工作流的一部分——入库操作后应主动检查一次。
+
+12. 超长 PDF 会在 MinerU 转换前按需自动切分后合并：
    - 本地 MinerU 按 `chunk_page_limit`（默认 >100 页）
    - 云端 MinerU 同时遵循 `>600 页` 和 `>200MB` 两个限制，并在仅超大小时估算更安全的分片页数
 
@@ -135,6 +141,7 @@ scrinium proceedings apply-clean <proceeding_dir> <clean_plan.json>
    - **普通论文（已找到 DOI）** → 放回 `data/inbox/` 重跑 `scrinium ingest`；或直接 `scrinium repair <pending-stem> --title "..." --doi "..." [--author ...] [--year ...]`——repair 直接支持 pending 项：带查重护栏（DOI/arXiv ID 命中库内已有论文则拒绝入库），通过后移入 `data/papers/`、自动清除 pending 目录，然后 `scrinium index`
    - **确认为非论文文档** → 移入 `data/inbox-doc/` 重跑
    - **duplicate** → subagent 对比两篇后决定去留：保留一篇，删除另一篇目录（或确认是不同版本均保留并说明理由）
+   - **si_orphan** → 按 `/si` skill 处理：确认主文在库则 `scrinium attach-si` 挂接；主文未入库则先入库主文（入库时按 DOI 自动对账挂接）
 4. 处理成功后删除对应的 `data/pending/<stem>/` 目录（repair 路径会自动移除），重跑 `scrinium pending` 确认清零
 5. 闭环后跑一次 `scrinium index`
 

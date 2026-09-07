@@ -44,7 +44,7 @@ Skills are defined in `.agents/skills/` and follow the [Agent Skills](https://ag
 The right mental model is to treat skills as "reusable workflows": when the user's intent clearly matches a capability, read the corresponding `SKILL.md` first and follow the workflow already distilled there instead of inventing a process from scratch every time.
 
 **Current skills:**
-- Knowledge base management: `search`, `arxiv`, `show`, `enrich`, `ingest`, `topics` (tag-based topic overview), `explore`, `graph`, `citations`, `insights`, `index`, `workspace`, `export`, `import`, `rename`, `audit`, `curate`, `translate`, `deep-research`
+- Knowledge base management: `search`, `arxiv`, `show`, `enrich`, `ingest`, `topics` (tag-based topic overview), `explore`, `graph`, `citations`, `insights`, `index`, `workspace`, `export`, `import`, `rename`, `audit`, `curate`, `translate`, `deep-research`, `si` (Supporting Information discovery and attach)
 - Academic writing: `literature-review`, `paper-writing`, `citation-check`, `writing-polish`, `review-response`, `research-gap`
 - Visualization and document generation: `draw`, `document`
 - System operations: `setup`, `metrics`
@@ -143,7 +143,7 @@ Workflow:
 - Tests: `python -m pytest tests/ -v`
 - **Code comments**: English only, and only when the logic is not self-evident.
 - **Agent direct writes to meta.json**: the `toc` / `l3_conclusion` / `abstract` / `translations` fields may be written directly by the agent (Edit tool); run `scrinium index` afterwards to make them searchable. Pair `l3_conclusion` with `l3_extraction_method: agent`. Batch intelligent operations (conclusion extraction, translation, tagging, metadata repair) go through parallel subagents — follow the `/curate` skill's subagent dispatch template.
-- **Handoff hints**: CLI output lines prefixed with `hint: ` are framework → agent handoff signals. On seeing one, take over per the corresponding skill's workflow (pending review in `/ingest`, meta.json repair in `/audit`, direct field writes in `/enrich`) instead of asking the user to handle it manually.
+- **Handoff hints**: CLI output lines prefixed with `hint: ` are framework → agent handoff signals. On seeing one, take over per the corresponding skill's workflow (pending review in `/ingest`, meta.json repair in `/audit`, direct field writes in `/enrich`, SI fetch failures and `si_orphan` in `/si`) instead of asking the user to handle it manually.
 
 ## Getting Started
 

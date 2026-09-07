@@ -2,7 +2,7 @@
 index.py — SQLite FTS5 全文检索索引
 =====================================
 
-索引字段：title + abstract + conclusion + tags（均可检索）
+索引字段：title + abstract + conclusion + tags + si（均可检索）
 其余字段（paper_id, authors, year, journal, doi, paper_type, citation_count, md_path）
 存储但不参与检索。
 
@@ -31,8 +31,8 @@ if TYPE_CHECKING:
 
 #: FTS schema version recorded in ``PRAGMA user_version``; bump when the
 #: ``papers`` FTS table layout changes (v1 = tags column added,
-#: v2 = embedding/vector storage removed).
-_SCHEMA_VERSION = 2
+#: v2 = embedding/vector storage removed, v3 = si column added).
+_SCHEMA_VERSION = 3
 
 _SCHEMA = fts_create_sql(
     "papers",
@@ -49,6 +49,7 @@ _SCHEMA = fts_create_sql(
         ("paper_type", False),
         ("citation_count", False),
         ("md_path", False),
+        ("si", True),
     ],
 )
 
@@ -145,11 +146,26 @@ def _index_hash(meta: dict) -> str:
         vals = [v for v in cc.values() if isinstance(v, (int, float))]
         parts.append(str(max(vals)) if vals else "")
     parts.append(json.dumps(meta.get("references", []), sort_keys=True))
+    parts.append(json.dumps(meta.get("si") or {}, sort_keys=True))
     text = "\n".join(parts)
     return hashlib.md5(text.encode("utf-8")).hexdigest()[:12]
 
 
 _best_citation = best_citation  # backward compat alias
+
+
+def _load_si_text(pdir: Path) -> str:
+    """读取论文 ``si/`` 下所有转换后的 Markdown，拼接为 FTS 索引文本（上限 300 KB）。"""
+    si_dir = pdir / "si"
+    if not si_dir.is_dir():
+        return ""
+    parts: list[str] = []
+    for smd in sorted(si_dir.glob("*.md")):
+        try:
+            parts.append(smd.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+    return "\n\n".join(parts)[:300_000]
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> bool:
@@ -304,8 +320,8 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
                 """
                 INSERT INTO papers
                     (paper_id, title, authors, year, journal, abstract, conclusion,
-                     tags, doi, paper_type, citation_count, md_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     tags, doi, paper_type, citation_count, md_path, si)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     paper_id,
@@ -320,6 +336,7 @@ def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
                     meta.get("paper_type") or "",
                     str(best_cite) if best_cite is not None else "",
                     str(md_file) if md_file.exists() else "",
+                    _load_si_text(pdir),
                 ),
             )
             conn.execute(
@@ -476,6 +493,7 @@ _BM25_WEIGHTS = (
     0.0,  # paper_type (UNINDEXED)
     0.0,  # citation_count (UNINDEXED)
     0.0,  # md_path (UNINDEXED)
+    1.0,  # si (long attachment text; incidental mentions are common)
 )
 
 #: Pre-rendered ``bm25(papers, ...)`` rank expression for ORDER BY clauses.

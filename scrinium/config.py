@@ -153,6 +153,8 @@ class IngestConfig:
         pdf_fallback_order: MinerU 不可用或解析失败时的替代解析器顺序。
             支持 ``docling`` / ``pymupdf`` / ``auto``。
         pdf_fallback_auto_detect: 是否启用自动检测本机已安装的 fallback 解析器。
+        si_fetch_on_ingest: 新论文入库后是否自动获取 SI（规则链 → 下载 →
+            验证 → 挂接）。失败不阻断入库，只记录 fetch_status 供 agent 接管。
     """
 
     mineru_endpoint: str = "http://localhost:8000"
@@ -176,6 +178,7 @@ class IngestConfig:
     pdf_preferred_parser: str = "mineru"
     pdf_fallback_order: list[str] = field(default_factory=lambda: ["auto"])
     pdf_fallback_auto_detect: bool = True
+    si_fetch_on_ingest: bool = True
 
 
 @dataclass

@@ -41,6 +41,10 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium arxiv search [<query> ...] [--category CAT] [--sort relevance|recent] [--top N]
     scrinium arxiv fetch <arxiv-id-or-url> [--ingest] [--force] [--dry-run]
     scrinium attach-pdf <paper-id> <path/to/paper.pdf>
+    scrinium si scan [--json]
+    scrinium si fetch [<paper-id> | --missing] [--force] [--no-convert] [--dry-run]
+    scrinium si status [--json]
+    scrinium attach-si <paper-id> <file> [--source-url URL] [--no-convert] [--no-verify] [--dry-run]
     scrinium citation-check [<file>] [--ws <workspace-name>]
     scrinium citation-styles list
     scrinium citation-styles show <name>
@@ -88,7 +92,7 @@ from scrinium import __version__
 from scrinium.config import load_config
 from scrinium.log import ui
 
-from . import explore, ingest, misc, search, sync, transfer, ws
+from . import explore, ingest, misc, search, si, sync, transfer, ws
 from .common import (
     _INSTALL_HINTS,
     _add_filter_args,
@@ -266,6 +270,7 @@ def _build_parser() -> argparse.ArgumentParser:
     transfer.register(sub)
     misc.register(sub)
     sync.register(sub)
+    si.register(sub)
 
     return parser
 

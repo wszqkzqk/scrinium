@@ -52,14 +52,14 @@ def validate_lang(lang: str) -> str:
 
 
 def load_l1(json_path: Path) -> dict:
-    """加载 L1 层元数据（标题、作者、年份、期刊、DOI）。
+    """加载 L1 层元数据（标题、作者、年份、期刊、DOI、SI 状态）。
 
     Args:
         json_path: 论文 JSON 元数据文件路径。
 
     Returns:
         包含 ``paper_id``, ``title``, ``authors``, ``year``,
-        ``journal``, ``doi`` 的字典。
+        ``journal``, ``doi``, ``si`` 等键的字典。
     """
     data = json.loads(json_path.read_text(encoding="utf-8"))
     return {
@@ -72,6 +72,7 @@ def load_l1(json_path: Path) -> dict:
         "paper_type": data.get("paper_type") or "",
         "citation_count": data.get("citation_count") or {},
         "ids": data.get("ids") or {},
+        "si": data.get("si") or {},
     }
 
 
@@ -128,6 +129,27 @@ def load_l4(md_path: Path, *, lang: str | None = None) -> str:
             if translated.exists():
                 return translated.read_text(encoding="utf-8", errors="replace")
     return md_path.read_text(encoding="utf-8", errors="replace")
+
+
+def load_si(paper_dir: Path) -> list[tuple[str, str]]:
+    """加载论文的 SI 转换文本。
+
+    Args:
+        paper_dir: 论文目录。
+
+    Returns:
+        ``(文件名, Markdown 文本)`` 列表（按文件名排序），无 SI 时为空列表。
+    """
+    si_dir = paper_dir / "si"
+    if not si_dir.is_dir():
+        return []
+    out: list[tuple[str, str]] = []
+    for md in sorted(si_dir.glob("*.md")):
+        try:
+            out.append((md.name, md.read_text(encoding="utf-8", errors="replace")))
+        except OSError:
+            continue
+    return out
 
 
 # ============================================================================

@@ -31,10 +31,17 @@ scrinium show "<paper-id>" --layer <N> --json   # 结构化输出（含 dir_name
 
 | 层 | 内容 | 说明 |
 |----|------|------|
-| L1 | 元数据 | title, authors, year, journal, doi, tags（标签） |
+| L1 | 元数据 | title, authors, year, journal, doi, tags（标签）；有 SI 时显示 `SI: N 个文件` |
 | L2 | 摘要 | abstract |
 | L3 | 结论 | l3_conclusion（由 agent 阅读全文后写入 meta.json，见 `/enrich` skill；缺失时输出带接管 hint） |
 | L4 | 全文 | 完整 markdown；`--lang zh` 读取 `paper_{lang}.md` 译文（见 `/translate` skill） |
+| SI | 补充材料 | `--si` 读取 `si/` 下转换文本（SI 的获取与挂接见 `/si` skill） |
+
+查看 SI 内容：
+
+```bash
+scrinium show "<paper-id>" --si     # 输出 si/ 下全部转换文本；无 SI 时给出获取 hint
+```
 
 ## 示例
 

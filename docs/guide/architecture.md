@@ -57,19 +57,47 @@ This page is the architecture reference for Scrinium. Core behavioral instructio
 ```text
 data/papers/
 └── <Author-Year-Title>/
-    ├── meta.json    # L1+L2+L3 metadata (includes "id": "<uuid>")
+    ├── meta.json    # L1+L2+L3 metadata (includes "id": "<uuid>"), plus the "si" field
     ├── paper.md     # L4 source (MinerU output)
     ├── paper.pdf    # Source PDF (preserved after conversion)
     ├── notes.md     # Agent analysis notes (T2 layer, optional, created/appended on demand)
     ├── paper_{lang}.md # Translated version written by the agent (such as paper_zh.md, optional)
     ├── images/      # Images extracted by MinerU (referenced from md)
     ├── layout.json  # MinerU layout analysis result (optional)
-    └── *_content_list.json  # MinerU structured content (optional)
+    ├── *_content_list.json  # MinerU structured content (optional)
+    └── si/          # Supporting Information (optional; see "Supporting Information (SI)" below)
+        ├── <name>.pdf   # Original SI files (PDF/Office/data files, kept as-is)
+        ├── <name>.md    # Converted Markdown (indexed into the parent's FTS row)
+        └── images/      # SI figures (merged across files; MinerU image names are content hashes)
 ```
 
 Each paper lives in its own directory. The UUID is the internal unique identifier (written to `meta.json["id"]` and never changed).
 The directory name is the human-readable `Author-Year-Title`; rename operations only change the directory name.
 The `papers_registry` table inside `data/index.db` provides UUID <-> DOI <-> dir_name lookup in both directions.
+
+## Supporting Information (SI)
+
+SI is an attachment of the parent paper, never a standalone library entry — it lives in the parent's `si/` subdirectory, has no UUID of its own, and its converted Markdown is indexed into the parent's FTS row (the `si` column), so SI keywords find the parent paper.
+
+The `si` field in `meta.json`:
+
+```json
+"si": {
+  "mentioned": true,
+  "files": [{"name": "...", "md": "si/<name>.md", "source_url": "...",
+             "attached_by": "pipeline|agent", "attached_at": "...", "verify_note": "..."}],
+  "fetch_status": "ok|not_found|blocked|mismatch|paywalled|error|exhausted",
+  "fetch_note": "...",
+  "last_attempt": "..."
+}
+```
+
+Trust model: **automatic first, agent as the fallback**. The resolver chain (`scrinium/si.py`) only produces candidate URLs (publisher rules for ACS-Figshare/RSC/Science/Elsevier/PLOS/Nature, plus Europe PMC for OA papers). Attachments whose provenance is DOI-bound (URL derived from the DOI, or file matched via DOI) skip content verification — provenance already guarantees parentage, and figure-only SIs have no verifiable text; a `verify_note` is recorded for spot-checks instead. Attachments from unknown provenance (`scrinium attach-si`) must pass strict verification (SI keyword + parent title/author hit). Failures are recorded in `fetch_status` with a handoff hint; the agent takes over per the `/si` skill and attaches via `scrinium attach-si`, which funnels through the same verify → convert → attach → index path.
+
+Inbox routing: entries whose filenames look like SI (`*_si_001.pdf`, `mmc1.pdf`, `supporting-*.pdf`) are deferred until main papers are ingested, then attached by matching the DOI printed in the SI text; unmatched ones go to `data/pending/` as `si_orphan` and are reconciled automatically (by DOI) when the parent paper is later ingested. A duplicate-DOI file that looks like SI is attached to the existing paper instead of going to pending. New papers trigger one automatic SI fetch after ingest (`ingest.si_fetch_on_ingest`, default on).
+
+CLI: `scrinium si scan|fetch|status`, `scrinium attach-si`, `scrinium show <id> --si`. Audit rules: `missing_si` (text references SI but nothing attached), `suspected_si` (a title looking like SI ingested as a standalone paper).
+
 
 ## `data/inbox/` Directory
 

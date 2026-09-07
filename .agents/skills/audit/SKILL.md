@@ -68,6 +68,8 @@ scrinium index
 | `title_mismatch` | warning | JSON 标题与 MD H1 不一致 |
 | `nonstandard_filename` | info | 文件名不符合规范格式 |
 | `untagged` | info | 未打策展标签（可用 `/curate` 流程或 `scrinium tag` 补充） |
+| `suspected_si` | warning | 标题疑似 Supporting Information，可能应迁移到主文 `si/`（见 `/si` skill） |
+| `missing_si` | info | 正文引用了 SI 但未挂接（`scrinium si fetch` 或 agent 接管，见 `/si` skill） |
 
 ## 示例
 

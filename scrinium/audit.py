@@ -14,6 +14,7 @@ audit.py — 已入库论文数据质量审计
   - MD 内容过短（可能转换失败）
   - JSON title 与 MD 首个 H1 不一致
   - 策展标签缺失（untagged，所有 paper_type 均提示）
+  - SI 检查（疑似 SI 污染条目；正文引用 SI 但未挂接）
 """
 
 from __future__ import annotations
@@ -79,7 +80,15 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
         if not md_file.exists():
             issues.append(Issue(pid, "error", "missing_md", "缺少 paper.md 文件"))
         else:
-            _check_content_consistency(issues, pid, data, md_file)
+            try:
+                md_text = md_file.read_text(encoding="utf-8", errors="replace")
+            except Exception as e:
+                _log.debug("failed to read paper.md for %s: %s", pid, e)
+                issues.append(Issue(pid, "error", "unreadable_md", "无法读取 paper.md 文件"))
+                md_text = None
+            if md_text is not None:
+                _check_content_consistency(issues, pid, data, md_text)
+                _check_si(issues, pid, data, md_text)
 
         # -- Directory name format --
         _check_filename(issues, pid, data)
@@ -131,16 +140,9 @@ def _check_content_consistency(
     issues: list[Issue],
     pid: str,
     data: dict,
-    md_path: Path,
+    md_text: str,
 ) -> None:
     """Check consistency between JSON metadata and MD content."""
-    try:
-        md_text = md_path.read_text(encoding="utf-8", errors="replace")
-    except Exception as e:
-        _log.debug("failed to read paper.md for %s: %s", pid, e)
-        issues.append(Issue(pid, "error", "unreadable_md", "无法读取 paper.md 文件"))
-        return
-
     # MD too short (likely conversion failure)
     if len(md_text.strip()) < 200:
         issues.append(
@@ -169,6 +171,23 @@ def _check_content_consistency(
                             f"  MD H1: {h1_match.group(1).strip()[:80]}",
                         )
                     )
+
+
+def _check_si(issues: list[Issue], pid: str, data: dict, md_text: str) -> None:
+    """SI 相关检查：疑似 SI 污染条目；正文引用 SI 但未挂接。"""
+    from scrinium.si import SUSPECTED_SI_TITLE_RE, TERMINAL_STATUSES, si_mentioned_in_text
+
+    title = (data.get("title") or "").strip()
+    if SUSPECTED_SI_TITLE_RE.match(title):
+        issues.append(
+            Issue(pid, "warning", "suspected_si", "标题疑似 Supporting Information，可能应挂接到主文 si/ 而非独立入库")
+        )
+        return  # 污染条目自身不再报 missing_si
+    si = data.get("si") or {}
+    if si.get("files") or si.get("fetch_status") in TERMINAL_STATUSES:
+        return
+    if si_mentioned_in_text(md_text):
+        issues.append(Issue(pid, "info", "missing_si", "正文引用了 SI 但未挂接（si/ 为空）"))
 
 
 def _check_filename(issues: list[Issue], pid: str, data: dict) -> None:
@@ -270,4 +289,6 @@ _RULE_HINTS = {
     "filename_year_mismatch": "确认正确年份后直写 meta.json year 并 scrinium rename",
     "arxiv_id_missing": "从 arXiv DOI 派生 arxiv_id 直写 meta.json ids.arxiv（如 10.48550/arxiv.2510.16510 → 2510.16510），纯机械操作无需读原文",
     "untagged": "运行 curate 工作流或 scrinium tag 补充策展标签",
+    "suspected_si": "派 subagent 确认主文后将该条目内容迁移到主文 si/（scrinium attach-si），并删除此污染条目",
+    "missing_si": "运行 scrinium si fetch <paper-id> 自动获取；失败则派 subagent 人工搜索后 scrinium attach-si 挂接",
 }

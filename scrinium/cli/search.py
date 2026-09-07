@@ -164,7 +164,7 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
 
 def cmd_show(args: argparse.Namespace, cfg) -> None:
     from scrinium.ingest.pipeline import HINT_L3_MISSING
-    from scrinium.loader import append_notes, load_l1, load_l2, load_l3, load_l4, load_notes
+    from scrinium.loader import append_notes, load_l1, load_l2, load_l3, load_l4, load_notes, load_si
     from scrinium.metrics import get_store
 
     paper_d = _resolve_paper(args.paper_id, cfg)
@@ -228,6 +228,20 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
         ui("\n--- Agent 笔记 (notes.md) ---\n")
         ui(notes)
         ui("\n--- 笔记结束 ---\n")
+
+    if getattr(args, "si", False):
+        si_docs = load_si(paper_d)
+        if not si_docs:
+            ui("\n该论文暂无 SI（si/ 为空）。")
+            ui(
+                "hint: 运行 `scrinium si fetch <paper-id>` 自动获取；或人工下载后用 `scrinium attach-si <paper-id> <file>` 挂接"
+            )
+        else:
+            for name, text in si_docs:
+                ui(f"\n--- SI: {name} ---\n")
+                ui(text)
+        _record_read()
+        return
 
     if args.layer == 1:
         _record_read()
@@ -548,6 +562,10 @@ def _print_header(l1: dict) -> None:
     tags = l1.get("tags") or []
     if tags:
         ui(f"标签     : {', '.join(tags)}")
+    si_files = [f for f in ((l1.get("si") or {}).get("files") or []) if isinstance(f, dict)]
+    if si_files:
+        names = ", ".join(f.get("name", "?") for f in si_files[:3])
+        ui(f"SI       : {len(si_files)} 个文件（{names}{'...' if len(si_files) > 3 else ''}）")
     cite_str = _format_citations(l1.get("citation_count") or {})
     if cite_str:
         ui(f"引用     : {cite_str}")
@@ -601,6 +619,7 @@ def register(sub) -> None:
         help="加载层级：1=元数据, 2=摘要, 3=结论, 4=全文（默认 2）",
     )
     p_show.add_argument("--lang", type=str, default=None, help="加载翻译版本（如 zh），仅 L4 生效")
+    p_show.add_argument("--si", action="store_true", help="查看 SI（Supporting Information）转换文本")
     p_show.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
     p_show.add_argument(
         "--append-notes",
