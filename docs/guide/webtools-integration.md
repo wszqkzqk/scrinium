@@ -1,6 +1,6 @@
 # Claude Webtools Integration (Optional)
 
-Scrinium is agent-first: users talk to an agent, and the agent orchestrates local Scrinium skills.  
+Scrinium is agent-first: users talk to an agent, and the agent orchestrates local Scrinium skills.
 If you also want live web search/extraction, you can integrate [AnterCreeper/claude-webtools](https://github.com/AnterCreeper/claude-webtools) as an external capability layer.
 
 ## When to use this

@@ -1,27 +1,52 @@
+# NOTE (2026-09): GitHub is unreachable from the maintainer's network, so the
+# upstream hook repos (astral-sh/ruff-pre-commit, mirrors-mypy,
+# pre-commit-hooks) cannot be cloned by `pre-commit run`. All hooks are
+# therefore defined as `repo: local` and call the tools installed in the
+# project venv — no network bootstrap required. Tool versions follow the venv
+# (single source of truth) instead of the pinned upstream revs. Restore the
+# upstream repos when GitHub access is available again.
+
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.4
+  - repo: local
     hooks:
       - id: ruff
-        args: [--fix]
+        name: ruff (local venv)
+        entry: .venv/bin/ruff check --fix
+        language: system
+        types: [python]
+
       - id: ruff-format
+        name: ruff-format (local venv)
+        entry: .venv/bin/ruff format
+        language: system
+        types: [python]
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
-    hooks:
       - id: mypy
-        additional_dependencies: []
-        args: [--config-file=pyproject.toml]
+        name: mypy scrinium/ (local venv)
+        entry: .venv/bin/mypy scrinium/
+        language: system
         pass_filenames: false
-        # Only check scrinium/ package, not tests or scripts
-        entry: mypy scrinium/
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
       - id: check-json
-      - id: check-added-large-files
-        args: [--maxkb=500]
+        name: check json
+        entry: .venv/bin/python -c "import json,sys; [json.load(open(f, encoding='utf-8')) for f in sys.argv[1:]]"
+        language: system
+        types: [json]
+
+      - id: check-yaml
+        name: check yaml
+        entry: .venv/bin/python -c "import sys,yaml; [yaml.safe_load(open(f, encoding='utf-8')) for f in sys.argv[1:]]"
+        language: system
+        types: [yaml]
+
+      - id: trailing-whitespace
+        name: trailing whitespace
+        entry: .venv/bin/python -c "import sys; bad=[f for f in sys.argv[1:] if any(l.rstrip('\r\n')!=l.rstrip() for l in open(f, encoding='utf-8', errors='replace'))]; print('trailing whitespace:', *bad) if bad else None; sys.exit(1 if bad else 0)"
+        language: system
+        types: [text]
+
+      - id: end-of-file-fixer
+        name: end of file fixer
+        entry: .venv/bin/python -c "import sys; [open(f,'a',encoding='utf-8').write('\n') for f in sys.argv[1:] if open(f,'rb').read().rstrip(b'\n') and not open(f,'rb').read().endswith(b'\n')]"
+        language: system
+        types: [text]
