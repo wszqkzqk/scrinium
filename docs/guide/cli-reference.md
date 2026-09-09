@@ -42,6 +42,8 @@ scrinium pipeline [preset]
 scrinium enrich toc|abstract
 scrinium refresh
 scrinium attach-pdf
+scrinium si
+scrinium attach-si
 ```
 
 - `ingest` runs the inbox ingest preset; it is an alias for `pipeline ingest` and accepts all pipeline options.
@@ -50,6 +52,8 @@ scrinium attach-pdf
 - Run `scrinium pipeline --help` for pipeline options such as `--steps`, `--dry-run`, `--no-api`, and `--rebuild`.
 - `enrich toc` extracts the table of contents with pure rules, and `enrich abstract` backfills missing abstracts (regex, with optional DOI-page fetch). When a rule-based path misses, the command prints a `hint:` suggesting the agent read the paper and write the field directly.
 - `refresh` re-fetches metadata, citation counts, and references from the APIs.
+- `si` manages Supporting Information: `si scan` marks papers whose text references SI, `si fetch [paper-id | --missing]` auto-fetches and attaches SI, and `si status` shows the queue (see `docs/guide/si.md`).
+- `attach-si` attaches a local file as a paper's SI (agent takeover entry; same verify → convert → attach → index funnel as the automatic chain). `show <paper-id> --si` reads attached SI text.
 
 ## Graph, Topics, And Explore
 
@@ -72,11 +76,13 @@ scrinium explore
 scrinium import endnote|zotero
 scrinium export
 scrinium workspace
+scrinium sync
 ```
 
 - `import endnote` and `import zotero` bring existing libraries into Scrinium.
 - `export` handles BibTeX, RIS, Markdown, and DOCX export.
 - `workspace` manages paper subsets for focused projects and writing workflows (`init` / `add` / `remove` / `list` / `show` / `search` / `rename` / `export`).
+- `sync` synchronizes the knowledge base (`data/`) and workspaces (`workspace/`) across devices: `push` / `pull` / `status` over SSH or local paths, and `export` / `import` as a tar.gz archive for offline transfer (see `docs/guide/sync.md`).
 
 ## Scientific Runtime And Documents
 
