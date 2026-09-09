@@ -88,7 +88,7 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 
 ## Works With Your Agent
 
-Scrinium follows the [AGENTS.md](https://agents.md) open standard — open this repository in any compatible agent and it just works: [Codex](https://openai.com/codex), OpenClaw, [Cursor](https://cursor.sh), [Windsurf](https://codeium.com/windsurf), [GitHub Copilot](https://github.com/features/copilot), [Cline](https://github.com/cline/cline), opencode, Kimi Code, [Qwen Code](https://github.com/QwenLM/qwen-code), and others. The only pointer kept is for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), which reads `CLAUDE.md` (a stub importing `AGENTS.md`) instead of `AGENTS.md` natively.
+Scrinium follows the [AGENTS.md](https://agents.md) open standard — open this repository in any agent that reads it and it just works. The only pointer kept is for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), which reads `CLAUDE.md` (a stub importing `AGENTS.md`) instead of `AGENTS.md` natively.
 
 Skills follow the open [AgentSkills.io](https://agentskills.io) standard and live in `.agents/skills/` (with `.claude/skills/` and `skills/` as discovery symlinks). To reuse the skills from another project, symlink the skills directory into `~/.agents/skills/`, or install the Claude Code plugin from the marketplace.
 

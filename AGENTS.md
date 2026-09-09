@@ -160,7 +160,7 @@ For plugin mode, see `docs/getting-started/agent-setup.md`; for configuration an
 
 ## Multi-Agent Compatibility
 
-Project instructions live only in `AGENTS.md`, following the [AGENTS.md](https://agents.md) open standard. Agents that read it natively — Codex, OpenClaw, Cursor, Windsurf, GitHub Copilot, Cline, opencode, Kimi Code, Qwen Code, and others — need no extra files. The only pointer kept is for Claude Code, which does not read `AGENTS.md` natively: `CLAUDE.md` is a minimal stub importing `AGENTS.md` via Claude Code's `@`-import mechanism. `tests/test_instruction_files.py` verifies the stub and guards against re-adding redundant pointers.
+Project instructions live only in `AGENTS.md`, following the [AGENTS.md](https://agents.md) open standard — any agent that reads it natively works with no extra files. The only pointer kept is for Claude Code, which does not read `AGENTS.md` natively: `CLAUDE.md` is a minimal stub importing `AGENTS.md` via Claude Code's `@`-import mechanism. `tests/test_instruction_files.py` verifies the stub and guards against re-adding redundant pointers.
 
 Skills follow the [AgentSkills.io](https://agentskills.io) open standard (`SKILL.md` format). The canonical location is `.agents/skills/`; `.claude/skills/` is the symlink for agents that read that path natively (Claude Code, Cline, Kimi Code), and `skills/` is the symlink for Claude plugin / skill-system discovery.
 

@@ -89,7 +89,7 @@ scrinium setup
 
 ## 兼容你的 Agent
 
-Scrinium 遵循 [AGENTS.md](https://agents.md) 开放标准——用任何兼容 agent 直接打开本仓库即可工作：[Codex](https://openai.com/codex)、OpenClaw、[Cursor](https://cursor.sh)、[Windsurf](https://codeium.com/windsurf)、[GitHub Copilot](https://github.com/features/copilot)、[Cline](https://github.com/cline/cline)、opencode、Kimi Code、[Qwen Code](https://github.com/QwenLM/qwen-code) 等。唯一保留的指针文件面向 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)：它不原生读 `AGENTS.md`，而是读 `CLAUDE.md`（导入 `AGENTS.md` 的 stub）。
+Scrinium 遵循 [AGENTS.md](https://agents.md) 开放标准——用任何能读取该文件的 agent 直接打开本仓库即可工作。唯一保留的指针文件面向 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)：它不原生读 `AGENTS.md`，而是读 `CLAUDE.md`（导入 `AGENTS.md` 的 stub）。
 
 Skills 遵循开放的 [AgentSkills.io](https://agentskills.io) 标准，位于 `.agents/skills/`（`.claude/skills/` 与 `skills/` 为发现用的符号链接）。想在其他项目中复用：将 skills 目录链接到 `~/.agents/skills/`，或通过 Claude 插件市场安装。
 
