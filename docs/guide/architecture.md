@@ -236,11 +236,11 @@ Several `meta.json` fields are designed to be written by the agent (usually a su
 | `abstract` | `enrich abstract` (regex / DOI fetch), or the agent | `show --layer 2`; searchable after `scrinium index` |
 | `translations` | the agent, alongside `paper_{lang}.md` | `show --layer 4 --lang <code>` |
 
-The FTS index covers title, authors, abstract, conclusion, and tags — after editing `abstract` or `l3_conclusion`, run `scrinium index` so search picks them up.
+The FTS index covers title, authors, abstract, conclusion, tags, and SI text — after editing `abstract` or `l3_conclusion`, run `scrinium index` so search picks them up.
 
-## Index Schema v2
+## Index Schema v3
 
-`data/index.db` carries `PRAGMA user_version = 2`. On the first index operation against a pre-3.0 database, the migration runs automatically: the legacy embedding tables (`paper_vectors`, `vector_metadata`) are dropped and the FAISS sidecar files (`faiss.index`, `faiss_ids.json`) next to `index.db` are deleted. No user action is required; other pre-3.0 artifacts (`data/topic_model/`, model caches) are never touched by the framework and can be deleted manually.
+`data/index.db` carries `PRAGMA user_version = 3`. On the first index operation against an older database, the migration runs automatically: the FTS table is dropped and recreated with the current schema, and a full reindex follows. The v2 migration additionally dropped the legacy embedding tables (`paper_vectors`, `vector_metadata`) and deleted the FAISS sidecar files (`faiss.index`, `faiss_ids.json`) next to `index.db`; v3 adds the searchable `si` column for attached SI text. No user action is required; other pre-3.0 artifacts (`data/topic_model/`, model caches) are never touched by the framework and can be deleted manually.
 
 ## `sources/` Abstraction Layer
 

@@ -68,6 +68,7 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 |--|---------|---------|
 | **PDF Parsing** | Deep structure extraction | Convert PDFs into structured Markdown while preserving formulas, figures, and layout as much as possible |
 | **Not Just Papers** | More than papers | Journal articles, theses, patents, technical reports, standards, and lecture notes — five inbox categories with tailored metadata handling |
+| **Supporting Information** | SI as a first-class attachment | Auto-discover, fetch, and attach SI to its parent paper (`si/` subdirectory, indexed with the paper), with automatic inbox routing and agent takeover for the long tail |
 | **Keyword Search** | FTS5 full-text retrieval | Field-weighted keyword search; the agent extends recall through query expansion, tag filters, and citation-graph snowballing |
 | **Curated Tags** | Agent-maintained topics | A controlled tag vocabulary curated by the agent (`data/tags.yaml`), indexed into search and filterable via `--tag` — tags are the topic system |
 | **Topic Overview** | See what your library is about | `scrinium topics` shows the tag-based topic distribution and drills into any topic; the `draw` skill renders charts on demand |
@@ -76,6 +77,7 @@ Then open the repository in Codex, Claude Code, or another supported agent. In t
 | **Layered Reading** | Read on demand | Start with metadata or the abstract, then move into conclusions or full text only when you need to |
 | **Multi-Source Import** | Connect your existing library | Import directly from reference managers, PDFs, and Markdown without rebuilding your library from scratch |
 | **Workspaces** | Organize by project | Manage paper subsets with scoped search and BibTeX export |
+| **Cross-Device Sync** | Move your whole library | Synchronize `data/` and `workspace/` between machines over SSH or as an archive, with safe `--update` semantics and dry-run preview |
 | **Multi-Format Export** | BibTeX, RIS, Markdown, DOCX | Export your full library or a workspace for Zotero, Endnote, submission, or sharing |
 | **Persistent Notes** | Cross-session memory | Keep analysis notes for each paper so future sessions can reuse them instead of starting over |
 | **Research Insights** | Reading behavior analytics | Search hot keywords, most-read papers, and reading trends — the agent combines these with tags and the citation graph to surface papers you haven't read yet |

@@ -21,10 +21,23 @@
         - load_l2
         - load_l3
         - load_l4
+        - load_si
         - load_notes
         - append_notes
         - enrich_toc
         - validate_lang
+
+::: scrinium.si
+    options:
+      members:
+        - looks_like_si_filename
+        - looks_like_si_text
+        - si_mentioned_in_text
+        - resolve_si_candidates
+        - verify_si_text
+        - attach_si
+        - fetch_si_for_paper
+        - paper_si_state
 
 ::: scrinium.export
     options:

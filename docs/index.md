@@ -9,6 +9,7 @@ Scrinium is a research infrastructure for AI agents. You interact with your lite
 ## Features
 
 - **PDF Ingestion**: Convert PDFs to structured Markdown via MinerU (cloud or local)
+- **Supporting Information**: Auto-discover, fetch, and attach SI to its parent paper — stored in `si/`, indexed with the paper, routed automatically at ingest
 - **Keyword Search**: FTS5 full-text search with field-weighted ranking; the agent extends recall through query expansion, curated tags, and citation-graph snowballing
 - **Tag-Based Topics**: A controlled tag vocabulary curated by the agent doubles as the topic system — distribution overview and drill-down via `scrinium topics`
 - **Citation Graph**: View references, citing papers, and shared references
@@ -16,6 +17,7 @@ Scrinium is a research infrastructure for AI agents. You interact with your lite
 - **Paper Translation**: Agent-driven chunked translation stored as `paper_{lang}.md`, readable via `show --lang`
 - **Literature Exploration**: Multi-dimensional OpenAlex queries with isolated data
 - **Workspace Management**: Organize papers into subsets for focused work
+- **Cross-Device Sync**: Synchronize the knowledge base and workspaces between machines with `scrinium sync`
 - **Federated Discovery**: Search your library, explore silos, and arXiv in one flow
 - **Research Insights**: Inspect search/read behavior trends
 - **Scientific Tool Docs**: Query indexed official docs for scientific computing tools with `toolref`

@@ -39,8 +39,12 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scrinium.papers import read_meta, write_meta
+
+if TYPE_CHECKING:
+    from scrinium.config import Config
 
 _log = logging.getLogger(__name__)
 
@@ -479,7 +483,7 @@ def _unique_dest(si_dir: Path, name: str) -> Path:
 def attach_si(
     paper_d: Path,
     src_path: Path,
-    cfg=None,
+    cfg: Config | None = None,
     *,
     md_path: Path | None = None,
     source_url: str = "",
@@ -693,7 +697,9 @@ def _attach_zip(zip_path: Path, pdir: Path, cfg, cand: SiCandidate, *, convert: 
     return attached
 
 
-def fetch_si_for_paper(pdir: Path, cfg, *, convert: bool = True, dry_run: bool = False, force: bool = False) -> str:
+def fetch_si_for_paper(
+    pdir: Path, cfg: Config, *, convert: bool = True, dry_run: bool = False, force: bool = False
+) -> str:
     """对单篇论文跑自动 SI 获取链，返回 fetch_status。
 
     候选依次尝试：下载 → magic 检查 → 验证 → 挂接；任一候选成功即 ``ok``。

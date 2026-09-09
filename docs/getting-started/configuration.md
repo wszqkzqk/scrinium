@@ -66,3 +66,7 @@ MinerU configuration constraints (aligned with current code):
 - Current recommended defaults:
   - Chinese or mixed Chinese-English PDFs: `mineru_lang: ch`
   - English-only PDFs: change to `mineru_lang: en`
+
+### SI Fetch
+
+- `si_fetch_on_ingest` (default `true`): after each paper is ingested, Scrinium automatically tries one SI fetch (resolver chain → download → verify → attach). Failures never block ingestion — they are recorded in `meta.json["si"]["fetch_status"]` for agent takeover. Set to `false` if you prefer to run `scrinium si fetch --missing` manually in batches, e.g. to control MinerU conversion quota.

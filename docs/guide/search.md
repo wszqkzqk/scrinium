@@ -10,7 +10,7 @@ Scrinium provides keyword (FTS5) full-text search over your knowledge base.
 scrinium search "turbulent boundary layer"
 ```
 
-Searches title, authors, abstract, conclusion, and tags using SQLite FTS5 full-text search. This is the only built-in retrieval mode — Scrinium makes no in-framework embedding or LLM calls.
+Searches title, authors, abstract, conclusion, tags, and attached SI text using SQLite FTS5 full-text search. This is the only built-in retrieval mode — Scrinium makes no in-framework embedding or LLM calls.
 
 Meaning-based recall is handled agent-side instead: the agent rewrites your question into several keyword variants (synonyms, translations, narrower/broader terms), runs multiple searches, filters by curated tags (`--tag`), and expands along the citation graph (`snowball`). This takeover path matches vector-retrieval recall without any embedding model.
 
