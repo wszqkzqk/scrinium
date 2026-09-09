@@ -152,3 +152,11 @@ skills:
   - name: scrinium/scientific-tool-onboarding
     path: .claude/skills/scientific-tool-onboarding
     description: "Add or upgrade Scrinium support for a new scientific computing tool: official docs ingestion, toolref integration, skill design, CLI verification"
+
+  - name: scrinium/deep-research
+    path: .claude/skills/deep-research
+    description: "Run a multi-round deep literature investigation for an open research question: query decomposition, multi-source recall, citation snowballing, batch deep reading, evidence-matrix synthesis"
+
+  - name: scrinium/si
+    path: .claude/skills/si
+    description: "Discover, fetch, and attach Supporting Information (SI) for papers: resolver-chain auto-fetch, unified attach funnel, status queue, and agent takeover for the long tail"

@@ -5,8 +5,8 @@ abstract: "Scrinium — a research infrastructure for AI agents (hard fork of Sc
 type: software
 license: GPL-3.0-or-later
 repository-code: "https://github.com/wszqkzqk/scrinium"
-version: 2.0.0
-date-released: "2026-08-02"
+version: 3.0.0
+date-released: "2026-08-04"
 # Scrinium is a hard fork of ScholarAIO (https://github.com/ZimoLiao/scholaraio);
 # the original author is retained below in acknowledgment of the upstream work.
 authors:
@@ -20,6 +20,5 @@ authors:
 keywords:
   - academic literature
   - knowledge base
-  - semantic search
   - research assistant
   - AI agents

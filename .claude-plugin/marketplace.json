@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Scrinium — A research infrastructure for AI agents. Search, read, analyze, and operationalize papers from your local knowledge base while coding.",
-    "version": "2.0.0"
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "scrinium",
       "source": "./",
-      "description": "Full Scrinium skill suite: literature search, arXiv discovery, layered reading, ingestion, topic modeling, citation graphs, insights analytics, scientific tool docs, Office document inspection, workspace management, academic writing, and more. Requires Python 3.10+; auto-installs on first session.",
-      "version": "2.0.0",
+      "description": "Full Scrinium skill suite: literature search, arXiv discovery, layered reading, ingestion, Supporting Information attach, citation graphs, insights analytics, scientific tool docs, Office document inspection, workspace management, academic writing, and more. Requires Python 3.10+; auto-installs on first session.",
+      "version": "3.0.0",
       "author": {
         "name": "Zhou Qiankang",
         "email": "wszqkzqk@qq.com"
@@ -35,8 +35,7 @@
         "office-documents",
         "scholarly-writing",
         "knowledge-base",
-        "semantic-search",
-        "topic-modeling",
+        "supporting-information",
         "bibtex",
         "scholarship",
         "bibliography"

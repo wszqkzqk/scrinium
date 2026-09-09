@@ -37,6 +37,12 @@ site/
 # Local agent worktrees
 .claude/worktrees/
 
+# Agent session artifacts
+.kimi-code/
+
+# macOS junk
+.DS_Store
+
 # Backups
 *.bak
 

@@ -17,6 +17,8 @@ ingest:
                # 申请地址：https://www.semanticscholar.org/product/api#api-key
   # enrich_timeout: 180  # per-paper metadata API enrichment hard timeout in seconds
                # 元数据 API enrich 单篇硬超时（秒），超时保留本地元数据继续
+  # si_fetch_on_ingest: true  # auto-fetch SI after each ingest (default true)
+               # 入库后自动获取 SI（默认开；失败不阻断，只记录 fetch_status）
 
 # Zotero integration (optional) Zotero 集成（可选）
 # API key: https://www.zotero.org/settings/keys
