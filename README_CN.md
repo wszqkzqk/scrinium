@@ -68,6 +68,7 @@ scrinium setup
 | ----------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
 | **PDF 解析**                  | 深度结构提取                   | 将 PDF 转成结构化 Markdown，尽可能保留公式、图片和版面结构                                  |
 | **不只是论文**                | 各种文档都能入                 | 期刊论文、学位论文、专利、技术报告、标准、讲义——五种 inbox 分类入库，各有针对性的元数据处理 |
+| **支撑信息（SI）**            | SI 作为论文的一等附件          | 自动发现、获取并挂接 SI 到主论文（`si/` 子目录、随论文进索引），inbox 自动路由，长尾由 agent 接管 |
 | **关键词检索**                | FTS5 全文检索                  | 字段加权的全文关键词检索；agent 通过查询扩展、标签过滤与引用图滚雪球进一步提升召回            |
 | **策展标签**                  | agent 维护的主题词表           | agent 策展的受控标签体系（`data/tags.yaml`），标签进检索索引、支持 `--tag` 过滤——标签即主题 |
 | **主题总览**                  | 看清你的文献库在研究什么       | `scrinium topics` 展示基于标签的主题分布并可钻取单个主题；分布图由 `draw` 技能按需生成        |
@@ -76,6 +77,7 @@ scrinium setup
 | **分层阅读**                  | 按需加载                       | 先看元数据或摘要，再按需要深入到结论和全文，不必一开始就读完整篇                            |
 | **多源导入**                  | 现有文献库可直接接入           | 从现有文献管理工具、PDF 和 Markdown 直接导入，不用从零重建你的文献库                        |
 | **工作区**                    | 按项目整理                     | 论文子集管理，支持限定范围内的检索和 BibTeX 导出                                            |
+| **跨设备同步**                | 整库迁移                       | 通过 SSH 或归档文件在设备间同步 `data/` 与 `workspace/`，默认安全的 `--update` 语义与 dry-run 预览 |
 | **多格式导出**                | BibTeX / RIS / Markdown / DOCX | 可导出整个文献库或工作区，直接用于 Zotero、Endnote、投稿或分享                              |
 | **持久化笔记**                | 跨会话记忆                     | 把每篇论文的分析结论持续保存下来，下一次进入新会话时也能直接复用，不必从头重读              |
 | **研究洞察**                  | 阅读行为分析                   | 搜索热词、高频阅读论文、阅读趋势——agent 再结合标签与引用图帮你发现可能忽略的未读文献        |
@@ -87,7 +89,7 @@ scrinium setup
 
 ## 兼容你的 Agent
 
-Scrinium 遵循 [AGENTS.md](https://agents.md) 开放标准——用任何兼容 agent 直接打开本仓库即可工作：[Codex](https://openai.com/codex)、OpenClaw、[Cursor](https://cursor.sh)、[Windsurf](https://codeium.com/windsurf)、[GitHub Copilot](https://github.com/features/copilot)、[Cline](https://github.com/cline/cline)、opencode、Kimi Code 等。仅有两个 agent 使用自己的入口文件名：[Claude Code](https://docs.anthropic.com/en/docs/claude-code) 读 `CLAUDE.md`（导入 `AGENTS.md` 的 stub），[Qwen Code](https://github.com/QwenLM/qwen-code) 读 `QWEN.md`（指向 `AGENTS.md` 的指针）。
+Scrinium 遵循 [AGENTS.md](https://agents.md) 开放标准——用任何兼容 agent 直接打开本仓库即可工作：[Codex](https://openai.com/codex)、OpenClaw、[Cursor](https://cursor.sh)、[Windsurf](https://codeium.com/windsurf)、[GitHub Copilot](https://github.com/features/copilot)、[Cline](https://github.com/cline/cline)、opencode、Kimi Code、[Qwen Code](https://github.com/QwenLM/qwen-code) 等。唯一保留的指针文件面向 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)：它不原生读 `AGENTS.md`，而是读 `CLAUDE.md`（导入 `AGENTS.md` 的 stub）。
 
 Skills 遵循开放的 [AgentSkills.io](https://agentskills.io) 标准，位于 `.agents/skills/`（`.claude/skills/` 与 `skills/` 为发现用的符号链接）。想在其他项目中复用：将 skills 目录链接到 `~/.agents/skills/`，或通过 Claude 插件市场安装。
 
