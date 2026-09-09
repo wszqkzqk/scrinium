@@ -44,7 +44,6 @@ nav:
       - Ingestion: guide/ingestion.md
       - Supporting Information (SI): guide/si.md
       - Writing: guide/writing.md
-      - Webtools Integration: guide/webtools-integration.md
       - Cross-device Sync: guide/sync.md
   - API Reference: api/index.md
   - Contributing: contributing.md

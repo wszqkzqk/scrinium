@@ -1,57 +1,57 @@
-# 跨设备同步（`scrinium sync`）
+# Cross-Device Sync (`scrinium sync`)
 
-在不同设备的 Scrinium 实例之间同步知识库（`data/`）与工作区（`workspace/`）。论文全文（paper.md、paper.pdf、images/、notes.md）、元数据（meta.json）、标签（tags.yaml）、索引（index.db）和工作区定义（papers.json）都包含在内。
+Synchronize the knowledge base (`data/`) and workspaces (`workspace/`) between Scrinium instances on different devices. Everything is included: full text (`paper.md`, `paper.pdf`, `images/`, `notes.md`), metadata (`meta.json`), the tag vocabulary (`tags.yaml`), the index (`index.db`), and workspace definitions (`papers.json`).
 
-> `scrinium export` / `scrinium import` 处理的是引用格式（bibtex/ris/markdown/docx）和外部导入（Endnote/Zotero），不能用于同步知识库本身。
+> `scrinium export` / `scrinium import` handle citation formats (BibTeX/RIS/Markdown/DOCX) and external imports (Endnote/Zotero) — they cannot sync the knowledge base itself.
 
-## 子命令
+## Subcommands
 
-| 子命令 | 作用 |
+| Subcommand | Purpose |
 |---|---|
-| `scrinium sync push <target>` | 推送 `data/` + `workspace/` 到目标 |
-| `scrinium sync pull <target>` | 从目标拉取到本地 |
-| `scrinium sync status <target>` | 显示将要变更的文件（dry-run，不实际变更） |
-| `scrinium sync export <file.tar.gz>` | 打包为归档文件（离线/网盘/U盘传输） |
-| `scrinium sync import <file.tar.gz>` | 从归档文件导入 |
+| `scrinium sync push <target>` | Push `data/` + `workspace/` to the target |
+| `scrinium sync pull <target>` | Pull from the target into the local instance |
+| `scrinium sync status <target>` | Show what would change (dry-run, no changes made) |
+| `scrinium sync export <file.tar.gz>` | Pack into an archive (offline / cloud-drive / USB transfer) |
+| `scrinium sync import <file.tar.gz>` | Import from an archive |
 
-## 目标格式
+## Target Formats
 
-- SSH：`user@host:remote/path/to/scrinium`（如 `wm2:~/scrinium`）
-- 本地路径：`/path/to/other/scrinium`（同机另一实例或共享盘）
+- SSH: `user@host:remote/path/to/scrinium` (e.g. `wm2:~/scrinium`)
+- Local path: `/path/to/other/scrinium` (a second instance on the same machine or a shared drive)
 
-## 同步语义
+## Sync Semantics
 
-- **默认 `--update`（安全）**：只复制源端更新或目标端不存在的文件，**不删除任何文件**。不会丢数据。
-- **`--mirror`（镜像）**：删除目标端在源端不存在的文件。先做一次 dry-run 预览将删除的文件，要求加 `--yes` 确认后才执行。
-- **`status`**：dry-run，列出将变更的文件，不实际执行。
+- **Default `--update` (safe)**: copies only files that are newer on the source or missing on the target, and **never deletes anything**. No data loss.
+- **`--mirror`**: deletes target files that do not exist on the source. Runs a dry-run preview of the deletions first and requires `--yes` to confirm.
+- **`status`**: dry-run; lists the files that would change without executing.
 
-## 排除项（默认不同步）
+## Exclusions (never synced by default)
 
-- `data/inbox*`（暂存区）
-- `*.log`、`scholaraio.log*`、`metrics.db`、`.coverage`
-- `__pycache__/`、`.DS_Store`、`trash/`、`topic_model/`
+- `data/inbox*` (staging areas)
+- `*.log`, `scholaraio.log*`, `metrics.db`, `.coverage`
+- `__pycache__/`, `.DS_Store`, `trash/`, `topic_model/`
 
-`index.db` 可以不传（目标端 `scrinium index` 可重建），传了则省去重建。
+`index.db` is optional to transfer (the target can rebuild it with `scrinium index`), but transferring it saves the rebuild.
 
-## 示例
+## Examples
 
 ```bash
-# 笔记本推送到集群
+# Push from laptop to cluster
 scrinium sync push wm2:~/scrinium
 
-# 从集群拉取
+# Pull from cluster
 scrinium sync pull wm2:~/scrinium
 
-# 先看会改什么
+# Preview changes first
 scrinium sync status wm2:~/scrinium
 
-# 离线传输
+# Offline transfer
 scrinium sync export sync_backup.tar.gz
-# 把 sync_backup.tar.gz 传到另一台设备后：
+# after copying sync_backup.tar.gz to the other device:
 scrinium sync import sync_backup.tar.gz
 ```
 
-## 注意
+## Notes
 
-- 这是**文件级同步**：meta.json 冲突以文件 mtime 新旧为准，不做按字段合并。
-- 双向编辑同一份文件时，后写方会覆盖先写方；如需双向编辑，请用 git 管理 `data/` 和 `workspace/`。
+- This is **file-level sync**: `meta.json` conflicts are resolved by file mtime (newer wins); there is no field-level merge.
+- When the same file is edited on both sides, the later write wins. If you need two-way editing, put `data/` and `workspace/` under git instead.
