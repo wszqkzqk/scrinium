@@ -1,10 +1,10 @@
 """Alignment checks for the multi-agent instruction files.
 
-`AGENTS.md` is the single source of truth, natively read by most agents
-(including Qwen Code, whose default context file list covers AGENTS.md).
+`AGENTS.md` is the single source of truth, natively read by most agents.
 Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so `CLAUDE.md` must stay a
 minimal stub that imports `AGENTS.md` via Claude Code's ``@``-import
-mechanism — it is the only pointer file this repository keeps.
+mechanism — without the import, Claude Code users get no project
+instructions at all.
 """
 
 from pathlib import Path
@@ -36,10 +36,3 @@ class TestClaudeStub:
         agents = _read("AGENTS.md")
         for anchor in ("## Agent Skills", "## Deep Reference", "T1", "T2"):
             assert anchor in agents
-
-
-class TestNoExtraPointers:
-    def test_qwen_md_removed(self):
-        # Qwen Code reads AGENTS.md natively (default context file list covers
-        # it), so the QWEN.md pointer is redundant and must not come back.
-        assert not (REPO_ROOT / "QWEN.md").exists()
