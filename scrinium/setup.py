@@ -46,6 +46,7 @@ _S: dict[str, dict[Lang, str]] = {
     "parser_recommendation": {"en": "PDF parser recommendation", "zh": "PDF 解析器推荐"},
     "contact_email": {"en": "Contact email", "zh": "联系邮箱"},
     "s2_key": {"en": "Semantic Scholar API key", "zh": "Semantic Scholar API key"},
+    "openalex_key": {"en": "OpenAlex API key", "zh": "OpenAlex API key"},
     "zotero_key": {"en": "Zotero API key", "zh": "Zotero API key"},
     "directories": {"en": "Directories", "zh": "目录结构"},
     "papers_count": {"en": "Papers", "zh": "论文数量"},
@@ -56,6 +57,14 @@ _S: dict[str, dict[Lang, str]] = {
     "optional_s2_unset": {
         "en": "not set | optional: most endpoints still work anonymously, but some Semantic Scholar endpoints require a key",
         "zh": "未设置 | 可选：多数端点仍可匿名访问，但部分 Semantic Scholar 端点需要 key",
+    },
+    "optional_openalex_set": {
+        "en": "configured ({masked}) | optional: raises the OpenAlex daily API budget",
+        "zh": "已配置 ({masked}) | 可选：提升 OpenAlex 每日 API 额度",
+    },
+    "optional_openalex_unset": {
+        "en": "not set | optional: anonymous OpenAlex usage is metered; an API key raises the daily budget",
+        "zh": "未设置 | 可选：OpenAlex 匿名调用按量受限；配置 key 可提升每日额度",
     },
     "optional_zotero_set": {
         "en": "configured ({masked}) | optional: used by Zotero Web API import",
@@ -476,6 +485,25 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
                 t("s2_key", lang),
                 True,
                 t("optional_s2_unset", lang),
+            )
+        )
+
+    openalex_key = cfg.resolved_openalex_api_key()
+    if openalex_key:
+        masked = openalex_key[:3] + "***" + openalex_key[-3:] if len(openalex_key) > 8 else "***"
+        results.append(
+            CheckResult(
+                t("openalex_key", lang),
+                True,
+                t("optional_openalex_set", lang).format(masked=masked),
+            )
+        )
+    else:
+        results.append(
+            CheckResult(
+                t("openalex_key", lang),
+                True,
+                t("optional_openalex_unset", lang),
             )
         )
 
@@ -964,6 +992,7 @@ ingest:
   mineru_enable_table: true           # only effective for pipeline / vlm
   contact_email: null       # Crossref polite pool email -> config.local.yaml
   s2_api_key: null          # Semantic Scholar API key -> config.local.yaml or env S2_API_KEY
+  openalex_api_key: null    # OpenAlex API key -> config.local.yaml or env OPENALEX_API_KEY
   mineru_batch_size: 20     # cloud batch size per request (1-200, official limit)
   mineru_upload_workers: 4  # concurrent cloud conversion tasks (mineru-open-api compat layer)
   mineru_upload_retries: 3  # cloud upload retries per file, including the first attempt

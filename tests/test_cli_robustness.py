@@ -25,6 +25,7 @@ def _fake_main_cfg(tmp_path: Path, index_db: Path) -> SimpleNamespace:
         metrics_db_path=str(tmp_path / "metrics.db"),
         ingest=SimpleNamespace(contact_email=""),
         resolved_s2_api_key=lambda: "",
+        resolved_openalex_api_key=lambda: "",
         log_file=tmp_path / "logs" / "scrinium.log",
         log=SimpleNamespace(max_bytes=1_000_000, backup_count=1, level="INFO"),
         index_db=index_db,

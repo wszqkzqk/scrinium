@@ -151,16 +151,20 @@ def test_run_check_includes_optional_api_configuration_statuses(monkeypatch):
     monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
     monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
     monkeypatch.setattr(cfg, "resolved_s2_api_key", lambda: "")
+    monkeypatch.setattr(cfg, "resolved_openalex_api_key", lambda: "")
     monkeypatch.setattr(cfg, "resolved_zotero_api_key", lambda: "")
 
     results = run_check(cfg, "zh")
 
     result_map = {item.label: item for item in results}
     assert "Semantic Scholar API key" in result_map
+    assert "OpenAlex API key" in result_map
     assert "Zotero API key" in result_map
     assert result_map["Semantic Scholar API key"].ok is True
+    assert result_map["OpenAlex API key"].ok is True
     assert result_map["Zotero API key"].ok is True
     assert "可选" in result_map["Semantic Scholar API key"].detail
+    assert "可选" in result_map["OpenAlex API key"].detail
     assert "可选" in result_map["Zotero API key"].detail
 
 

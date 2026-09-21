@@ -21,6 +21,7 @@ ingest:
   mineru_enable_table: true # Enable table parsing; only effective for pipeline/vlm models 仅对 pipeline/vlm 有效
   contact_email: null # Crossref polite pool email → config.local.yaml
   s2_api_key: null # Semantic Scholar API key → config.local.yaml or env S2_API_KEY
+  openalex_api_key: null # OpenAlex API key → config.local.yaml or env OPENALEX_API_KEY
   mineru_batch_size: 20 # Cloud batch size per request (1-200, official limit) 云端每批文件数上限
   mineru_upload_workers: 4 # Concurrent cloud conversion tasks 云端转换并发任务数
   mineru_upload_retries: 3 # Cloud upload retries per file (incl. first attempt) 单文件上传重试次数（含首轮）

@@ -309,6 +309,25 @@ class TestResolvedApiKey:
         monkeypatch.delenv("S2_API_KEY", raising=False)
         assert cfg.resolved_s2_api_key() == ""
 
+    def test_openalex_key_from_config(self, tmp_path):
+        cfg = _build_config({"ingest": {"openalex_api_key": "oa-cfg"}}, tmp_path)
+        assert cfg.resolved_openalex_api_key() == "oa-cfg"
+
+    def test_openalex_key_from_env(self, tmp_path, monkeypatch):
+        cfg = _build_config({}, tmp_path)
+        monkeypatch.setenv("OPENALEX_API_KEY", "oa-env")
+        assert cfg.resolved_openalex_api_key() == "oa-env"
+
+    def test_openalex_key_config_wins_over_env(self, tmp_path, monkeypatch):
+        cfg = _build_config({"ingest": {"openalex_api_key": "oa-cfg"}}, tmp_path)
+        monkeypatch.setenv("OPENALEX_API_KEY", "oa-env")
+        assert cfg.resolved_openalex_api_key() == "oa-cfg"
+
+    def test_openalex_key_empty_when_unset(self, tmp_path, monkeypatch):
+        cfg = _build_config({}, tmp_path)
+        monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+        assert cfg.resolved_openalex_api_key() == ""
+
 
 class TestLoadConfig:
     def test_load_from_explicit_path(self, tmp_path):

@@ -186,6 +186,24 @@ def configure_s2_session(s2_api_key: str) -> None:
         SESSION.headers.pop("x-api-key", None)
 
 
+_OPENALEX_API_KEY = ""
+
+
+def configure_openalex_api_key(api_key: str) -> None:
+    """Store the OpenAlex API key; attached per-request as a Bearer token."""
+    global _OPENALEX_API_KEY
+    _OPENALEX_API_KEY = api_key
+
+
+def openalex_auth_headers() -> dict[str, str]:
+    """Per-request Authorization headers for OpenAlex; empty when no key is set."""
+    # Per-request rather than session-wide: SESSION is shared with Crossref
+    # and Semantic Scholar, which must not see this key.
+    if _OPENALEX_API_KEY:
+        return {"Authorization": f"Bearer {_OPENALEX_API_KEY}"}
+    return {}
+
+
 # Retry on connection/SSL errors (common in WSL2 or when hitting APIs rapidly)
 _retry = requests.adapters.HTTPAdapter(
     max_retries=requests.packages.urllib3.util.retry.Retry(

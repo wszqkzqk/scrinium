@@ -272,3 +272,72 @@ def test_enrich_metadata_rejects_title_search_hit_when_author_and_year_both_conf
     assert meta.first_author_lastname == "Kline"
     assert meta.year == 1967
     assert meta.extraction_method == "local_only"
+
+
+class TestOpenAlexAuthHeaders:
+    @pytest.fixture(autouse=True)
+    def _stub_relaxed_title_search(self):
+        """Bypass the module-level stub; these tests call the real query functions."""
+
+    def test_bearer_sent_when_key_set(self, monkeypatch):
+        from scrinium.ingest.metadata._api import query_openalex
+
+        monkeypatch.setattr("scrinium.ingest.metadata._models._OPENALEX_API_KEY", "oa-secret")
+        captured: dict = {}
+
+        class _Resp:
+            status_code = 404
+
+            def json(self):
+                return {}
+
+        def fake_get(url, **kwargs):
+            captured.update(kwargs.get("headers") or {})
+            return _Resp()
+
+        monkeypatch.setattr("scrinium.ingest.metadata._models.SESSION.get", fake_get)
+
+        assert query_openalex(doi="10.1234/example") == {}
+        assert captured.get("Authorization") == "Bearer oa-secret"
+
+    def test_no_auth_header_without_key(self, monkeypatch):
+        from scrinium.ingest.metadata._api import query_openalex
+
+        monkeypatch.setattr("scrinium.ingest.metadata._models._OPENALEX_API_KEY", "")
+        captured: dict = {}
+
+        class _Resp:
+            status_code = 404
+
+            def json(self):
+                return {}
+
+        def fake_get(url, **kwargs):
+            captured.update(kwargs.get("headers") or {})
+            return _Resp()
+
+        monkeypatch.setattr("scrinium.ingest.metadata._models.SESSION.get", fake_get)
+
+        assert query_openalex(doi="10.1234/example") == {}
+        assert "Authorization" not in captured
+
+    def test_relaxed_search_sends_bearer_when_key_set(self, monkeypatch):
+        from scrinium.ingest.metadata._api import _query_oa_relaxed
+
+        monkeypatch.setattr("scrinium.ingest.metadata._models._OPENALEX_API_KEY", "oa-secret")
+        captured: dict = {}
+
+        class _Resp:
+            status_code = 200
+
+            def json(self):
+                return {"results": []}
+
+        def fake_get(url, **kwargs):
+            captured.update(kwargs.get("headers") or {})
+            return _Resp()
+
+        monkeypatch.setattr("scrinium.ingest.metadata._models.SESSION.get", fake_get)
+
+        assert _query_oa_relaxed("some paper title") == {}
+        assert captured.get("Authorization") == "Bearer oa-secret"

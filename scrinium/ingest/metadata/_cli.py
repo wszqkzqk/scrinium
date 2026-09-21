@@ -283,15 +283,16 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Ensure S2 API key is configured for standalone CLI usage
+    # Ensure API keys are configured for standalone CLI usage
     # (the main scrinium CLI does this in cli/__init__.py:main(); this covers
     # `python -m scrinium.ingest.metadata` invocations.)
     from scrinium.config import load_config
 
-    from ._models import configure_s2_session
+    from ._models import configure_openalex_api_key, configure_s2_session
 
     _cfg = load_config()
     configure_s2_session(_cfg.resolved_s2_api_key())
+    configure_openalex_api_key(_cfg.resolved_openalex_api_key())
 
     if args.command == "show":
         cmd_show(args)

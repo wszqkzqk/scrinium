@@ -85,6 +85,10 @@ scrinium setup check --lang zh
   - 何时需要：用户会频繁做 citation/refresh，或后续需要依赖认证端点时
   - 做法：写入 `ingest.s2_api_key` 或环境变量 `S2_API_KEY`
   - 开销：**按第三方政策**；不要擅自承诺免费或收费
+- `OpenAlex API key`
+  - 用途：OpenAlex 认证访问；OpenAlex 对匿名调用按量限制每日额度，配置 key 可提升额度；影响 `explore fetch` 批量抓取
+  - 何时需要：用户要用 `explore fetch` 做批量文献调研时
+  - 做法：写入 `ingest.openalex_api_key`（config.local.yaml）或环境变量 `OPENALEX_API_KEY`，申请地址 https://openalex.org/settings/api
 - `Zotero API key`
   - 用途：走 Zotero Web API 导入
   - 何时需要：用户明确要用 `import zotero` 的 Web API 路径，而不是本地 `zotero.sqlite`

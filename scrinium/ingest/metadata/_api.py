@@ -22,6 +22,7 @@ from ._models import (
     TIMEOUT,
     TITLE_MATCH_THRESHOLD,
     PaperMetadata,
+    openalex_auth_headers,
 )
 
 _log = logging.getLogger(__name__)
@@ -103,7 +104,10 @@ def query_openalex(doi: str = "", title: str = "") -> dict:
         return {}
 
     try:
-        resp = SESSION.get(url, timeout=TIMEOUT)
+        resp = SESSION.get(url, timeout=TIMEOUT, headers=openalex_auth_headers())
+        if resp.status_code == 401:
+            _log.warning("[OA] 401 Unauthorized: invalid API key, check ingest.openalex_api_key")
+            return {}
         if resp.status_code == 404:
             return {}
         resp.raise_for_status()
@@ -306,7 +310,7 @@ def _query_oa_relaxed(title: str) -> dict:
     }
     url = f"{OA_BASE}?{urlencode(params)}"
     try:
-        resp = SESSION.get(url, timeout=TIMEOUT)
+        resp = SESSION.get(url, timeout=TIMEOUT, headers=openalex_auth_headers())
         if resp.status_code != 200:
             return {}
         for item in resp.json().get("results", []):

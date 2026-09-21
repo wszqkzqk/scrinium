@@ -1054,6 +1054,7 @@ class TestSetupMetricsFallback:
                 metrics_db_path="/tmp/metrics.db",
                 ingest=SimpleNamespace(contact_email=""),
                 resolved_s2_api_key=lambda: "",
+                resolved_openalex_api_key=lambda: "",
             ),
         )
         monkeypatch.setattr(cli, "ui", messages.append)

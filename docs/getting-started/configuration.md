@@ -27,6 +27,7 @@ Scrinium makes no LLM or embedding calls, so no LLM key is needed anywhere. The 
 
 - **MinerU token**: used by `mineru-open-api extract` for MinerU cloud PDF-to-Markdown conversion. `MINERU_TOKEN` is preferred; `MINERU_API_KEY` remains a compatibility alias. Without it, Scrinium can still fall back to Docling / PyMuPDF, or ingest manually placed `.md` files. MinerU token application is currently free
 - **Semantic Scholar API key**: optional; useful when the user needs higher throughput for citation refresh / refetch workflows
+- **OpenAlex API key**: optional but recommended for `explore fetch` bulk downloads — OpenAlex meters daily API usage, and a key (https://openalex.org/settings/api) raises the anonymous budget
 - **Zotero API key**: optional; only needed for the Zotero Web API import path (local `zotero.sqlite` import does not require it)
 
 ### Example `config.local.yaml`
@@ -35,6 +36,7 @@ Scrinium makes no LLM or embedding calls, so no LLM key is needed anywhere. The 
 ingest:
   mineru_api_key: "your-mineru-token"  # compatibility alias; MINERU_TOKEN is preferred
   s2_api_key: "your-semantic-scholar-key"  # optional
+  openalex_api_key: "your-openalex-key"  # optional
 
 zotero:
   api_key: "your-zotero-key"  # optional

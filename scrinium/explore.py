@@ -107,7 +107,7 @@ def _meta_path(name: str, cfg: Config | None = None) -> Path:
 
 
 _OA_WORKS = "https://api.openalex.org/works"
-_PER_PAGE = 200
+_PER_PAGE = 100  # documented OpenAlex per_page maximum
 
 
 def _reconstruct_abstract(inverted_index: dict | None) -> str:
@@ -197,7 +197,7 @@ def _fetch_page(
     cursor: str = "*",
     keyword: str | None = None,
     sort: str = "publication_year:asc",
-    mailto: str = "",
+    api_key: str = "",
 ) -> tuple[list[dict], str | None]:
     """Fetch one page of results from OpenAlex.
 
@@ -207,7 +207,7 @@ def _fetch_page(
         cursor: Cursor for pagination.
         keyword: Free-text search keyword (OpenAlex ``search`` param).
         sort: OpenAlex sort expression (see ``_resolve_sort``).
-        mailto: Contact email for the OpenAlex polite pool (better rate limits).
+        api_key: OpenAlex API key (higher daily budget when set; anonymous otherwise).
     """
     params: dict[str, str | int] = {
         "per_page": _PER_PAGE,
@@ -216,8 +216,7 @@ def _fetch_page(
         "primary_location,cited_by_count,type",
         "sort": sort,
     }
-    if mailto:
-        params["mailto"] = mailto
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     if filt:
         params["filter"] = filt
     if keyword:
@@ -231,9 +230,16 @@ def _fetch_page(
     for attempt in range(5):
         wait = min(60, 2 ** (attempt + 2))
         try:
-            resp = requests.get(_OA_WORKS, params=params, timeout=30, proxies={"http": None, "https": None})
+            resp = requests.get(
+                _OA_WORKS, params=params, headers=headers, timeout=30, proxies={"http": None, "https": None}
+            )
+            if resp.status_code == 401:
+                raise ValueError(
+                    "OpenAlex API key 无效（401），请检查 ingest.openalex_api_key 或环境变量 OPENALEX_API_KEY"
+                )
             if resp.status_code == 429:
-                _log.warning("OpenAlex 429 rate limit, retrying in %ds", wait)
+                remaining = resp.headers.get("X-RateLimit-Remaining-USD", "?")
+                _log.warning("OpenAlex 429 rate limit (daily budget remaining $%s), retrying in %ds", remaining, wait)
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
@@ -331,7 +337,7 @@ def fetch_explore(
         raise ValueError(f"limit 必须为正整数，当前为: {limit}")
 
     resolved_sort = _resolve_sort(sort, keyword)
-    mailto = (cfg.ingest.contact_email if cfg else "") or os.environ.get("OPENALEX_MAILTO", "")
+    api_key = cfg.resolved_openalex_api_key() if cfg else os.environ.get("OPENALEX_API_KEY", "")
 
     out_dir = _explore_dir(name, cfg)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -385,7 +391,7 @@ def fetch_explore(
                     cursor=cursor,
                     keyword=keyword,
                     sort=resolved_sort,
-                    mailto=mailto,
+                    api_key=api_key,
                 )
                 if not papers:
                     break

@@ -133,9 +133,11 @@ class IngestConfig:
             无对应模式，按默认处理并告警）。
         mineru_enable_formula: 是否启用公式解析。仅对云端 ``pipeline``/``vlm`` 生效。
         mineru_enable_table: 是否启用表格解析。仅对云端 ``pipeline``/``vlm`` 生效。
-        contact_email: Crossref / OpenAlex polite pool 联系邮箱，建议放 config.local.yaml。
+        contact_email: Crossref polite pool 联系邮箱，建议放 config.local.yaml。
         s2_api_key: Semantic Scholar API 密钥，有 key 可大幅提升限速（1 req/s vs 100 req/5min）。
             建议放 config.local.yaml 或环境变量 ``S2_API_KEY``。
+        openalex_api_key: OpenAlex API 密钥，可提升每日 API 调用额度。
+            建议放 config.local.yaml 或环境变量 ``OPENALEX_API_KEY``。
         chunk_page_limit: 本地 MinerU 对超长 PDF 的自动切分页数阈值。超过此值
             的 PDF 在转换前自动拆分为多个短 PDF，转换后合并为单个 Markdown。
             云端 MinerU 另外还会遵循 600 页 / 200MB 的官方单文件限制。
@@ -168,6 +170,7 @@ class IngestConfig:
     mineru_enable_table: bool = True
     contact_email: str = ""
     s2_api_key: str = ""  # Semantic Scholar API key for higher rate limits
+    openalex_api_key: str = ""  # OpenAlex API key for a higher daily budget
     chunk_page_limit: int = 100  # local MinerU auto-split threshold in pages
     mineru_batch_size: int = 20  # cloud batch size per request
     mineru_upload_workers: int = 4
@@ -308,6 +311,18 @@ class Config:
         if self.ingest.s2_api_key:
             return self.ingest.s2_api_key
         return os.environ.get("S2_API_KEY", "")
+
+    def resolved_openalex_api_key(self) -> str:
+        """按优先级查找 OpenAlex API key。
+
+        查找顺序: config ``ingest.openalex_api_key`` → 环境变量 ``OPENALEX_API_KEY``。
+
+        Returns:
+            API key 字符串，未找到则返回空字符串。
+        """
+        if self.ingest.openalex_api_key:
+            return self.ingest.openalex_api_key
+        return os.environ.get("OPENALEX_API_KEY", "")
 
 
 # ============================================================================
@@ -545,6 +560,7 @@ def _build_config(data: dict, root: Path) -> Config:
         mineru_enable_table=_bool_or_default(ingest_data.get("mineru_enable_table"), True),
         contact_email=ingest_data.get("contact_email") or "",
         s2_api_key=ingest_data.get("s2_api_key") or "",
+        openalex_api_key=ingest_data.get("openalex_api_key") or "",
         mineru_batch_size=_normalize_mineru_batch_size(ingest_data.get("mineru_batch_size")),
         mineru_upload_workers=_normalize_positive_int(
             ingest_data.get("mineru_upload_workers"),

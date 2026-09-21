@@ -290,7 +290,11 @@ def main() -> None:
 
         from scrinium import log as _log
         from scrinium import metrics as _metrics
-        from scrinium.ingest.metadata._models import configure_s2_session, configure_session
+        from scrinium.ingest.metadata._models import (
+            configure_openalex_api_key,
+            configure_s2_session,
+            configure_session,
+        )
         from scrinium.ingest.pipeline import PipelineError
 
         session_id = _log.setup(cfg)
@@ -306,6 +310,7 @@ def main() -> None:
             ui(f"警告：metrics 初始化失败，已跳过，不影响 setup: {exc}")
         configure_session(cfg.ingest.contact_email)
         configure_s2_session(cfg.resolved_s2_api_key())
+        configure_openalex_api_key(cfg.resolved_openalex_api_key())
 
         try:
             args.func(args, cfg)
