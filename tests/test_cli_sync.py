@@ -62,6 +62,23 @@ def test_export_import_roundtrip(tmp_path, monkeypatch):
     assert (dst / "workspace" / "ws1" / "papers.json").exists()
 
 
+def test_export_import_includes_preferences(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    _seed_kb(src)
+    theme = src / "preferences" / "theme" / "lab" / "theme.py"
+    theme.parent.mkdir(parents=True)
+    theme.write_text("THEME = 'lab'\n", encoding="utf-8")
+    out = tmp_path / "sync_backup.tar.gz"
+
+    _export(SimpleNamespace(file=str(out)), _make_cfg(src))
+
+    dst = tmp_path / "dst"
+    dst.mkdir()
+    _import(SimpleNamespace(file=str(out)), _make_cfg(dst))
+    assert (dst / "preferences" / "theme" / "lab" / "theme.py").read_text(encoding="utf-8") == "THEME = 'lab'\n"
+
+
 def test_export_excludes_transient_and_junk(tmp_path):
     src = tmp_path / "src"
     src.mkdir()

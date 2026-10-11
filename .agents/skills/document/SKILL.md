@@ -31,6 +31,16 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
 
 输出目录：`workspace/` 下（如 `workspace/reports/`、`workspace/figures/`）。
 
+## PPT 主题与偏好
+
+默认主题唯一定义在 `scrinium/presentation/theme.py` 的 `DEFAULT_THEME`。生成脚本从 `scrinium.presentation.pptx_style` 导入样式组件，在创建 presentation 前用 `configure_theme()` 配置；可从 `templates/starter/build_report.py` 复制最小示例开始。
+
+用户的定制主题放在 `preferences/theme/<name>/theme.py`，通过 `replace(DEFAULT_THEME, ...)` 覆盖所需字段，Logo 等资源放在该主题自己的 `assets/` 下。生成的 PPTX 留在对应报告 workspace 的相应子目录。可选的逐页预览由报告根据当前环境自行安排，预览产物放在报告的 `preview/`。
+
+用户要求新建主题时，先确认主题名称和本次希望定制的字体、主题色、Logo、页脚等内容，未指定的属性沿用默认主题，不必逐项追问。随后在对应主题目录中定义主题对象，把引用资源放入该主题的 `assets/`，并在报告生成脚本中导入该对象、传给 `configure_theme()`。
+
+开始制作 PPT 前，优先参考当前自定义主题的 `preferences/theme/<name>/style-guide.md` 的指导，如果没有，参考 `scrinium/presentation/style-guide.md`。
+
 ## 选型决策
 
 | 需求 | 格式 | 库 |
@@ -89,6 +99,12 @@ scrinium document inspect data.xlsx
 | PPTX | 每页 shape 类型、位置(英寸)、尺寸、文字预览、图片大小、表格维度、**溢出检测** |
 | DOCX | 标题层级、段落内容、表格结构、嵌入图片、样式统计 |
 | XLSX | Sheet 列表、数据范围、冻结窗格、合并单元格、表头预览、数据预览、图表类型和标题 |
+
+## 可编辑副本与差异复核
+
+1. 运行 `scrinium document editable report.pptx` 准备用户可编辑副本；已有副本时先确认其中是否有人工修改。
+2. 用户编辑后运行 `scrinium document diff report.pptx report_editable.pptx`（需要结构化结果时加 `--json`），查看文本、位置、字体与段落等属性、页序、增删、Notes，以及主题、母版、媒体和嵌入对象等包级差异；纯元数据单独标记。
+3. 需要重新生成时，Agent 根据语义差异修改生成脚本；主题、母版、关系或嵌入对象等包级差异需人工定位。先构建候选文件并再次 diff，复核后才替换人工版本。
 
 ## 与其他 skill 的组合
 

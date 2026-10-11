@@ -84,6 +84,9 @@ where = ["."]
 include = ["scrinium*"]
 namespaces = false
 
+[tool.setuptools.package-data]
+"scrinium.presentation" = ["style-guide.md"]
+
 # ---------- ruff ----------
 [tool.ruff]
 target-version = "py310"

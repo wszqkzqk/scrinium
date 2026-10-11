@@ -254,6 +254,21 @@ print(f"已生成: {OUT}")
 
 `0` Title Slide | `1` Title and Content | `2` Section Header | `3` Two Content | `4` Comparison | `5` Title Only | `6` Blank
 
+### Scrinium PPT 组件
+
+从 `scrinium.presentation.pptx_style` 导入组件，先用 `configure_theme()` 选择主题，再用 `new_presentation()` 创建 16:9 演示文稿。
+
+| 组件 | 用途 |
+|------|------|
+| `base_slide(prs, title, section, number, citation=None)` | 带标题、章节和页脚的普通内容页 |
+| `chapter_slide(prs, number, title, subtitle, "", english="")` | 章节过渡页 |
+| `card(slide, title, body, x, y, w, h)` | 信息卡片，正文默认 18 pt |
+| `image_contain(slide, path, x, y, w, h, caption=None)` | 在指定区域等比例完整放置图片，图注位于图下 |
+| `horizontal_bars(slide, title, items, x, y, w, h)` | 横向条形统计图 |
+| `text` / `rich_text` / `rect` / `line` / `circle` / `right_arrow` | 自定义页面的基础组件 |
+
+`base_slide()` 的 `citation` 支持多行字符串，每条文献占一行，并自动向上扩展页脚空间。复杂页面可以继续使用原生 `python-pptx` API。
+
 ---
 
 ## 工具 3：openpyxl（Excel 表格）
