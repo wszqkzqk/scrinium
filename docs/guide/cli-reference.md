@@ -82,7 +82,7 @@ scrinium sync
 - `import endnote` and `import zotero` bring existing libraries into Scrinium.
 - `export` handles BibTeX, RIS, Markdown, and DOCX export.
 - `workspace` manages paper subsets for focused projects and writing workflows (`init` / `add` / `remove` / `list` / `show` / `search` / `rename` / `export`).
-- `sync` synchronizes the knowledge base (`data/`) and workspaces (`workspace/`) across devices: `push` / `pull` / `status` over SSH or local paths, and `export` / `import` as a tar.gz archive for offline transfer (see `docs/guide/sync.md`).
+- `sync` synchronizes the knowledge base (`data/`), workspaces (`workspace/`), and personal preferences (`preferences/`) across devices: `push` / `pull` / `status` over SSH or local paths, and `export` / `import` as a tar.gz archive for offline transfer (see `docs/guide/sync.md`).
 
 ## Scientific Runtime And Documents
 

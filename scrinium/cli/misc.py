@@ -269,8 +269,12 @@ def cmd_document(args: argparse.Namespace, cfg) -> None:
     action = getattr(args, "doc_action", None)
     if action == "inspect":
         _cmd_document_inspect(args, cfg)
+    elif action == "editable":
+        _cmd_document_editable(args, cfg)
+    elif action == "diff":
+        _cmd_document_diff(args, cfg)
     else:
-        _log.error("请指定 document 子命令: inspect")
+        _log.error("请指定 document 子命令: inspect / editable / diff")
         sys.exit(1)
 
 
@@ -288,6 +292,141 @@ def _cmd_document_inspect(args: argparse.Namespace, cfg) -> None:
         _log.error("%s", e)
         sys.exit(1)
     print(result)
+
+
+def _load_editable_module():
+    from scrinium.presentation import editable
+
+    return editable
+
+
+def _cmd_document_editable(args: argparse.Namespace, cfg) -> None:
+    source = Path(args.source)
+    target = Path(args.output) if args.output else source.with_name(f"{source.stem}_editable.pptx")
+    try:
+        editable = _load_editable_module()
+        result = editable.prepare_editable(source, target, force=args.force)
+    except (OSError, ValueError, ImportError) as e:
+        _log.error("%s", e)
+        sys.exit(1)
+    ui(f"已创建可编辑副本: {result}")
+
+
+def _text_preview(value, limit=70):
+    if value is None:
+        return "(无)"
+    preview = str(value).replace("\n", "\\n")
+    return preview if len(preview) <= limit else f"{preview[:limit]}…"
+
+
+def _geometry_preview(geometry):
+    left = geometry["left"] / 914400
+    top = geometry["top"] / 914400
+    width = geometry["width"] / 914400
+    height = geometry["height"] / 914400
+    return f'({left:.2f}", {top:.2f}") {width:.2f}" × {height:.2f}"'
+
+
+def _print_part_changes(label, changes, limit=12):
+    added = len(changes["added"])
+    removed = len(changes["removed"])
+    modified = len(changes["modified"])
+    total = added + removed + modified
+    if not total:
+        return
+    ui(f"{label}: 新增 {added} | 删除 {removed} | 修改 {modified}")
+    shown = 0
+    for action, caption in (("added", "+"), ("removed", "-"), ("modified", "~")):
+        for change in changes[action]:
+            if shown == limit:
+                ui(f"  其余 {total - shown} 个部件请使用 --json 查看")
+                return
+            ui(f"  {caption} {change['part']} [{change['kind']}]")
+            shown += 1
+
+
+def _print_pptx_diff(result) -> None:
+    ui(f"=== PPTX 差异: {Path(result['baseline']).name} → {Path(result['edited']).name} ===")
+    if not result["has_changes"]:
+        ui("未发现内容差异。")
+        _print_part_changes("元数据（不计入内容差异）", result["metadata_changes"])
+        return
+
+    for slide in result["slides_added"]:
+        ui(f"第 {slide['index']} 页: 新增幻灯片 (slide_id={slide['slide_id']})")
+    for slide in result["slides_removed"]:
+        ui(f"原第 {slide['index']} 页: 删除幻灯片 (slide_id={slide['slide_id']})")
+    if result["slide_order_change"] is not None:
+        count = len(result["slide_order_change"]["before"])
+        ui(f"{count} 个共有页面的相对顺序已调整；使用 --json 可查看完整前后顺序")
+
+    aspect_names = {
+        "font": "字体",
+        "paragraph": "段落",
+        "crop": "图片裁切",
+        "rotation": "旋转",
+        "shape": "形状属性",
+        "other": "其他属性",
+    }
+    for slide in result["slides_modified"]:
+        ui(f"第 {slide['edited_slide']} 页（原第 {slide['baseline_slide']} 页）:")
+        for shape in slide["shapes_added"]:
+            ui(f"  + Shape [{shape['name']}] (shape_id={shape['shape_id']})")
+        for shape in slide["shapes_removed"]:
+            ui(f"  - Shape [{shape['name']}] (shape_id={shape['shape_id']})")
+        for change in slide["text_changes"]:
+            ui(f"  文本 [{change['name']}]: '{_text_preview(change['before'])}' → '{_text_preview(change['after'])}'")
+        for change in slide["geometry_changes"]:
+            ui(
+                f"  位置/尺寸 [{change['name']}]: "
+                f"{_geometry_preview(change['before'])} → {_geometry_preview(change['after'])}"
+            )
+        for change in slide["image_changes"]:
+            before = (change["before"] or {}).get("sha256", "(无)")[:12]
+            after = (change["after"] or {}).get("sha256", "(无)")[:12]
+            ui(f"  图片 [{change['name']}]: {before} → {after}")
+        for change in slide["property_changes"]:
+            aspects = "、".join(aspect_names.get(aspect, aspect) for aspect in change["aspects"])
+            ui(f"  属性 [{change['name']}]: {aspects}")
+        if slide["notes_change"] is not None:
+            change = slide["notes_change"]
+            ui(f"  Notes: '{_text_preview(change['before'])}' → '{_text_preview(change['after'])}'")
+
+    summary = result["summary"]
+    ui(
+        "汇总: "
+        f"新增/删除/修改幻灯片 {summary['slides_added']}/{summary['slides_removed']}/{summary['slides_modified']} | "
+        f"页序 {summary['slide_order_changes']} | "
+        f"新增/删除 Shape {summary['shapes_added']}/{summary['shapes_removed']} | "
+        f"文本 {summary['text_changes']} | 位置/尺寸 {summary['geometry_changes']} | "
+        f"图片 {summary['image_changes']} | 属性 {summary['property_changes']} | Notes {summary['notes_changes']}"
+    )
+    _print_part_changes("PPTX 包级完整性检查", result["package_changes"])
+    _print_part_changes("元数据（不计入内容差异）", result["metadata_changes"])
+
+    if result["slides_added"] or result["slides_removed"] or result["slide_order_change"] is not None:
+        ui("处理提示：页面结构变化时，同步检查生成脚本中的页面顺序和 Notes 对应关系。")
+    package_changes = result["package_changes"]
+    if any(
+        change["part"].startswith("ppt/media/")
+        for action in ("added", "removed", "modified")
+        for change in package_changes[action]
+    ):
+        ui("处理提示：媒体内容变化时，核对生成脚本引用的原始图片、音视频或嵌入资源。")
+    ui("处理提示：语义差异用于定位修改；主题、母版、关系和未解析 XML 等包级差异需人工复核。工具不执行自动合并。")
+
+
+def _cmd_document_diff(args: argparse.Namespace, cfg) -> None:
+    try:
+        editable = _load_editable_module()
+        result = editable.compare_pptx(Path(args.baseline), Path(args.edited))
+    except (OSError, ValueError, ImportError) as e:
+        _log.error("%s", e)
+        sys.exit(1)
+    if args.json:
+        _emit_json(result)
+        return
+    _print_pptx_diff(result)
 
 
 def cmd_style(args: argparse.Namespace, cfg) -> None:
@@ -695,7 +834,7 @@ def register(sub) -> None:
     _add_style_parser(sub, "style", None)
 
     # --- document ---
-    p_doc = sub.add_parser("document", help="Office 文档工具（inspect 等）")
+    p_doc = sub.add_parser("document", help="Office 文档工具（inspect / editable / diff）")
     p_doc.set_defaults(func=cmd_document)
     p_doc_sub = p_doc.add_subparsers(dest="doc_action", required=True)
 
@@ -707,6 +846,16 @@ def register(sub) -> None:
         default=None,
         help="文件格式（默认从扩展名推断）",
     )
+
+    p_doc_editable = p_doc_sub.add_parser("editable", help="创建可供用户编辑的 PPTX 副本")
+    p_doc_editable.add_argument("source", help="源 PPTX 文件路径")
+    p_doc_editable.add_argument("--output", default=None, help="输出路径（默认 <源文件名>_editable.pptx）")
+    p_doc_editable.add_argument("--force", action="store_true", help="覆盖已存在的可编辑副本")
+
+    p_doc_diff = p_doc_sub.add_parser("diff", help="比较基准 PPTX 与编辑后副本")
+    p_doc_diff.add_argument("baseline", help="基准 PPTX 文件路径")
+    p_doc_diff.add_argument("edited", help="编辑后的 PPTX 文件路径")
+    p_doc_diff.add_argument("--json", action="store_true", help="以 JSON 输出")
 
     # --- toolref ---
     p_tr = sub.add_parser("toolref", help="科学计算工具文档查阅（fetch/show/search/list/use）")

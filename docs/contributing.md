@@ -22,6 +22,7 @@ See [CONTRIBUTING.md](https://github.com/wszqkzqk/scrinium/blob/main/CONTRIBUTIN
 | `explore.py` | Multi-dimensional literature exploration (OpenAlex multi-filter fetch + keyword search, isolated under `data/explore/`) |
 | `workspace.py` | Workspace paper subset management (reuses search/export) |
 | `document.py` | Office document inspection (DOCX / PPTX / XLSX structure, layout, overflow checks) |
+| `presentation/` | Reusable PPTX themes, styling helpers, editable-copy support, and structural diff |
 | `export.py` | BibTeX / RIS / Markdown bibliography / DOCX export |
 | `citation_styles.py` | Citation style management (built-in APA/Vancouver/Chicago/MLA + dynamically loaded custom styles stored in `data/citation_styles/`) |
 | `citation_check.py` | Citation verification (extract author-year citations from text + cross-check against the local library) |

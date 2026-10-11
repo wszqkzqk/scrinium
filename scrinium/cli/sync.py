@@ -1,10 +1,10 @@
-"""sync — cross-device sync of the knowledge base (data/) and workspaces (workspace/).
+"""sync — cross-device sync of data/, workspace/, and personal preferences/.
 
 Subcommands:
-    scrinium sync push <target>          push data/ + workspace/ to a target (SSH or local path)
-    scrinium sync pull <target>          pull data/ + workspace/ from a target
+    scrinium sync push <target>          push data/ + workspace/ + preferences/ to a target (SSH or local path)
+    scrinium sync pull <target>          pull data/ + workspace/ + preferences/ from a target
     scrinium sync status <target>        show files that would change (dry-run)
-    scrinium sync export <file.tar.gz>   pack data/ + workspace/ into an archive (offline transfer)
+    scrinium sync export <file.tar.gz>   pack data/ + workspace/ + preferences/ into an archive (offline transfer)
     scrinium sync import <file.tar.gz>   import from an archive
 """
 
@@ -39,13 +39,13 @@ _EXCLUDES = (
 
 def register(sub) -> None:
     """Register sync-domain subcommands."""
-    p_sync = sub.add_parser("sync", help="跨设备同步知识库（data/）与工作区（workspace/）")
+    p_sync = sub.add_parser("sync", help="跨设备同步知识库、工作区与个人偏好（data/、workspace/、preferences/）")
     p_sync.set_defaults(func=cmd_sync)
     p_sync_sub = p_sync.add_subparsers(dest="sync_action", required=True)
 
     for name, help_text in (
-        ("push", "推送 data/ + workspace/ 到目标（user@host:path 或本地路径）"),
-        ("pull", "从目标拉取 data/ + workspace/ 到本地"),
+        ("push", "推送 data/ + workspace/ + preferences/ 到目标（user@host:path 或本地路径）"),
+        ("pull", "从目标拉取 data/ + workspace/ + preferences/ 到本地"),
         ("status", "显示将要变更的文件（dry-run，不实际变更）"),
     ):
         p = p_sync_sub.add_parser(name, help=help_text)
@@ -56,11 +56,11 @@ def register(sub) -> None:
         p.add_argument("--yes", action="store_true", help="配合 --mirror 确认删除操作")
         p.set_defaults(sync_action=name)
 
-    p_exp = p_sync_sub.add_parser("export", help="打包 data/ + workspace/ 为归档文件（离线传输）")
+    p_exp = p_sync_sub.add_parser("export", help="打包 data/ + workspace/ + preferences/ 为归档文件（离线传输）")
     p_exp.add_argument("file", help="输出归档文件路径（如 sync_backup.tar.gz）")
     p_exp.set_defaults(sync_action="export")
 
-    p_imp = p_sync_sub.add_parser("import", help="从归档文件导入 data/ + workspace/")
+    p_imp = p_sync_sub.add_parser("import", help="从归档文件导入 data/ + workspace/ + preferences/")
     p_imp.add_argument("file", help="归档文件路径（如 sync_backup.tar.gz）")
     p_imp.set_defaults(sync_action="import")
 
@@ -76,7 +76,7 @@ def cmd_sync(args: argparse.Namespace, cfg) -> None:
 
 
 def _sources(cfg) -> list[Path]:
-    return [cfg.papers_dir.parent, cfg.workspace_dir]
+    return [cfg.papers_dir.parent, cfg.workspace_dir, cfg._root / "preferences"]
 
 
 def _sync_dirs(args: argparse.Namespace, cfg, action: str) -> None:

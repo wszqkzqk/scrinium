@@ -1,6 +1,6 @@
 # Cross-Device Sync (`scrinium sync`)
 
-Synchronize the knowledge base (`data/`) and workspaces (`workspace/`) between Scrinium instances on different devices. Everything is included: full text (`paper.md`, `paper.pdf`, `images/`, `notes.md`), metadata (`meta.json`), the tag vocabulary (`tags.yaml`), the index (`index.db`), and workspace definitions (`papers.json`).
+Synchronize the knowledge base (`data/`), workspaces (`workspace/`), and personal preferences (`preferences/`) between Scrinium instances on different devices. Research content includes full text (`paper.md`, `paper.pdf`, `images/`, `notes.md`), metadata (`meta.json`), the tag vocabulary (`tags.yaml`), the index (`index.db`), and workspace definitions (`papers.json`). Reusable personal configuration, such as custom presentation themes, is transferred from `preferences/`.
 
 > `scrinium export` / `scrinium import` handle citation formats (BibTeX/RIS/Markdown/DOCX) and external imports (Endnote/Zotero) — they cannot sync the knowledge base itself.
 
@@ -8,7 +8,7 @@ Synchronize the knowledge base (`data/`) and workspaces (`workspace/`) between S
 
 | Subcommand | Purpose |
 |---|---|
-| `scrinium sync push <target>` | Push `data/` + `workspace/` to the target |
+| `scrinium sync push <target>` | Push `data/` + `workspace/` + `preferences/` to the target |
 | `scrinium sync pull <target>` | Pull from the target into the local instance |
 | `scrinium sync status <target>` | Show what would change (dry-run, no changes made) |
 | `scrinium sync export <file.tar.gz>` | Pack into an archive (offline / cloud-drive / USB transfer) |
@@ -54,4 +54,4 @@ scrinium sync import sync_backup.tar.gz
 ## Notes
 
 - This is **file-level sync**: `meta.json` conflicts are resolved by file mtime (newer wins); there is no field-level merge.
-- When the same file is edited on both sides, the later write wins. If you need two-way editing, put `data/` and `workspace/` under git instead.
+- When the same file is edited on both sides, the later write wins. If you need two-way editing, use a separate version-control workflow for the affected directories.

@@ -1,6 +1,7 @@
 # Data & index (not tracked)
 /data/
 /workspace/
+/preferences/
 
 # Python
 __pycache__/
