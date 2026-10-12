@@ -49,7 +49,7 @@ def slide_text(slide):
 def test_default_theme_has_no_logo_or_footer():
     assert not DEFAULT_THEME.footer_text
     assert DEFAULT_THEME.logo_dark is None
-    assert DEFAULT_THEME.logo_red is None
+    assert DEFAULT_THEME.logo_primary is None
     assert DEFAULT_THEME.logo_white is None
 
     prs = new_presentation()
@@ -69,11 +69,11 @@ def test_custom_theme_preserves_logo_and_footer(tmp_path):
         DEFAULT_THEME,
         footer_text="TEST BRAND",
         logo_dark=logo,
-        logo_red=logo,
+        logo_primary=logo,
         logo_white=logo,
     )
     assert custom.footer_text == "TEST BRAND"
-    for logo_path in (custom.logo_dark, custom.logo_red, custom.logo_white):
+    for logo_path in (custom.logo_dark, custom.logo_primary, custom.logo_white):
         assert logo_path is not None and logo_path.is_file()
 
     configure_theme(custom)
@@ -103,12 +103,12 @@ def test_multiline_citation_expands_upward_without_moving_bottom():
 
 def test_theme_replace_derives_an_independent_immutable_theme():
     accent = RGBColor(1, 2, 3)
-    custom = replace(DEFAULT_THEME, accent=accent, footer_text="Group", logo_red=Path("logo.png"))
+    custom = replace(DEFAULT_THEME, accent=accent, footer_text="Group", logo_primary=Path("logo.png"))
     assert custom.accent == accent
     assert custom.footer_text == "Group"
-    assert custom.logo_red == Path("logo.png")
+    assert custom.logo_primary == Path("logo.png")
     assert DEFAULT_THEME.footer_text == ""
-    assert DEFAULT_THEME.logo_red is None
+    assert DEFAULT_THEME.logo_primary is None
     with pytest.raises(FrozenInstanceError):
         custom.footer_text = "Changed"
 

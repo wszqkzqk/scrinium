@@ -11,7 +11,7 @@ class Theme:
     accent: RGBColor
     footer_text: str
     logo_dark: Path | None
-    logo_red: Path | None
+    logo_primary: Path | None
     logo_white: Path | None
 
 
@@ -21,7 +21,7 @@ DEFAULT_THEME = Theme(
     accent=RGBColor(39, 43, 48),
     footer_text="",
     logo_dark=None,
-    logo_red=None,
+    logo_primary=None,
     logo_white=None,
 )
 
