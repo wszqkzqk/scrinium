@@ -55,6 +55,8 @@ office = [
 draw = [
     "cli-anything-inkscape>=1.0.0",
     "mermaid-py>=0.3",
+    "matplotlib>=3.8",
+    "numpy>=1.23",
 ]
 full = [
     "scrinium[import]",
