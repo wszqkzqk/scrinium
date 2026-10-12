@@ -23,7 +23,7 @@ repos:
 
       - id: mypy
         name: mypy scrinium/ (local venv)
-        entry: .venv/bin/mypy scrinium/
+        entry: .venv/bin/mypy --no-site-packages scrinium/
         language: system
         pass_filenames: false
 
