@@ -1,4 +1,4 @@
-name: Release to PyPI
+name: Release
 
 on:
   push:
@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      contents: read
       id-token: write  # trusted publishing
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +23,7 @@ jobs:
       - name: Verify release metadata alignment
         run: |
           python - <<'PY'
+          import json
           import os
           import re
           import tomllib
@@ -39,12 +41,22 @@ jobs:
           cff_match = re.search(r'^version:\s*"?([^"\n]+)"?\s*$', cff_text, re.MULTILINE)
           citation_version = cff_match.group(1).strip() if cff_match else None
 
+          plugin = json.loads((root / ".claude-plugin" / "plugin.json").read_text())
+          marketplace = json.loads((root / ".claude-plugin" / "marketplace.json").read_text())
+          changelog_text = (root / "CHANGELOG.md").read_text()
+
           versions = {
               "tag": tag_version,
               "pyproject": pyproject_version,
               "runtime": runtime_version,
               "citation": citation_version,
+              "plugin": plugin["version"],
+              "marketplace metadata": marketplace["metadata"]["version"],
+              "changelog": pyproject_version if f"## [{pyproject_version}]" in changelog_text else "missing",
           }
+          for marketplace_plugin in marketplace["plugins"]:
+              versions[f"marketplace plugin ({marketplace_plugin['name']})"] = marketplace_plugin["version"]
+
           mismatches = [f"{name}={value}" for name, value in versions.items() if value != pyproject_version]
           if mismatches:
               raise SystemExit(
@@ -66,5 +78,38 @@ jobs:
       - name: Check distribution metadata
         run: twine check dist/*
 
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          release_args=(--generate-notes --verify-tag)
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Scrinium ${GITHUB_REF_NAME#v}" \
+            "${release_args[@]}"

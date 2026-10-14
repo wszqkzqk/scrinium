@@ -49,8 +49,8 @@ pip uninstall -y scholaraio                  # drop the old editable install
 rm -rf scholaraio.egg-info
 pip install -e ".[full]"                     # install scrinium (new CLI name)
 
-scrinium --version                           # 3.0.0
-scrinium index                               # one-time index migration (schema v2: drops legacy vector tables)
+scrinium --version                           # 3.1.0
+scrinium index                               # one-time index migration to the latest schema
 ```
 
 Compatibility fallbacks (with a deprecation warning):

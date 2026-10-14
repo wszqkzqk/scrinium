@@ -5,27 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
-### Changed
-
-- **Ingest preserves the source PDF**: after a successful conversion the source PDF is kept as `paper.pdf` in the paper directory (previously it was deleted, keeping only `paper.md`). Applies to the batch MinerU/fallback/cloud conversion paths and to `attach-pdf`
-
-### Fixed
-
-- **`explore fetch --keyword` relevance**: OpenAlex requests were hard-coded to `sort=publication_year:asc`, so keyword fetches returned the *oldest* matching records (mostly irrelevant public-domain books) instead of relevant ones. Keyword fetches now default to `relevance_score:desc`; filter-only fetches (ISSN/concept/author/institution surveys) keep chronological ascending order. New `--sort` option (`year_asc` / `year_desc` / `relevance` / `citations`) overrides the default, and the resolved sort is recorded in the explore DB `meta.json`
-- **OpenAlex 429 resilience**: retry budget raised from 3 attempts with 1–4 s waits to 5 attempts with 4–60 s waits — OpenAlex rate limiting can persist for minutes under shared-IP load
+## [3.1.0] — 2026-10-14
 
 ### Added
 
-- **OpenAlex API key support**: configure `ingest.openalex_api_key` (or env var `OPENALEX_API_KEY`) to authenticate OpenAlex requests via a Bearer token, raising the daily API budget; applies to `explore fetch` and metadata enrichment (`query_openalex`). Unset keys keep the previous anonymous behavior; an invalid key fails fast with a clear 401 error instead of silently retrying
-- **`explore fetch` OpenAlex alignment**: `per_page` lowered 200 → 100 to match the documented maximum; the retired `mailto` polite-pool parameter is no longer sent; 429 retry logs now include the remaining daily budget (`X-RateLimit-Remaining-USD`)
 - **Supporting Information (SI) support**: SI is now a first-class attachment of a paper, stored in the paper's `si/` subdirectory (original files + converted Markdown + figure assets) and recorded in `meta.json["si"]` — never a standalone library entry. New `scrinium/si.py` module with: SI detection (filename + first-page text), a resolver chain producing candidate SI URLs (ACS-Figshare, RSC, Science, Elsevier via Crossref PII, PLOS, Nature/Springer ESM, Europe PMC for OA papers), download + verification, and a unified attach funnel (`attach_si()`) shared by the automatic chain and agent takeover. New commands: `scrinium si scan|fetch|status` and `scrinium attach-si`; `scrinium show <id> --si` reads SI text; L1 header shows SI presence. SI Markdown is indexed into the parent's FTS row (new `si` column, schema v3), so SI keywords find the parent paper
 - **Inbox SI routing**: filename-suspected SI entries are deferred until main papers are ingested, then attached via the DOI printed in the SI text; unmatched ones go to `data/pending/` as `si_orphan` and are reconciled by DOI when the parent is later ingested. A duplicate-DOI file that looks like SI is attached to the existing paper instead of going to pending. New papers trigger one automatic SI fetch after ingest (`ingest.si_fetch_on_ingest`, default on)
 - **Audit SI rules**: `missing_si` (text references SI but nothing attached, info) and `suspected_si` (a title looking like SI ingested as a standalone paper, warning)
 - **New `/si` skill**: discovery/fetch/attach workflow including the subagent takeover template for `not_found` / `blocked` / `mismatch` failures
-- **OpenAlex polite pool**: `explore fetch` sends `mailto` from `ingest.contact_email` (or the `OPENALEX_MAILTO` environment variable) for better rate limits
-- **`scrinium sync` command**: cross-device sync of the knowledge base (`data/`) and workspaces (`workspace/`) between Scrinium instances. Subcommands: `push` / `pull` / `status` (rsync over SSH or local path, `--update` by default, `--mirror` for exact mirror with dry-run preview) and `export` / `import` (tar.gz archive for offline transfer). Excludes transient staging (inbox*), runtime logs, caches, and trash by default
+- **`scrinium sync` command**: cross-device sync of the knowledge base (`data/`), workspaces (`workspace/`), and personal preferences (`preferences/`) between Scrinium instances. Subcommands: `push` / `pull` / `status` (rsync over SSH or local path, `--update` by default, `--mirror` for exact mirror with dry-run preview) and `export` / `import` (tar.gz archive for offline transfer). Excludes transient staging (inbox*), runtime logs, caches, and trash by default
+- **OpenAlex API key support**: configure `ingest.openalex_api_key` (or env var `OPENALEX_API_KEY`) to authenticate OpenAlex requests via a Bearer token, raising the daily API budget; applies to `explore fetch` and metadata enrichment (`query_openalex`). Unset keys keep the previous anonymous behavior; an invalid key fails fast with a clear 401 error instead of silently retrying
+- **Metadata enrichment timeout**: `ingest.enrich_timeout` (default 180 seconds) bounds each paper's API enrichment on Unix; a timeout preserves the local metadata and continues instead of stalling the inbox run. Platforms without `SIGALRM`, including Windows, skip the cap gracefully
+- **Reusable PowerPoint workflow**: shared theme and styling helpers in `scrinium.presentation`, a starter template in the `document` skill, and custom themes under `preferences/theme/<name>/`
+- **PPTX editing and review loop**: `scrinium document editable` prepares a user-editable copy, while `scrinium document diff` reports content, formatting, slide-order, notes, and package-level changes, with `--json` for structured output
+- **Tag-driven GitHub Releases**: after a successful PyPI publication, the release workflow creates a GitHub Release with the wheel and source archive attached; prerelease tags are detected automatically. Release metadata checks now also cover the plugin manifests and changelog
+
+### Changed
+
+- **Ingest preserves the source PDF**: after a successful conversion the source PDF is kept as `paper.pdf` in the paper directory (previously it was deleted, keeping only `paper.md`). Applies to the batch MinerU/fallback/cloud conversion paths and to `attach-pdf`
+- **`explore fetch` OpenAlex alignment**: `per_page` lowered 200 → 100 to match the documented maximum; the retired `mailto` polite-pool parameter is no longer sent; 429 retry logs now include the remaining daily budget (`X-RateLimit-Remaining-USD`)
+- **OpenAlex 429 resilience**: retry budget raised from 3 attempts with 1–4 s waits to 5 attempts with 4–60 s waits — OpenAlex rate limiting can persist for minutes under shared-IP load
+- **Scientific plotting in the `draw` extra**: `matplotlib` and `numpy` are now installed with `scrinium[draw]` (and therefore `scrinium[full]`)
+
+### Fixed
+
+- **`explore fetch --keyword` relevance**: OpenAlex requests were hard-coded to `sort=publication_year:asc`, so keyword fetches returned the *oldest* matching records (mostly irrelevant public-domain books) instead of relevant ones. Keyword fetches now default to `relevance_score:desc`; filter-only fetches (ISSN/concept/author/institution surveys) keep chronological ascending order. New `--sort` option (`year_asc` / `year_desc` / `relevance` / `citations`) overrides the default, and the resolved sort is recorded in the explore DB `meta.json`
 
 ## [3.0.0] — 2026-08-04
 

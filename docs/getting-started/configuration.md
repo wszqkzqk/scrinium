@@ -55,6 +55,10 @@ The `llm`, `translate`, `embed`, and `topics` sections (plus `ingest.extractor` 
 
 Metadata extraction is regex-only (`RegexExtractor`); there is no `ingest.extractor` setting anymore. When extraction comes back low-confidence, the CLI emits a `hint:` and the agent takes over (see "Agent Handoff Hints" in `docs/guide/architecture.md`).
 
+### Metadata Enrichment
+
+- `enrich_timeout` (default `180`, minimum `30`): per-paper hard timeout in seconds for metadata API enrichment. On timeout, Scrinium keeps the locally extracted metadata and continues with `extraction_method` marked as `local_timeout`. The hard cap uses `SIGALRM` on Unix; on platforms without it, including Windows, enrichment proceeds without the cap rather than failing.
+
 ### MinerU Constraints
 
 MinerU configuration constraints (aligned with current code):

@@ -45,7 +45,7 @@ git switch main && git reset --hard origin/main   # or merge/rebase if you have 
 ```bash
 pip uninstall -y scholaraio
 pip install -e ".[full]"        # or recreate your venv/conda env first
-scrinium --version              # expect: scrinium 2.0.0 (3.0.0 on latest main â€” see the 3.0 section above)
+scrinium --version              # expect: scrinium 3.1.0
 ```
 
 ## 3. Data history: nothing to migrate
@@ -53,7 +53,7 @@ scrinium --version              # expect: scrinium 2.0.0 (3.0.0 on latest main â
 Everything under `data/` and `workspace/` works as-is. On first use:
 
 ```bash
-scrinium index                  # one-time FTS schema upgrade (adds the tags column)
+scrinium index                  # one-time FTS schema upgrade to the latest version
 scrinium search "<any query>"   # smoke test
 scrinium tags                   # curated tag vocabulary intact
 ```

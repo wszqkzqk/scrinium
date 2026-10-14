@@ -96,7 +96,7 @@ scrinium citation-styles
 - `toolref` provides versioned scientific tool documentation lookup.
 - Current `toolref` subcommands are `fetch`, `show`, `search`, `list`, and `use`.
 - `arxiv` supports arXiv search and PDF fetch.
-- `document` provides Office-document utilities such as inspection.
+- `document` inspects Office documents, prepares editable PPTX copies, and compares baseline and edited PPTX files with `editable` / `diff`.
 - `citation-styles` manages citation styles (`list` / `show`).
 
 ## Audit, Setup, And Runtime Inspection

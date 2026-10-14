@@ -1,7 +1,7 @@
 {
   "name": "scrinium",
   "description": "A research infrastructure for AI agents. Search, read, and analyze papers from your local knowledge base while coding. Includes arXiv discovery, layered reading, ingestion, Supporting Information attach, citation graphs, insights analytics, Office document inspection, scientific tool docs, and academic writing workflows. Requires Python 3.10+ and pip install.",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "author": {
     "name": "Zhou Qiankang",
     "email": "wszqkzqk@qq.com"
