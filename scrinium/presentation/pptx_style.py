@@ -11,6 +11,7 @@ from pptx.oxml.ns import qn
 from pptx.oxml.xmlchemy import OxmlElement
 from pptx.util import Inches, Pt
 
+from scrinium.presentation.text_metrics import ParagraphSpec, measure_paragraphs
 from scrinium.presentation.theme import DEFAULT_THEME
 
 SLIDE_W = 13.333
@@ -143,7 +144,20 @@ def text(
     font=None,
     margin=0,
     line_spacing=1.0,
+    check_fit=False,
 ):
+    if check_fit:
+        specs = [
+            ParagraphSpec(text=ln, font_pt=size, bold=bold, line_spacing=line_spacing)
+            for ln in str(content).split("\n")
+        ]
+        fit = measure_paragraphs(specs, w, h, margin_lr_in=margin, margin_tb_in=margin)
+        if fit.overflows:
+            preview = str(content).replace("\n", " ")[:40]
+            raise ValueError(
+                f"Text '{preview}' wraps to {fit.total_lines} line(s) needing "
+                f"{fit.needed_height_in:.2f} in, exceeds box height {h:.2f} in (w={w:.2f} in)"
+            )
     font = FONT_CN if font is None else font
     box = slide.shapes.add_textbox(I(x), I(y), I(w), I(h))
     tf = box.text_frame
@@ -207,12 +221,12 @@ def _existing_logo(path):
     return path if path.exists() else None
 
 
-def base_slide(prs, title, section, number, citation=None):
+def base_slide(prs, title, section, number=None, citation=None):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     accent = CURRENT_THEME.accent
     rect(slide, 0, 0, SLIDE_W, SLIDE_H, WHITE)
     text(slide, section, 0.58, 0.24, 7.4, 0.28, 11, accent, True)
-    text(slide, title, 0.58, 0.59, 12.1, 0.58, 28, DARK, True)
+    text(slide, title, 0.58, 0.59, 12.1, 0.58, 28, DARK, True, check_fit=True)
     rect(slide, 0.58, 1.28, 0.78, 0.035, accent)
     line(slide, 1.36, 1.297, 12.75, 1.297, LIGHT, 0.8)
     line(slide, 0.45, 7.06, 12.88, 7.06, LIGHT, 0.7)
@@ -221,7 +235,8 @@ def base_slide(prs, title, section, number, citation=None):
         slide.shapes.add_picture(str(logo_dark), I(0.47), I(7.15), width=I(0.23), height=I(0.23))
     if CURRENT_THEME.footer_text:
         text(slide, CURRENT_THEME.footer_text, 0.77, 7.17, 2.0, 0.18, 8.5, MID, font=FONT_EN)
-    text(slide, f"{len(prs.slides):02d}", 12.2, 7.14, 0.55, 0.2, 10, MID, align=PP_ALIGN.RIGHT, font=FONT_EN)
+    page_number = len(prs.slides) if number is None else number
+    text(slide, f"{page_number:02d}", 12.2, 7.14, 0.55, 0.2, 10, MID, align=PP_ALIGN.RIGHT, font=FONT_EN)
     if citation:
         extra_lines = str(citation).count("\n")
         text(slide, citation, 0.58, 6.78 - 0.20 * extra_lines, 11.9, 0.24 + 0.20 * extra_lines, 10, MID)
@@ -268,25 +283,29 @@ def label(slide, content, x, y, w, color=None, fill=PALE, size=13):
         x + 0.06,
         y + 0.035,
         w - 0.12,
-        0.26,
+        0.28,
         size,
         color,
         True,
         align=PP_ALIGN.CENTER,
         valign=MSO_ANCHOR.MIDDLE,
+        check_fit=True,
     )
 
 
 def card(slide, title, body, x, y, w, h, accent=None, fill=WHITE, title_size=19, body_size=18):
     accent = CURRENT_THEME.accent if accent is None else accent
     body_h = h - 0.88
-    line_count = body.count("\n") + 1
-    needed_h = body_size / 72 * (1.12 * line_count - 0.12)
-    if needed_h > body_h:
-        raise ValueError(f"Card '{title}' needs {needed_h:.2f} in for body, only {body_h:.2f} in available")
+    specs = [ParagraphSpec(text=ln, font_pt=body_size, line_spacing=1.12) for ln in str(body).split("\n")]
+    fit = measure_paragraphs(specs, w - 0.38, body_h)
+    if fit.overflows:
+        raise ValueError(
+            f"Card '{title}' body wraps to {fit.total_lines} line(s), needs "
+            f"{fit.needed_height_in:.2f} in, only {body_h:.2f} in available (card w={w:.2f}, h={h:.2f})"
+        )
     rect(slide, x, y, w, h, fill, LIGHT, radius=True)
     rect(slide, x, y, 0.055, h, accent)
-    text(slide, title, x + 0.22, y + 0.18, w - 0.38, 0.42, title_size, DARK, True)
+    text(slide, title, x + 0.22, y + 0.14, w - 0.38, 0.44, title_size, DARK, True, check_fit=True)
     text(slide, body, x + 0.22, y + 0.70, w - 0.38, body_h, body_size, MID, valign=MSO_ANCHOR.MIDDLE, line_spacing=1.12)
 
 
@@ -323,12 +342,12 @@ def chapter_slide(prs, number, title, subtitle, source, english=""):
     logo_white = _existing_logo(CURRENT_THEME.logo_white)
     if logo_white is not None:
         slide.shapes.add_picture(str(logo_white), I(0.62), I(0.52), width=I(0.56), height=I(0.56))
-    text(slide, f"{number:02d}", 0.62, 1.48, 2.35, 0.72, 44, WHITE, True, font=FONT_EN)
-    text(slide, "CHAPTER", 0.65, 2.28, 2.20, 0.28, 12, WHITE, font=FONT_EN)
+    text(slide, f"{number:02d}", 0.62, 1.44, 2.35, 0.80, 44, WHITE, True, font=FONT_EN)
+    text(slide, "CHAPTER", 0.65, 2.30, 2.20, 0.28, 12, WHITE, font=FONT_EN)
     rect(slide, 0.65, 2.75, 0.72, 0.035, WHITE)
     subtitle_size = 21 if len(subtitle) > 6 else 24
     text(slide, subtitle, 0.65, 3.16, 2.75, 1.25, subtitle_size, WHITE, True, line_spacing=1.08)
-    text(slide, title, 4.35, 2.55, 8.10, 1.05, 34, DARK, True, valign=MSO_ANCHOR.MIDDLE)
+    text(slide, title, 4.35, 2.55, 8.10, 1.05, 34, DARK, True, valign=MSO_ANCHOR.MIDDLE, check_fit=True)
     line(slide, 4.35, 3.92, 12.35, 3.92, LIGHT, 0.9)
     if english:
         text(slide, english, 4.35, 4.20, 7.85, 0.35, 13, MID, font=FONT_EN)

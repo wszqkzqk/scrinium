@@ -60,6 +60,11 @@ def inspect(path: Path, fmt: str | None = None) -> str:
 # ---------------------------------------------------------------------------
 
 
+def pos_text(shape) -> str:
+    txt = shape.text.strip().replace("\n", " ") if getattr(shape, "has_text_frame", False) else ""
+    return txt[:24]
+
+
 def inspect_pptx(path: Path) -> str:
     """Inspect a PowerPoint file and return a structured text summary.
 
@@ -68,13 +73,42 @@ def inspect_pptx(path: Path) -> str:
 
     Returns:
         Slide-by-slide report with shape positions, sizes, text preview,
-        image info, and overflow warnings.
+        image info, and CJK-aware overflow warnings.
     """
     try:
         from pptx import Presentation
         from pptx.enum.shapes import MSO_SHAPE_TYPE
     except ImportError:
         raise ImportError("python-pptx 未安装，请运行: pip install scrinium[office]")
+
+    from scrinium.presentation.text_metrics import ParagraphSpec, measure_paragraphs
+
+    def _para_spec(para) -> ParagraphSpec:
+        sizes = [r.font.size.pt for r in para.runs if r.font.size is not None]
+        font_pt = max(sizes) if sizes else 18.0
+        bold = any(bool(r.font.bold) for r in para.runs)
+        ls = para.line_spacing if isinstance(para.line_spacing, (int, float)) else 1.0
+        sb = para.space_before.pt if para.space_before is not None else 0.0
+        sa = para.space_after.pt if para.space_after is not None else 0.0
+        return ParagraphSpec(
+            text=para.text,
+            font_pt=font_pt,
+            bold=bold,
+            line_spacing=float(ls) if ls else 1.0,
+            space_before_pt=sb,
+            space_after_pt=sa,
+        )
+
+    def _measure_tf(tf, w_in: float, h_in: float):
+        ml = (tf.margin_left or 0) / _EMU_PER_INCH
+        mr = (tf.margin_right or 0) / _EMU_PER_INCH
+        mt = (tf.margin_top or 0) / _EMU_PER_INCH
+        mb = (tf.margin_bottom or 0) / _EMU_PER_INCH
+        specs = [_para_spec(p) for p in tf.paragraphs]
+        fit = measure_paragraphs(specs, w_in, h_in, margin_lr_in=(ml + mr) / 2.0, margin_tb_in=0.0)
+        fit.needed_height_in += mt + mb
+        fit.available_height_in = h_in
+        return fit
 
     prs = Presentation(str(path))
     sw = (prs.slide_width or 0) / _EMU_PER_INCH
@@ -85,14 +119,23 @@ def inspect_pptx(path: Path) -> str:
     lines.append(f"=== PPTX: {path.name} ===")
     lines.append(f'幻灯片尺寸: {sw:.1f}" x {sh:.1f}" ({total} 页)')
     lines.append("")
+    total_warnings = 0
 
     for i, slide in enumerate(prs.slides, 1):
         layout_name = slide.slide_layout.name
         lines.append(f"--- Slide {i}/{total} (layout: {layout_name}) ---")
 
         warnings: list[str] = []
+        shapes_list = list(slide.shapes)
+        bg_rects: list[tuple[float, float, float, float]] = []
+        for bg in shapes_list:
+            if bg.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE and bg.width and bg.height:
+                bw = bg.width / _EMU_PER_INCH
+                bh = bg.height / _EMU_PER_INCH
+                if bw < sw - 0.5 and bh > 0.3:
+                    bg_rects.append(((bg.left or 0) / _EMU_PER_INCH, (bg.top or 0) / _EMU_PER_INCH, bw, bh))
 
-        for shape in slide.shapes:
+        for shape in shapes_list:
             left = shape.left / _EMU_PER_INCH if shape.left else 0
             top = shape.top / _EMU_PER_INCH if shape.top else 0
             w = shape.width / _EMU_PER_INCH if shape.width else 0
@@ -100,15 +143,13 @@ def inspect_pptx(path: Path) -> str:
             right = left + w
             bottom = top + h
 
-            # Overflow detection
-            if right > sw + 0.1:
-                warnings.append(f'  \u26a0 溢出: shape 右边界 {right:.1f}" > 幻灯片宽度 {sw:.1f}"')
-            if bottom > sh + 0.1:
-                warnings.append(f'  \u26a0 溢出: shape 下边界 {bottom:.1f}" > 幻灯片高度 {sh:.1f}"')
+            if right > sw + 0.05:
+                warnings.append(f'  \u26a0 溢出: shape 右边界 {right:.2f}" > 幻灯片宽度 {sw:.1f}" ({pos_text(shape)})')
+            if bottom > sh + 0.05:
+                warnings.append(f'  \u26a0 溢出: shape 下边界 {bottom:.2f}" > 幻灯片高度 {sh:.1f}" ({pos_text(shape)})')
 
-            pos = f'({left:.1f}",{top:.1f}") {w:.1f}"x{h:.1f}"'
+            pos = f'({left:.2f}",{top:.2f}") {w:.2f}"x{h:.2f}"'
 
-            # Picture
             if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
                 try:
                     img = shape.image
@@ -118,7 +159,6 @@ def inspect_pptx(path: Path) -> str:
                     lines.append(f"  [Image] {pos}")
                 continue
 
-            # Table
             if shape.has_table:
                 tbl = shape.table
                 nr = len(tbl.rows)
@@ -129,34 +169,52 @@ def inspect_pptx(path: Path) -> str:
                     hdr_str += " | ..."
                 lines.append(f"  [Table {nr}x{nc}] {pos}")
                 lines.append(f"    表头: {hdr_str}")
+                required_h = 0.0
+                for r_idx, row in enumerate(tbl.rows):
+                    row_h = (row.height or 0) / _EMU_PER_INCH
+                    row_need = 0.0
+                    for c_idx in range(nc):
+                        cell = tbl.cell(r_idx, c_idx)
+                        cw = (tbl.columns[c_idx].width or 0) / _EMU_PER_INCH
+                        if not cell.text.strip():
+                            row_need = max(row_need, 0.22)
+                            continue
+                        c_fit = _measure_tf(cell.text_frame, cw, row_h)
+                        row_need = max(row_need, c_fit.needed_height_in)
+                        if c_fit.overflows:
+                            warnings.append(
+                                f"  \u26a0 表格单元格 ({r_idx + 1},{c_idx + 1}) 文字可能溢出: "
+                                f'需 {c_fit.needed_height_in:.2f}" > 行高 {row_h:.2f}" ("{cell.text[:24]}")'
+                            )
+                    required_h += max(row_h, row_need)
+                if required_h > h + 0.06:
+                    warnings.append(
+                        f'  \u26a0 表格实际渲染高度约 {required_h:.2f}" > 设定高度 {h:.2f}"，'
+                        f'底边将延伸至 {top + required_h:.2f}"'
+                    )
                 continue
 
-            # Text frame
             if shape.has_text_frame:
                 tf = shape.text_frame
                 paras = [p.text.strip() for p in tf.paragraphs if p.text.strip()]
                 if not paras:
                     continue
 
-                # Determine shape label
                 label = "TextBox"
                 try:
                     if shape.placeholder_format is not None:
                         idx = shape.placeholder_format.idx
                         label = f"Placeholder {idx}"
                 except ValueError:
-                    pass  # not a placeholder
+                    pass
 
                 lines.append(f"  [{label}] {pos}")
-
-                # Show first 3 paragraphs, truncated
                 for p_text in paras[:3]:
                     display = p_text[:60] + ("..." if len(p_text) > 60 else "")
                     lines.append(f'    "{display}"')
                 if len(paras) > 3:
                     lines.append(f"    ... (+{len(paras) - 3} more)")
 
-                # Font info from first paragraph
                 first_para = tf.paragraphs[0]
                 if first_para.runs:
                     run = first_para.runs[0]
@@ -170,36 +228,43 @@ def inspect_pptx(path: Path) -> str:
                     if font_info:
                         lines.append(f"    font: {', '.join(font_info)}")
 
-                # Estimate text overflow (rough heuristic)
-                # Accumulate per-paragraph height to avoid bias from mixed font sizes.
-                est_height = 0.0
-                for para in tf.paragraphs:
-                    font_size = 18  # default pt
-                    if para.runs and para.runs[0].font.size:
-                        font_size = para.runs[0].font.size.pt
-                    line_height_in = 1.2 * (font_size / 72) if font_size else 0.3
-                    text_len = len(para.text)
-                    if text_len == 0:
-                        est_height += line_height_in * 0.5  # empty para still takes space
+                fit = _measure_tf(tf, w, h)
+                valign = tf.vertical_anchor
+                est_top = top
+                if valign is not None and int(valign) == 3:  # MSO_ANCHOR.MIDDLE
+                    est_top = top + max(0.0, (h - fit.needed_height_in) / 2.0)
+                elif valign is not None and int(valign) == 4:  # MSO_ANCHOR.BOTTOM
+                    est_top = top + max(0.0, h - fit.needed_height_in)
+                est_bottom = est_top + fit.needed_height_in
+
+                if fit.overflows:
+                    warnings.append(
+                        f"  \u26a0 文字可能溢出 {pos}: 换行后 {fit.total_lines} 行需 "
+                        f'{fit.needed_height_in:.2f}" > 文本框高度 {h:.2f}" ("{paras[0][:28]}")'
+                    )
+
+                for bx, by, bw, bh in bg_rects:
+                    if (bx, by, bw, bh) == (left, top, w, h):
                         continue
-                    # Estimate chars per line based on shape width and font size
-                    chars_per_line = max(1, int(w * 72 / (font_size * 0.55)))
-                    est_lines = max(1, -(-text_len // chars_per_line))  # ceil div
-                    est_height += est_lines * line_height_in
-                if est_height > h * 1.1 and h > 0.5:
-                    warnings.append(f'  \u26a0 文字可能溢出: 估算高度 {est_height:.1f}" > 容器高度 {h:.1f}"')
+                    if bx <= left + 0.02 and by <= top + 0.02 and left + w <= bx + bw + 0.05 and top < by + bh - 0.05:
+                        card_bottom = by + bh
+                        if est_bottom > card_bottom + 0.02:
+                            warnings.append(
+                                f'  \u26a0 文字超出所在卡片底边: 估算文字底边 {est_bottom:.2f}" > '
+                                f'卡片底边 {card_bottom:.2f}" ("{paras[0][:28]}")'
+                            )
+                        break
 
         if warnings:
-            for w_line in warnings:
-                lines.append(w_line)
+            total_warnings += len(warnings)
+            lines.extend(warnings)
 
         lines.append("")
 
-    # Summary
     img_count = sum(1 for slide in prs.slides for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE)
     tbl_count = sum(1 for slide in prs.slides for s in slide.shapes if s.has_table)
     lines.append("--- 总结 ---")
-    lines.append(f"页数: {total} | 图片: {img_count} | 表格: {tbl_count}")
+    lines.append(f"页数: {total} | 图片: {img_count} | 表格: {tbl_count} | 布局警告: {total_warnings}")
 
     return "\n".join(lines)
 

@@ -160,6 +160,32 @@ class TestInspectPptx:
         result = inspect_pptx(sample_pptx)
         assert "总结" in result
         assert "表格: 1" in result
+        assert "布局警告:" in result
+
+    def test_detects_cjk_card_overflow_and_small_textbox(self, tmp_path):
+        from pptx import Presentation
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.util import Inches, Pt
+
+        from scrinium.document import inspect_pptx
+
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1), Inches(2), Inches(5), Inches(1.15))
+        box = slide.shapes.add_textbox(Inches(1.2), Inches(2.8), Inches(4.6), Inches(0.4))
+        tf = box.text_frame
+        tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = "这是一段用于验证文档检查器能否识别中文换行溢出及卡片边界越界的通用占位文本。"
+        run.font.size = Pt(17)
+
+        path = tmp_path / "overflow.pptx"
+        prs.save(str(path))
+        report = inspect_pptx(path)
+        assert "文字可能溢出" in report
+        assert "文字超出所在卡片底边" in report
+        assert "布局警告: 0" not in report
 
 
 class TestInspectDocx:

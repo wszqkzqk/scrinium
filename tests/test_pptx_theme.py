@@ -22,8 +22,10 @@ sys.path.insert(0, str(ROOT))
 
 from scrinium.presentation.pptx_style import (  # noqa: E402
     base_slide,
+    card,
     chapter_slide,
     configure_theme,
+    label,
     new_presentation,
     rich_text,
     text,
@@ -144,6 +146,49 @@ def test_generated_text_xml_has_script_typefaces_and_explicit_size(tmp_path):
             assert marker.get("typeface") == typeface
     assert runs["中文"].get("sz") == "2300"
     assert runs[" English"].get("sz") == "2300"
+
+
+def test_cjk_text_metrics_wrap_and_latin_word_integrity():
+    from scrinium.presentation.text_metrics import ParagraphSpec, measure_paragraphs, wrap_paragraph
+
+    cjk_lines = wrap_paragraph("这是一个用于验证中英文混排自动换行功能的通用占位测试文本。", 5.45, 17)
+    assert len(cjk_lines) >= 2
+
+    latin_lines = wrap_paragraph("Placeholder wrapping check", 1.40, 16)
+    assert all("Pla" not in ln or ln == "Placeholder" for ln in latin_lines)
+    assert "Placeholder" in latin_lines
+
+    fit = measure_paragraphs([ParagraphSpec(text="通用占位文本。" * 20, font_pt=17)], width_in=5.45, height_in=1.10)
+    assert fit.overflows
+    assert fit.needed_height_in > 1.10
+
+
+def test_card_and_label_reject_wrapped_cjk_overflow():
+    prs = new_presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    with pytest.raises(ValueError, match="wraps to"):
+        card(
+            slide,
+            "Title",
+            "第一段用于验证卡片组件在中文自动换行情况下的高度计算是否准确，\n第二段继续填充足够多的通用占位文字以触发构建期溢出检查。",
+            0.6,
+            1.5,
+            3.9,
+            1.4,
+            body_size=16,
+        )
+    with pytest.raises(ValueError, match="exceeds box height"):
+        label(slide, "A Very Long Placeholder Label For Overflow Check", 0.6, 0.5, 1.8, size=13)
+
+
+def test_base_slide_honors_explicit_page_number_and_rejects_long_title():
+    prs = new_presentation()
+    slide = base_slide(prs, "Short Title", "Section", 7)
+    assert "07" in slide_text(slide)
+    with pytest.raises(ValueError, match="exceeds box height"):
+        base_slide(
+            prs, "这是一个故意写得非常非常长以至于一定会在标题框内自动换行并压到下方分割线的幻灯片标题", "Section", 2
+        )
 
 
 def test_starter_builds_with_default_theme(tmp_path):
