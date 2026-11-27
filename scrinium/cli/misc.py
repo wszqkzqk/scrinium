@@ -415,13 +415,9 @@ def _print_pptx_diff(result) -> None:
         for action in ("added", "removed", "modified")
         for change in package_changes[action]
     ):
-        ui(
-            "Tip: when media content changes, verify original images, audio/video, "
-            "or embedded assets referenced by the generation script."
-        )
+        ui("Tip: for media diffs, check the source assets in the generation script.")
     ui(
-        "Tip: semantic diffs locate edits; package-level diffs (theme, master, relationships, unparsed XML) "
-        "need manual review. No automatic merge is performed."
+        "Tip: update the generation script from text/geometry diffs; theme/master/XML diffs need manual review (no auto-merge)."
     )
 
 

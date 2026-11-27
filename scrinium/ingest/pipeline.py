@@ -106,31 +106,20 @@ class StepResult(Enum):
 #  corresponding skill workflow (ingest pending review, audit repair, ...).
 # ============================================================================
 
-HINT_LOW_CONFIDENCE = (
-    "Low-confidence metadata (missing title/authors); dispatch a subagent to verify "
-    "against the original text and fix with scrinium repair"
-)
-HINT_NO_DOI = (
-    "Dispatch a subagent to read the original text, determine the document type, and verify the metadata, "
-    "then fix it with scrinium repair or move it back to data/inbox/ to re-ingest"
-)
+HINT_LOW_CONFIDENCE = "Missing/low-confidence metadata; verify against the PDF and fix with `scrinium repair`"
+HINT_NO_DOI = "No DOI; verify type and metadata from the PDF, fix with `scrinium repair`, or return to data/inbox/"
 HINT_NO_PUB_NUM = (
-    "Dispatch a subagent to confirm the publication number and fix it with scrinium repair, "
-    "or move it back to data/inbox-patent/ to re-ingest"
+    "Missing publication number; confirm from the PDF and fix with `scrinium repair`, or return to data/inbox-patent/"
 )
-HINT_DUPLICATE = "Dispatch a subagent to compare the two papers and decide which to keep"
-HINT_ABSTRACT_MISS = "Have the agent read the original text and write the abstract field in meta.json directly"
-HINT_TOC_MISS = "Have the agent read the full text and write the toc field in meta.json directly"
-HINT_L3_MISSING = (
-    "Have the agent (or a subagent) read the full text (--layer 4), write the l3_conclusion field "
-    "in meta.json, and run scrinium index to make it searchable"
-)
+HINT_DUPLICATE = "Compare with the existing paper and keep one"
+HINT_ABSTRACT_MISS = "Read the PDF and write `abstract` in meta.json"
+HINT_TOC_MISS = "Read the paper and write `toc` in meta.json"
+HINT_L3_MISSING = "Read L4 (`scrinium show --layer 4`), write `l3_conclusion` in meta.json, then run `scrinium index`"
 # Fallback takeover hint for pending issue types without a specific hint
-HINT_PENDING_FALLBACK = "Dispatch a subagent to review and resolve"
+HINT_PENDING_FALLBACK = "Review and resolve this pending item"
 HINT_SI_ORPHAN = (
-    "Dispatch a subagent to read the SI and confirm its parent paper: if the parent is in the library, "
-    "attach it with scrinium attach-si <paper-id> <file>; if not, ingest the parent first "
-    "(SI is reconciled and attached by DOI during ingest); if there is no parent paper, delete this pending item"
+    "Orphan SI: attach with `scrinium attach-si <paper-id> <file>` if its parent is in the library; "
+    "otherwise ingest the parent first (auto-linked by DOI) or delete if no parent exists"
 )
 
 # Recommended takeover action per pending.json issue type
@@ -381,9 +370,7 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
         page_count = _get_pdf_page_count(pdf_path)
         is_long = page_count > local_chunk_limit
         if is_long:
-            ui(
-                f"Long PDF detected ({page_count} pages, exceeds {local_chunk_limit}-page limit); splitting into chunks..."
-            )
+            ui(f"PDF has {page_count} pages (limit {local_chunk_limit}); splitting into chunks...")
     else:
         is_long, cloud_chunk_size, cloud_chunk_reason = _plan_cloud_chunking(
             pdf_path,
@@ -1148,8 +1135,8 @@ def _process_inbox(
                 use_cloud_batch = True
             else:
                 raise PipelineError(
-                    f"MinerU is unreachable (local: {cfg.ingest.mineru_endpoint}, and no MinerU token is configured); "
-                    "cannot parse PDFs in the inbox. Start the local MinerU server or configure MINERU_TOKEN first."
+                    f"MinerU is unreachable ({cfg.ingest.mineru_endpoint}) and MINERU_TOKEN is unset; "
+                    "start local MinerU or set MINERU_TOKEN before ingesting PDFs."
                 )
 
     extra_info = []
@@ -2082,9 +2069,7 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
             converted_dirs.append(pdir)
             stats["converted"] += 1
 
-    ui(
-        f"Batch conversion complete: {stats['converted']} succeeded / {stats['failed']} failed / {stats['skipped']} skipped"
-    )
+    ui(f"Batch PDF conversion: {stats['converted']} ok / {stats['failed']} failed / {stats['skipped']} skipped")
 
     # Post-processing: abstract backfill + index
     if converted_dirs:

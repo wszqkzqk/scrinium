@@ -499,8 +499,7 @@ def _warn_deprecated_sections(data: dict) -> None:
         if section in data and section not in _warned_deprecated:
             _warned_deprecated.add(section)
             _log.warning(
-                "config section %r is deprecated and ignored: in-framework LLM/embedding calls were removed; "
-                "agent skills take over these tasks",
+                "config section %r is deprecated and ignored (LLM/embedding calls removed; handled by agent skills)",
                 section,
             )
     ingest_data = data.get("ingest") or {}
@@ -508,15 +507,13 @@ def _warn_deprecated_sections(data: dict) -> None:
     if extractor and extractor != "regex" and "ingest.extractor" not in _warned_deprecated:
         _warned_deprecated.add("ingest.extractor")
         _log.warning(
-            "config ingest.extractor=%r is deprecated and ignored: metadata extraction is regex-only; "
-            "low-confidence items go to pending for agent review",
+            "config ingest.extractor=%r is deprecated and ignored (regex-only; low-confidence items go to pending)",
             extractor,
         )
     if "abstract_llm_mode" in ingest_data and "ingest.abstract_llm_mode" not in _warned_deprecated:
         _warned_deprecated.add("ingest.abstract_llm_mode")
         _log.warning(
-            "config ingest.abstract_llm_mode=%r is deprecated and ignored: abstract extraction is regex-only; "
-            "regex misses are backfilled by the agent",
+            "config ingest.abstract_llm_mode=%r is deprecated and ignored (regex extraction; agent backfills misses)",
             ingest_data.get("abstract_llm_mode"),
         )
 

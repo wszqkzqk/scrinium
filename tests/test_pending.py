@@ -71,7 +71,7 @@ class TestCmdPending:
         assert HINT_NO_DOI in out
         assert HINT_DUPLICATE in out
         assert "3 total" in out
-        assert "hint: consider dispatching subagents" in out
+        assert "hint: review held items via the /ingest and /audit workflows" in out
 
     def test_no_pub_num_suggestion_points_to_patent_inbox(self, tmp_path, monkeypatch):
         _write_pending(

@@ -268,10 +268,7 @@ def cmd_pending(args: argparse.Namespace, cfg) -> None:
         ui("")
     summary = " | ".join(f"{issue} {len(groups[issue])}" for issue in sorted(groups))
     ui(f"Summary: {summary} ({len(items)} total)")
-    ui(
-        "hint: consider dispatching subagents to handle these items using the matching skill workflows "
-        "(ingest pending review / audit repair)"
-    )
+    ui("hint: review held items via the /ingest and /audit workflows")
 
 
 def cmd_repair(args: argparse.Namespace, cfg) -> None:

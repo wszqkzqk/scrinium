@@ -291,30 +291,29 @@ def format_report(issues: list[Issue]) -> str:
 
     lines.append("")
     lines.append(
-        "hint: Dispatch a subagent to verify against the original text and edit meta.json directly "
-        "(audit repair workflow); run scrinium repair / scrinium rename if needed"
+        "hint: Verify against the PDF and edit meta.json directly; run `scrinium repair` / `scrinium rename` as needed"
     )
     return "\n".join(lines)
 
 
 # Recommended fix per audit rule (handoff hints for agents)
 _RULE_HINTS = {
-    "invalid_json": "Dispatch a subagent to check the meta.json syntax and fix it directly",
-    "missing_md": "Dispatch a subagent to locate the source PDF and run scrinium attach-pdf to regenerate paper.md",
-    "missing_title": "Dispatch a subagent to read the paper, confirm the title, and write meta.json title (or run scrinium repair)",
-    "missing_doi": "Dispatch a subagent to find the DOI in the paper, write meta.json doi, and run scrinium refresh",
-    "missing_abstract": "Run scrinium enrich abstract; if still missing, have the agent read the paper and write meta.json abstract",
-    "missing_year": "Dispatch a subagent to confirm the publication year from the paper and write meta.json year",
-    "missing_authors": "Dispatch a subagent to confirm the authors from the paper and write meta.json authors",
-    "missing_journal": "Run scrinium refresh to backfill the journal, or have the agent write meta.json journal directly",
-    "duplicate_doi": "Dispatch a subagent to compare the duplicate entries and keep one, removing the redundant directory",
-    "title_mismatch": "Dispatch a subagent to verify the correct title against the paper and write meta.json title",
+    "invalid_json": "Check meta.json syntax and fix it directly",
+    "missing_md": "Locate the source PDF and run `scrinium attach-pdf` to regenerate paper.md",
+    "missing_title": "Confirm the title from the PDF, write `title` in meta.json (or run `scrinium repair`)",
+    "missing_doi": "Find the DOI in the PDF, write `doi` in meta.json, and run `scrinium refresh`",
+    "missing_abstract": "Run `scrinium enrich abstract`; if still missing, read the PDF and write `abstract` in meta.json",
+    "missing_year": "Confirm the publication year from the PDF and write `year` in meta.json",
+    "missing_authors": "Confirm the authors from the PDF and write `authors` in meta.json",
+    "missing_journal": "Run `scrinium refresh` to backfill the journal, or write `journal` in meta.json directly",
+    "duplicate_doi": "Compare the duplicate entries, keep one, and remove the redundant directory",
+    "title_mismatch": "Verify the title against the PDF and update `title` in meta.json",
     "short_md": "Check whether PDF conversion failed; re-convert or run scrinium attach-pdf if needed",
     "unreadable_md": "Check paper.md file encoding and permissions",
     "nonstandard_filename": "Run scrinium rename to normalize the directory name",
     "filename_year_mismatch": "Confirm the correct year, write meta.json year, and run scrinium rename",
     "arxiv_id_missing": "Derive arxiv_id from the arXiv DOI and write meta.json ids.arxiv (e.g. 10.48550/arxiv.2510.16510 → 2510.16510); no paper reading needed",
     "untagged": "Run the curate workflow or scrinium tag to add curated tags",
-    "suspected_si": "Dispatch a subagent to locate the main paper, migrate this entry into its si/ via scrinium attach-si, and delete the standalone entry",
-    "missing_si": "Run scrinium si fetch <paper-id>; if it fails, dispatch a subagent to find the SI manually and attach it via scrinium attach-si",
+    "suspected_si": "Locate the parent paper, attach via `scrinium attach-si`, and delete this standalone entry",
+    "missing_si": "Run `scrinium si fetch <paper-id>`; if blocked, find the SI manually and run `scrinium attach-si`",
 }

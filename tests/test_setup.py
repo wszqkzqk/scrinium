@@ -300,12 +300,12 @@ def test_wizard_parser_auto_choice_shows_advisory_not_override(monkeypatch, caps
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is True
     out = capsys.readouterr().out
-    assert "Existing MinerU token detected" not in out
-    assert "no MinerU API token is configured yet" in out
-    assert "Suggestion: prefer MinerU" in out
-    assert out.index("Suggestion: prefer MinerU") < out.index("If you do not plan local deployment")
-    assert out.index("If you do not plan local deployment") < out.index("MinerU local deployment guide")
-    assert "the other parser" in out
+    assert "MinerU token found" not in out
+    assert "no token configured" in out
+    assert "Recommended: MinerU" in out
+    assert out.index("Recommended: MinerU") < out.index("If not deploying locally")
+    assert out.index("If not deploying locally") < out.index("MinerU local deployment guide")
+    assert "choose the other parser" in out
 
 
 def test_wizard_parser_auto_prefers_configured_mineru_before_probe(monkeypatch, capsys):
@@ -323,8 +323,8 @@ def test_wizard_parser_auto_prefers_configured_mineru_before_probe(monkeypatch, 
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is True
     out = capsys.readouterr().out
-    assert "Suggestion: prefer MinerU" in out
-    assert out.index("Suggestion: prefer MinerU") < out.index("If you do not plan local deployment")
+    assert "Recommended: MinerU" in out
+    assert out.index("Recommended: MinerU") < out.index("If not deploying locally")
 
 
 def test_wizard_parser_auto_detects_local_mineru_server(monkeypatch, capsys):
@@ -351,7 +351,7 @@ def test_wizard_parser_auto_detects_local_mineru_server(monkeypatch, capsys):
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is False
     out = capsys.readouterr().out
-    assert "Suggestion: prefer MinerU" in out
+    assert "Recommended: MinerU" in out
 
 
 def test_prompt_text_returns_empty_string_on_eof(monkeypatch):
@@ -399,7 +399,7 @@ def test_wizard_parser_auto_prefers_mineru_when_cli_exists_even_without_token_pr
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is True
     out = capsys.readouterr().out
-    assert "Suggestion: prefer MinerU" in out
+    assert "Recommended: MinerU" in out
     assert "free" in out
     assert "Token" in out or "token" in out
 
