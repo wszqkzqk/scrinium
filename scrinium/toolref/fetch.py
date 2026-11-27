@@ -25,7 +25,7 @@ _log = logging.getLogger(__name__)
 
 
 def _indexed_count_unit(info: dict) -> str:
-    return "文档页面" if info.get("source_type") == "manifest" else "文档条目"
+    return "documentation pages" if info.get("source_type") == "manifest" else "documentation entries"
 
 
 def _refresh_manifest_meta(tool: str, info: dict, version: str, force: bool, cfg: Config | None = None) -> dict:
@@ -44,7 +44,7 @@ def _refresh_manifest_meta(tool: str, info: dict, version: str, force: bool, cfg
         try:
             meta.update(json.loads(meta_path.read_text(encoding="utf-8")))
         except (OSError, ValueError) as e:
-            _log.warning("读取 toolref meta.json 失败，使用默认元数据重建: %s", e)
+            _log.warning("Failed to read toolref meta.json; rebuilding with default metadata: %s", e)
     fetched_pages = manifest_mod._manifest_page_count(vdir)
     expected_pages = manifest_mod._expected_manifest_pages(tool, version, cfg)
     meta["fetched_pages"] = fetched_pages
@@ -65,12 +65,14 @@ def _clone_git_docs(tool: str, info: dict, version: str | None, cfg: Config | No
             clone_cmd += ["--branch", tag]
         clone_cmd += [info["repo"], tmpdir]
 
-        ui(f"[toolref] 正在拉取 {info['display_name']} {version or 'latest'} 文档...")
+        ui(f"[toolref] Fetching {info['display_name']} {version or 'latest'} documentation...")
         try:
             subprocess.run(clone_cmd, capture_output=True, text=True, check=True, timeout=120)
         except subprocess.CalledProcessError as e:
-            _log.error("git clone 失败：%s", e.stderr[:500])
-            raise RuntimeError(f"拉取 {tool} 文档失败。请检查版本号和网络。") from e
+            _log.error("git clone failed: %s", e.stderr[:500])
+            raise RuntimeError(
+                f"Failed to fetch {tool} documentation. Check the version number and network connection."
+            ) from e
 
         resolved_version = version
         if not resolved_version:
@@ -95,7 +97,7 @@ def _clone_git_docs(tool: str, info: dict, version: str | None, cfg: Config | No
             dest.mkdir(exist_ok=True)
             for file_path in tmppath.rglob(info["doc_glob"]):
                 (dest / file_path.name).write_bytes(file_path.read_bytes())
-                _log.debug("提取: %s", file_path.name)
+                _log.debug("Extracted: %s", file_path.name)
         elif info["doc_path"]:
             src = tmppath / info["doc_path"]
             if src.exists():
@@ -104,7 +106,7 @@ def _clone_git_docs(tool: str, info: dict, version: str | None, cfg: Config | No
                     shutil.rmtree(dest)
                 shutil.copytree(src, dest)
             else:
-                _log.warning("文档路径不存在: %s", src)
+                _log.warning("Documentation path does not exist: %s", src)
 
     return resolved_version or "latest"
 
@@ -134,7 +136,7 @@ def _fetch_manifest_docs(tool: str, info: dict, version: str, force: bool, cfg: 
         if discovered_manifest:
             manifest = discovered_manifest
 
-    ui(f"[toolref] 正在拉取 {info['display_name']} {version} 官方文档页...")
+    ui(f"[toolref] Fetching {info['display_name']} {version} official documentation pages...")
 
     failures: list[str] = []
     with tempfile.TemporaryDirectory(prefix=f"toolref-{tool}-") as tmpdir:
@@ -162,7 +164,7 @@ def _fetch_manifest_docs(tool: str, info: dict, version: str, force: bool, cfg: 
                         break
                     except requests.RequestException as e:
                         last_error = e
-                        _log.warning("拉取失败: %s (%s)", url, e)
+                        _log.warning("Fetch failed: %s (%s)", url, e)
 
             if body_text is None:
                 failures.append(item["page_name"])
@@ -189,7 +191,7 @@ def _fetch_manifest_docs(tool: str, info: dict, version: str, force: bool, cfg: 
 
         fetched_pages = manifest_mod._manifest_page_count(staged_vdir)
         if failures and fetched_pages == 0:
-            raise RuntimeError(f"拉取 {tool} 文档页失败：{failures[0]}")
+            raise RuntimeError(f"Failed to fetch {tool} documentation pages: {failures[0]}")
 
         meta = {
             "tool": tool,
@@ -212,8 +214,8 @@ def _fetch_manifest_docs(tool: str, info: dict, version: str, force: bool, cfg: 
 
         if vdir.exists() and fetched_pages < existing_pages:
             ui(
-                f"[toolref] 警告：新抓取仅得到 {fetched_pages}/{len(manifest)} 页，"
-                f"低于现有缓存 {existing_pages} 页；保留现有缓存"
+                f"[toolref] Warning: new fetch returned only {fetched_pages}/{len(manifest)} pages, "
+                f"fewer than the existing cache ({existing_pages} pages); keeping existing cache"
             )
             current_missing = manifest_mod._manifest_missing_page_names(vdir, manifest)
             preserved_meta = {
@@ -238,9 +240,11 @@ def _fetch_manifest_docs(tool: str, info: dict, version: str, force: bool, cfg: 
             shutil.move(str(staged_vdir), str(vdir))
 
     if failures and manifest_mod._manifest_page_count(vdir) > 0:
-        preview = "、".join(failures[:3])
-        suffix = " 等" if len(failures) > 3 else ""
-        ui(f"[toolref] 警告：{len(failures)} 个页面拉取失败（{preview}{suffix}），已保留更完整的可用缓存")
+        preview = ", ".join(failures[:3])
+        suffix = ", ..." if len(failures) > 3 else ""
+        ui(
+            f"[toolref] Warning: failed to fetch {len(failures)} page(s) ({preview}{suffix}); kept the more complete available cache"
+        )
 
 
 def toolref_fetch(
@@ -251,7 +255,7 @@ def toolref_fetch(
     cfg: Config | None = None,
 ) -> int:
     if not validate_tool_name(tool):
-        raise ValueError(f"未知工具：{tool}。支持的工具：{', '.join(TOOL_REGISTRY)}")
+        raise ValueError(f"Unknown tool: {tool}. Supported tools: {', '.join(TOOL_REGISTRY)}")
 
     info = TOOL_REGISTRY[tool]
     source_type = info.get("source_type", "git")
@@ -260,7 +264,7 @@ def toolref_fetch(
         version = info.get("default_version")
 
     if version and not _validate_version(version):
-        raise ValueError(f"无效版本号：{version}")
+        raise ValueError(f"Invalid version: {version}")
 
     if version:
         vdir = _version_dir(tool, version, cfg)
@@ -268,14 +272,14 @@ def toolref_fetch(
             if manifest_mod._has_local_docs(tool, version, cfg):
                 if source_type == "manifest":
                     _refresh_manifest_meta(tool, info, version, force, cfg)
-                ui(f"[toolref] {info['display_name']} {version} 文档已存在，跳过拉取")
+                ui(f"[toolref] {info['display_name']} {version} documentation already exists; skipping fetch")
                 count = _index_tool(tool, version, cfg)
                 storage_mod._set_current(tool, version, cfg)
-                ui(f"[toolref] {info['display_name']} {version}：已索引 {count} 个{_indexed_count_unit(info)}")
+                ui(f"[toolref] {info['display_name']} {version}: indexed {count} {_indexed_count_unit(info)}")
                 return count
-            ui(f"[toolref] 检测到 {info['display_name']} {version} 残缺目录，重新拉取")
+            ui(f"[toolref] Detected incomplete directory for {info['display_name']} {version}; re-fetching")
         elif vdir.exists() and force:
-            ui(f"[toolref] 强制重新拉取 {info['display_name']} {version}")
+            ui(f"[toolref] Force re-fetching {info['display_name']} {version}")
 
     if source_type == "git":
         version = _clone_git_docs(tool, info, version, cfg)
@@ -283,7 +287,7 @@ def toolref_fetch(
         version = version or info["default_version"]
         _fetch_manifest_docs(tool, info, version, force, cfg)
     else:
-        raise ValueError(f"{tool} 不支持的 source_type: {source_type}")
+        raise ValueError(f"Unsupported source_type for {tool}: {source_type}")
 
     vdir = _version_dir(tool, version, cfg)
     meta = {
@@ -301,5 +305,5 @@ def toolref_fetch(
 
     storage_mod._set_current(tool, version, cfg)
     count = _index_tool(tool, version, cfg)
-    ui(f"[toolref] {info['display_name']} {version}：已索引 {count} 个{_indexed_count_unit(info)}")
+    ui(f"[toolref] {info['display_name']} {version}: indexed {count} {_indexed_count_unit(info)}")
     return count

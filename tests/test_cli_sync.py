@@ -114,7 +114,7 @@ def test_push_updates_old_and_keeps_extra(tmp_path):
     _seed_kb(src)
     cfg = _make_cfg(src)
 
-    # 目标端：一个旧文件（将被更新）、一个源端没有的文件（默认 --update 不删）
+    # Target has an old file (to be updated) and an extra file (kept by default --update)
     (dst / "data" / "papers" / "Doe-2023-Test-Paper").mkdir(parents=True)
     (dst / "data" / "papers" / "Doe-2023-Test-Paper" / "meta.json").write_text('{"title": "old"}', encoding="utf-8")
     (dst / "data" / "papers" / "Doe-2023-Test-Paper" / "paper.md").write_text("# old\n", encoding="utf-8")
@@ -122,7 +122,7 @@ def test_push_updates_old_and_keeps_extra(tmp_path):
 
     args = SimpleNamespace(target=str(dst), mirror=False, yes=False, sync_action="push")
     cmd_sync(args, cfg)
-    # 默认 --update：旧文件被更新，extra.txt 保留不删
+    # Default --update: old file is updated, extra.txt is kept
     assert (dst / "data" / "papers" / "Doe-2023-Test-Paper" / "paper.md").read_text(encoding="utf-8") == "# T\n"
     assert (dst / "data" / "papers" / "Doe-2023-Test-Paper" / "extra.txt").exists()
 
@@ -136,13 +136,13 @@ def test_push_pull_local_path(tmp_path):
     _seed_kb(src)
     cfg = _make_cfg(src)
 
-    # push：把 src 的内容推到 dst
+    # push: copy contents of src to dst
     args = SimpleNamespace(target=str(dst), mirror=False, yes=False, sync_action="push")
     cmd_sync(args, cfg)
     assert (dst / "data" / "papers" / "Doe-2023-Test-Paper" / "paper.md").exists()
     assert (dst / "workspace" / "ws1" / "papers.json").exists()
 
-    # 修改 dst 后 pull 回 src（验证 pull 语义）
+    # Modify dst, then pull back to src (verifies pull semantics)
     (dst / "data" / "papers" / "Doe-2023-Test-Paper" / "new.md").write_text("new", encoding="utf-8")
     args_pull = SimpleNamespace(target=str(dst), mirror=False, yes=False, sync_action="pull")
     cmd_sync(args_pull, cfg)

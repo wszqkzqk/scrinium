@@ -39,29 +39,36 @@ _EXCLUDES = (
 
 def register(sub) -> None:
     """Register sync-domain subcommands."""
-    p_sync = sub.add_parser("sync", help="跨设备同步知识库、工作区与个人偏好（data/、workspace/、preferences/）")
+    p_sync = sub.add_parser(
+        "sync",
+        help="Sync knowledge base, workspaces, and personal preferences across devices (data/, workspace/, preferences/)",
+    )
     p_sync.set_defaults(func=cmd_sync)
     p_sync_sub = p_sync.add_subparsers(dest="sync_action", required=True)
 
     for name, help_text in (
-        ("push", "推送 data/ + workspace/ + preferences/ 到目标（user@host:path 或本地路径）"),
-        ("pull", "从目标拉取 data/ + workspace/ + preferences/ 到本地"),
-        ("status", "显示将要变更的文件（dry-run，不实际变更）"),
+        ("push", "Push data/ + workspace/ + preferences/ to a target (user@host:path or local path)"),
+        ("pull", "Pull data/ + workspace/ + preferences/ from a target to local"),
+        ("status", "Show files that would change (dry-run; no actual changes)"),
     ):
         p = p_sync_sub.add_parser(name, help=help_text)
-        p.add_argument("target", help="目标：user@host:remote/path（SSH）或 /local/path（本地路径）")
+        p.add_argument("target", help="Target: user@host:remote/path (SSH) or /local/path (local path)")
         p.add_argument(
-            "--mirror", action="store_true", help="镜像模式：删除目标端在源端不存在的文件（需配合 --yes 确认）"
+            "--mirror",
+            action="store_true",
+            help="Mirror mode: delete files on target that do not exist on source (requires --yes)",
         )
-        p.add_argument("--yes", action="store_true", help="配合 --mirror 确认删除操作")
+        p.add_argument("--yes", action="store_true", help="Confirm deletions when using --mirror")
         p.set_defaults(sync_action=name)
 
-    p_exp = p_sync_sub.add_parser("export", help="打包 data/ + workspace/ + preferences/ 为归档文件（离线传输）")
-    p_exp.add_argument("file", help="输出归档文件路径（如 sync_backup.tar.gz）")
+    p_exp = p_sync_sub.add_parser(
+        "export", help="Pack data/ + workspace/ + preferences/ into an archive (offline transfer)"
+    )
+    p_exp.add_argument("file", help="Output archive path (e.g. sync_backup.tar.gz)")
     p_exp.set_defaults(sync_action="export")
 
-    p_imp = p_sync_sub.add_parser("import", help="从归档文件导入 data/ + workspace/ + preferences/")
-    p_imp.add_argument("file", help="归档文件路径（如 sync_backup.tar.gz）")
+    p_imp = p_sync_sub.add_parser("import", help="Import data/ + workspace/ + preferences/ from an archive")
+    p_imp.add_argument("file", help="Archive path (e.g. sync_backup.tar.gz)")
     p_imp.set_defaults(sync_action="import")
 
 
@@ -82,7 +89,9 @@ def _sources(cfg) -> list[Path]:
 def _sync_dirs(args: argparse.Namespace, cfg, action: str) -> None:
     rsync = shutil.which("rsync")
     if rsync is None:
-        ui("错误：未找到 rsync。请安装 rsync，或改用 `scrinium sync export` / `scrinium sync import` 离线传输")
+        ui(
+            "Error: rsync not found. Install rsync, or use `scrinium sync export` / `scrinium sync import` for offline transfer"
+        )
         sys.exit(1)
 
     mirror = getattr(args, "mirror", False)
@@ -90,7 +99,10 @@ def _sync_dirs(args: argparse.Namespace, cfg, action: str) -> None:
     target = args.target.rstrip("/")
 
     if mirror and not yes:
-        ui("镜像模式（--mirror）将删除目标端在源端不存在的文件。先做一次 dry-run 预览：")
+        ui(
+            "Mirror mode (--mirror) will delete files on the target that do not exist on the source. "
+            "Running a dry-run preview first:"
+        )
         for src in _sources(cfg):
             if src.exists():
                 _run_rsync(
@@ -99,7 +111,7 @@ def _sync_dirs(args: argparse.Namespace, cfg, action: str) -> None:
                     dry_run=True,
                     mirror=True,
                 )
-        ui("如确认上述删除无误，请重新运行并加 --yes 执行实际镜像同步")
+        ui("If the deletions above look correct, re-run with --yes to perform the actual mirror sync")
         return
 
     for src in _sources(cfg):
@@ -111,10 +123,10 @@ def _sync_dirs(args: argparse.Namespace, cfg, action: str) -> None:
             src_str, dst_str = _push_paths(src, target)
         ret = _run_rsync(rsync, src_str, dst_str, dry_run=(action == "status"), mirror=mirror)
         if ret != 0:
-            ui(f"错误：rsync 失败（{src_str} -> {dst_str}），退出码 {ret}")
+            ui(f"Error: rsync failed ({src_str} -> {dst_str}), exit code {ret}")
             sys.exit(ret)
     if action == "status":
-        ui("以上为 dry-run（未实际变更）")
+        ui("Dry-run complete (no changes made)")
 
 
 def _push_paths(src: Path, target: str) -> tuple[str, str]:
@@ -151,13 +163,13 @@ def _export(args: argparse.Namespace, cfg) -> None:
                     continue
                 tar.add(path, arcname=path.relative_to(cfg._root))
                 count += 1
-    ui(f"已导出 {count} 个文件到 {out}")
+    ui(f"Exported {count} files to {out}")
 
 
 def _import(args: argparse.Namespace, cfg) -> None:
     with tarfile.open(args.file, "r:gz") as tar:
         tar.extractall(cfg._root)
-    ui(f"已从 {args.file} 导入到 {cfg._root}")
+    ui(f"Imported from {args.file} into {cfg._root}")
 
 
 def _excluded(path: Path) -> bool:

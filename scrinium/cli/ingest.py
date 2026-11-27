@@ -23,10 +23,10 @@ def cmd_audit(args: argparse.Namespace, cfg) -> None:
 
     papers_dir = cfg.papers_dir
     if not papers_dir.exists():
-        _log.error("论文目录不存在: %s", papers_dir)
+        _log.error("Papers directory does not exist: %s", papers_dir)
         sys.exit(1)
 
-    ui(f"正在审计论文库: {papers_dir}\n")
+    ui(f"Auditing paper library: {papers_dir}\n")
     issues = audit_papers(papers_dir)
 
     if args.severity:
@@ -50,9 +50,9 @@ def cmd_tag(args: argparse.Namespace, cfg) -> None:
             _emit_json({"paper": paper_d.name, "tags": current})
             return
         if current:
-            ui(f"{paper_d.name} 的标签: {', '.join(current)}")
+            ui(f"Tags for {paper_d.name}: {', '.join(current)}")
         else:
-            ui(f"{paper_d.name} 暂无标签（可用 scrinium tag {paper_d.name} <标签...> 添加）")
+            ui(f"{paper_d.name}: No tags yet (add with scrinium tag {paper_d.name} <tag...>)")
         return
 
     added: list[str] = []
@@ -92,17 +92,17 @@ def cmd_tag(args: argparse.Namespace, cfg) -> None:
         return
 
     if remove:
-        ui(f"已移除标签: {', '.join(removed) if removed else '（无变化）'}")
+        ui(f"Removed tags: {', '.join(removed) if removed else '(no change)'}")
     else:
         if added:
-            ui(f"已添加标签: {', '.join(added)}")
+            ui(f"Added tags: {', '.join(added)}")
         elif not new_tags:
-            ui("标签无变化")
+            ui("Tags unchanged")
         for tag in new_tags:
-            ui(f"新标签已加入词表: {tag}（可用 scrinium tags 查看）")
-    ui(f"{paper_d.name} 当前标签: {', '.join(final) if final else '（无）'}")
+            ui(f"Registered new tag: {tag} (view with scrinium tags)")
+    ui(f"Current tags for {paper_d.name}: {', '.join(final) if final else '(none)'}")
     if added or removed:
-        ui("提示: 运行 scrinium index 后标签才会进入检索索引")
+        ui("Note: run scrinium index for tags to enter the search index")
 
 
 def cmd_tags(args: argparse.Namespace, cfg) -> None:
@@ -116,7 +116,7 @@ def cmd_tags(args: argparse.Namespace, cfg) -> None:
         if getattr(args, "json", False):
             _emit_json({"count": 0, "tags": []})
             return
-        ui("标签词表为空（可用 scrinium tag <论文> <标签...> 创建）")
+        ui("Tag vocabulary is empty (create with scrinium tag <paper-id> <tag...>)")
         return
 
     entries = []
@@ -135,12 +135,13 @@ def cmd_tags(args: argparse.Namespace, cfg) -> None:
         _emit_json({"count": len(entries), "tags": entries})
         return
 
-    ui(f"标签词表（共 {len(entries)} 个标签）\n")
+    ui(f"Tag vocabulary ({len(entries)} tags)\n")
     for e in entries:
-        alias_str = f"（别名: {', '.join(e['aliases'])}）" if e["aliases"] else ""
+        alias_str = f" (aliases: {', '.join(e['aliases'])})" if e["aliases"] else ""
         desc_str = f"  {e['description']}" if e["description"] else ""
-        ui(f"  {e['name']}{alias_str}: {e['count']} 篇{desc_str}")
-    ui(f"\n总计: {len(entries)} 个标签，{sum(counts.values())} 次标注")
+        paper_word = "paper" if e["count"] == 1 else "papers"
+        ui(f"  {e['name']}{alias_str}: {e['count']} {paper_word}{desc_str}")
+    ui(f"\nTotal: {len(entries)} tags, {sum(counts.values())} taggings")
 
 
 def cmd_topics(args: argparse.Namespace, cfg) -> None:
@@ -156,14 +157,16 @@ def cmd_topics(args: argparse.Namespace, cfg) -> None:
             return
         topics = overview["topics"]
         if not topics:
-            ui("主题词表为空（可用 scrinium tag <论文> <标签...> 创建）")
+            ui("Topic vocabulary is empty (create with scrinium tag <paper-id> <tag...>)")
             return
-        ui(f"主题总览：{overview['total_papers']} 篇论文，{len(topics)} 个主题\n")
+        ui(f"Topic overview: {overview['total_papers']} papers, {len(topics)} topics\n")
         for t in topics:
             desc_str = f"  {t['description']}" if t["description"] else ""
-            ui(f"  {t['tag']}（{t['count']} 篇, {t['share']:.1%}）{desc_str}")
+            ui(f"  {t['tag']} ({t['count']} papers, {t['share']:.1%}){desc_str}")
         if overview["untagged_papers"]:
-            ui(f"\n未打标: {overview['untagged_papers']} 篇（可用 scrinium tag 或 curate 工作流打标）")
+            untagged = overview["untagged_papers"]
+            paper_word = "paper" if untagged == 1 else "papers"
+            ui(f"\nUntagged: {untagged} {paper_word} (tag with scrinium tag or the curate workflow)")
         return
 
     canonical = resolve_tag(cfg, tag)
@@ -171,7 +174,7 @@ def cmd_topics(args: argparse.Namespace, cfg) -> None:
     if not tagged:
         if canonical is None:
             raise ValueError(unknown_tag_message(cfg, tag))
-        ui(f"主题 {canonical} 下没有论文")
+        ui(f"No papers under topic {canonical}")
         return
     papers = [
         {"dir_name": pdir.name, "title": meta.get("title") or "", "year": meta.get("year")} for pdir, meta in tagged
@@ -182,7 +185,8 @@ def cmd_topics(args: argparse.Namespace, cfg) -> None:
     if json_mode:
         _emit_json({"topic": name, "count": len(papers), "papers": papers})
         return
-    ui(f"主题 {name}: {len(papers)} 篇论文\n")
+    paper_word = "paper" if len(papers) == 1 else "papers"
+    ui(f"Topic {name}: {len(papers)} {paper_word}\n")
     for i, p in enumerate(papers, 1):
         title = p["title"]
         if len(title) > 70:
@@ -244,27 +248,30 @@ def _collect_pending_items(cfg) -> list[dict]:
 def cmd_pending(args: argparse.Namespace, cfg) -> None:
     items = _collect_pending_items(cfg)
     if not items:
-        ui("无待确认项")
+        ui("No pending items")
         return
 
-    ui(f"待确认项（共 {len(items)} 项）\n")
+    ui(f"Pending items ({len(items)} total)\n")
     groups: dict[str, list[dict]] = {}
     for item in items:
         groups.setdefault(item["issue"], []).append(item)
     for issue in sorted(groups):
         group = groups[issue]
-        ui(f"[{issue}] {len(group)} 项")
+        ui(f"[{issue}] {len(group)} items")
         for item in group:
             ui(f"  {item['path']}")
             if item["title"]:
-                ui(f"    标题: {item['title']}")
+                ui(f"    Title: {item['title']}")
             if item["duplicate_of"]:
-                ui(f"    重复于: {item['duplicate_of']}")
+                ui(f"    Duplicate of: {item['duplicate_of']}")
             ui(f"    hint: {item['hint']}")
         ui("")
     summary = " | ".join(f"{issue} {len(groups[issue])}" for issue in sorted(groups))
-    ui(f"汇总: {summary}（共 {len(items)} 项）")
-    ui("hint: 以上条目建议派 subagent 按对应 skill 工作流接管处理（ingest pending 审查 / audit 修复）")
+    ui(f"Summary: {summary} ({len(items)} total)")
+    ui(
+        "hint: consider dispatching subagents to handle these items using the matching skill workflows "
+        "(ingest pending review / audit repair)"
+    )
 
 
 def cmd_repair(args: argparse.Namespace, cfg) -> None:
@@ -293,7 +300,7 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
             paper_d = candidate
             md_path = paper_d / "paper.md"
         else:
-            _log.error("文件不存在: %s", md_path)
+            _log.error("File does not exist: %s", md_path)
             sys.exit(1)
     json_path = paper_d / "meta.json"
 
@@ -318,9 +325,9 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
         meta.first_author = args.author
         meta.first_author_lastname = _extract_lastname(args.author)
 
-    ui(f"修复论文: {paper_id}")
-    ui(f"  标题: {meta.title}")
-    ui(f"  作者: {meta.first_author or '?'} | 年份: {meta.year or '?'} | DOI: {meta.doi or '无'}")
+    ui(f"Repairing paper: {paper_id}")
+    ui(f"  Title: {meta.title}")
+    ui(f"  Author: {meta.first_author or '?'} | Year: {meta.year or '?'} | DOI: {meta.doi or 'none'}")
 
     # API enrichment
     if not args.no_api:
@@ -341,10 +348,10 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
         meta.extraction_method = "manual_fix"
         _log.debug("skipping API query (--no-api)")
 
-    ui(f"  结果: {meta.first_author_lastname} ({meta.year}) {meta.title[:60]}")
+    ui(f"  Result: {meta.first_author_lastname} ({meta.year}) {meta.title[:60]}")
     if meta.doi:
         ui(f"  DOI: {meta.doi}")
-    ui(f"  方法: {meta.extraction_method}")
+    ui(f"  Method: {meta.extraction_method}")
 
     # Dedup guard for pending targets: refuse to ingest what the library already has
     if pending_d is not None:
@@ -360,12 +367,15 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
             if arxiv_key and arxiv_key in index.arxiv_ids:
                 dup_of = index.arxiv_ids[arxiv_key].parent.name
         if dup_of:
-            ui(f"  拒绝入库: 已在库中: {dup_of}；该 pending 项确认为重复后可删除: {pending_d}")
+            ui(
+                f"  Refusing to ingest: already in library: {dup_of}; "
+                f"once confirmed as a duplicate, this pending item can be deleted: {pending_d}"
+            )
             sys.exit(1)
-        ui("  查重: 未发现库内重复")
+        ui("  Dedup check: no duplicate found in library")
 
     if args.dry_run:
-        ui("  [dry-run] 未写入任何文件")
+        ui("  [dry-run] No files written")
         return
 
     if pending_d is not None:
@@ -374,7 +384,7 @@ def cmd_repair(args: argparse.Namespace, cfg) -> None:
 
     # Write new JSON
     write_metadata_json(meta, json_path)
-    ui(f"  已写入: {json_path.name}")
+    ui(f"  Written: {json_path.name}")
 
     new_stem = generate_new_stem(meta)
     rename_files(md_path, json_path, new_stem, dry_run=False)
@@ -415,9 +425,9 @@ def _ingest_pending_repair(pending_d: Path, meta, papers_dir: Path) -> None:
     # Pending resolved: drop the whole pending dir (original PDF, pending.json, ...)
     shutil.rmtree(pending_d)
 
-    ui(f"  已入库: {paper_d.name}/")
-    ui(f"  pending 项已解决并移除: {pending_d}")
-    ui("hint: 下一步: 运行 `scrinium index` 更新索引")
+    ui(f"  Ingested: {paper_d.name}/")
+    ui(f"  Pending item resolved and removed: {pending_d}")
+    ui("hint: next step: run `scrinium index` to update the index")
 
 
 def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
@@ -432,7 +442,7 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
     elif args.paper_id:
         targets = [papers_dir / args.paper_id / "meta.json"]
     else:
-        _log.error("请指定 <paper-id> 或 --all")
+        _log.error("Specify <paper-id> or --all")
         sys.exit(1)
 
     if args.all:
@@ -445,22 +455,22 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
                 force=args.force,
             ),
             success_message=_toc_success_message,
-            failure_message="  TOC 提取失败",
+            failure_message="  TOC extraction failed",
             max_retries=2,
         )
         if fail:
-            ui(f"hint: {fail} 篇 TOC 提取失败；{HINT_TOC_MISS}")
+            ui(f"hint: TOC extraction failed for {fail} papers; {HINT_TOC_MISS}")
     else:
         ok = fail = skip = 0
         for json_path in targets:
             md_path = json_path.parent / "paper.md"
             if not md_path.exists():
-                _log.error("已跳过（缺少 paper.md）: %s", json_path.parent.name)
+                _log.error("Skipped (missing paper.md): %s", json_path.parent.name)
                 skip += 1
                 continue
 
             ui(f"\n{json_path.parent.name}")
-            ui("  开始提取 TOC...")
+            ui("  Extracting TOC...")
             success = enrich_toc(
                 json_path,
                 md_path,
@@ -471,21 +481,21 @@ def cmd_enrich_toc(args: argparse.Namespace, cfg) -> None:
                 ui(_toc_success_message(json_path))
             else:
                 fail += 1
-                ui("  TOC 提取失败")
+                ui("  TOC extraction failed")
                 ui(f"hint: {HINT_TOC_MISS}")
 
     if args.all or len(targets) > 1:
-        ui(f"\n完成: {ok} 成功 | {fail} 失败 | {skip} 跳过")
+        ui(f"\nDone: {ok} succeeded | {fail} failed | {skip} skipped")
 
 
 def cmd_pipeline(args: argparse.Namespace, cfg) -> None:
     from scrinium.ingest.pipeline import PRESETS, STEPS, PipelineOptions, run_pipeline
 
     if args.list_steps:
-        ui("可用步骤：")
+        ui("Available steps:")
         for name, sdef in STEPS.items():
             ui(f"  {name:<10} [{sdef.scope:<7}]  {sdef.desc}")
-        ui("\n可用预设：")
+        ui("\nAvailable presets:")
         for name, steps in PRESETS.items():
             ui(f"  {name:<10} = {', '.join(steps)}")
         return
@@ -493,13 +503,13 @@ def cmd_pipeline(args: argparse.Namespace, cfg) -> None:
     # Resolve step list
     if args.preset:
         if args.preset not in PRESETS:
-            _log.error("未知预设 '%s'。可用预设: %s", args.preset, ", ".join(PRESETS))
+            _log.error("Unknown preset '%s'. Available presets: %s", args.preset, ", ".join(PRESETS))
             sys.exit(1)
         step_names = PRESETS[args.preset]
     elif args.steps:
         step_names = [s.strip() for s in args.steps.split(",") if s.strip()]
     else:
-        _log.error("请指定一个预设名称或使用 --steps")
+        _log.error("Specify a preset name or use --steps")
         sys.exit(1)
 
     opts = PipelineOptions(
@@ -517,9 +527,9 @@ def cmd_pipeline(args: argparse.Namespace, cfg) -> None:
 def _toc_success_message(json_path: Path) -> str:
     try:
         data = json.loads(json_path.read_text(encoding="utf-8"))
-        return f"  TOC 提取完成: {len(data.get('toc', []))} 节"
+        return f"  TOC extracted: {len(data.get('toc', []))} sections"
     except (OSError, json.JSONDecodeError):
-        return "  TOC 提取完成"
+        return "  TOC extracted"
 
 
 def _run_batch_enrich(
@@ -539,7 +549,7 @@ def _run_batch_enrich(
     for json_path in targets:
         md_path = json_path.parent / "paper.md"
         if not md_path.exists():
-            _log.error("已跳过（缺少 paper.md）: %s", json_path.parent.name)
+            _log.error("Skipped (missing paper.md): %s", json_path.parent.name)
             skip += 1
             continue
         queued.append((json_path, md_path))
@@ -549,7 +559,7 @@ def _run_batch_enrich(
 
     # Rule-based enrich is CPU-bound; a small fixed worker budget is enough.
     workers = min(min(8, os.cpu_count() or 1), len(queued))
-    ui(f"并发处理（{workers} workers，共 {len(queued)} 篇）...")
+    ui(f"Processing concurrently ({workers} workers, {len(queued)} papers)...")
 
     def _retry_one(json_path: Path, md_path: Path) -> tuple[Path, bool, int]:
         for attempt in range(1, max_retries + 2):
@@ -558,7 +568,7 @@ def _run_batch_enrich(
                 if success:
                     return json_path, True, attempt
             except Exception as e:
-                _log.warning("批量富化失败（%s，第 %d 次）: %s", json_path.parent.name, attempt, e)
+                _log.warning("Batch enrichment failed (%s, attempt %d): %s", json_path.parent.name, attempt, e)
             if attempt <= max_retries:
                 time.sleep(float(2 ** (attempt - 1)))
         return json_path, False, max_retries + 1
@@ -567,14 +577,14 @@ def _run_batch_enrich(
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         futures = []
         for json_path, md_path in queued:
-            ui(f"\n{_batch_message(json_path, '开始处理...')}")
+            ui(f"\n{_batch_message(json_path, 'Processing...')}")
             futures.append(pool.submit(_retry_one, json_path, md_path))
         for future in concurrent.futures.as_completed(futures):
             json_path, success, attempts = future.result()
             if success:
                 ok += 1
                 if attempts > 1:
-                    ui(_batch_message(json_path, f"重试后成功（共 {attempts} 次）"))
+                    ui(_batch_message(json_path, f"Succeeded on retry ({attempts} attempts)"))
                 ui(
                     _batch_message(
                         json_path,
@@ -584,7 +594,7 @@ def _run_batch_enrich(
             else:
                 fail += 1
                 if attempts > 1:
-                    ui(_batch_message(json_path, f"已重试 {attempts - 1}/{max_retries} 次"))
+                    ui(_batch_message(json_path, f"Retried {attempts - 1}/{max_retries} times"))
                 ui(_batch_message(json_path, failure_message))
 
     return ok, fail, skip
@@ -604,7 +614,7 @@ def cmd_refetch(args: argparse.Namespace, cfg) -> None:
     elif args.paper_id:
         targets = [_resolve_paper(args.paper_id, cfg) / "meta.json"]
     else:
-        _log.error("请指定 <paper-id> 或 --all")
+        _log.error("Specify <paper-id> or --all")
         sys.exit(1)
 
     # Filter: only papers missing citations or bibliographic details (unless --force)
@@ -618,11 +628,11 @@ def cmd_refetch(args: argparse.Namespace, cfg) -> None:
             missing_bib = not all(data.get(k) for k in ("volume", "publisher"))
             if missing_cite or missing_bib:
                 filtered.append(jp)
-        ui(f"共 {len(targets)} 篇，{len(filtered)} 篇需要补全")
+        ui(f"{len(targets)} total, {len(filtered)} need enrichment")
         targets = filtered
 
     if not targets:
-        ui("无需更新")
+        ui("Nothing to update")
         return
 
     # Filter out non-existent paths
@@ -632,25 +642,25 @@ def cmd_refetch(args: argparse.Namespace, cfg) -> None:
         if jp.exists():
             valid.append(jp)
         else:
-            _log.error("未找到论文: %s", jp.parent.name)
+            _log.error("Paper not found: %s", jp.parent.name)
             fail += 1
     targets = valid
     if not targets:
         if args.all:
-            ui("无需更新")
+            ui("Nothing to update")
             return
         sys.exit(1)
 
     ok = skip = 0
     total = len(targets)
     workers = min(getattr(args, "jobs", 5) or 5, total)
-    ui(f"并发 refetch（{workers} workers，共 {total} 篇）...")
+    ui(f"Concurrent refetch ({workers} workers, {total} papers)...")
 
     def _do_refetch(jp: Path) -> tuple[Path, bool | None]:
         try:
             return jp, refetch_metadata(jp)
         except Exception as e:
-            _log.error("refetch 失败 %s: %s", jp.parent.name, e)
+            _log.error("refetch failed for %s: %s", jp.parent.name, e)
             return jp, None
 
     done = 0
@@ -670,7 +680,7 @@ def cmd_refetch(args: argparse.Namespace, cfg) -> None:
                 skip += 1
                 ui(f"[{done}/{total}] - {name}")
 
-    ui(f"\n完成: {ok} 更新 | {skip} 无变化 | {fail} 失败")
+    ui(f"\nDone: {ok} updated | {skip} unchanged | {fail} failed")
 
 
 def cmd_backfill_abstract(args: argparse.Namespace, cfg) -> None:
@@ -679,21 +689,23 @@ def cmd_backfill_abstract(args: argparse.Namespace, cfg) -> None:
 
     papers_dir = cfg.papers_dir
     if not papers_dir.exists():
-        _log.error("论文目录不存在: %s", papers_dir)
+        _log.error("Papers directory does not exist: %s", papers_dir)
         sys.exit(1)
 
-    action = "预览补全" if args.dry_run else "补全摘要"
+    action = "Previewing abstract backfill" if args.dry_run else "Backfilling abstracts"
     doi_fetch = getattr(args, "doi_fetch", False)
-    source = "DOI 官方来源" if doi_fetch else "本地 .md 纯正则"
-    ui(f"{action}摘要（{source}）...\n")
+    source = "official DOI sources" if doi_fetch else "local .md regex only"
+    ui(f"{action} ({source})...\n")
     stats = backfill_abstracts(papers_dir, dry_run=args.dry_run, doi_fetch=doi_fetch)
-    parts = [f"{stats['filled']} 已补全", f"{stats['skipped']} 跳过", f"{stats['failed']} 失败"]
+    parts = [f"{stats['filled']} filled", f"{stats['skipped']} skipped", f"{stats['failed']} failed"]
     if stats.get("updated"):
-        parts.insert(1, f"{stats['updated']} 已更新为官方摘要")
-    ui(f"\n完成: {' | '.join(parts)}")
+        parts.insert(1, f"{stats['updated']} updated to official abstracts")
+    ui(f"\nDone: {' | '.join(parts)}")
     failed_dirs = stats.get("failed_dirs") or []
     if failed_dirs:
-        ui(f"hint: {len(failed_dirs)} 篇正则未提取到摘要（{', '.join(failed_dirs[:5])}）；{HINT_ABSTRACT_MISS}")
+        ui(
+            f"hint: regex found no abstract in {len(failed_dirs)} papers ({', '.join(failed_dirs[:5])}); {HINT_ABSTRACT_MISS}"
+        )
     if stats["filled"] and not args.dry_run:
         _log.debug("consider rebuilding index: scrinium index --rebuild")
 
@@ -709,25 +721,25 @@ def cmd_rename(args: argparse.Namespace, cfg) -> None:
     elif args.paper_id:
         targets = [papers_dir / args.paper_id / "meta.json"]
     else:
-        _log.error("请指定 <paper-id> 或 --all")
+        _log.error("Specify <paper-id> or --all")
         sys.exit(1)
 
     renamed = skip = fail = 0
     for json_path in targets:
         if not json_path.exists():
-            _log.error("未找到论文: %s", json_path.parent.name)
+            _log.error("Paper not found: %s", json_path.parent.name)
             fail += 1
             continue
 
         new_path = rename_paper(json_path, dry_run=args.dry_run)
         if new_path:
-            action = "预览" if args.dry_run else "重命名"
+            action = "Preview" if args.dry_run else "Renamed"
             ui(f"{action}: {json_path.parent.name} -> {new_path.parent.name}")
             renamed += 1
         else:
             skip += 1
 
-    ui(f"\n完成: {renamed} 已重命名 | {skip} 未变化 | {fail} 失败")
+    ui(f"\nDone: {renamed} renamed | {skip} unchanged | {fail} failed")
     if renamed and not args.dry_run:
         _log.debug("consider rebuilding index: scrinium index --rebuild")
 
@@ -739,29 +751,29 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
     pdf_path = Path(args.pdf_path)
 
     if not pdf_path.exists():
-        ui(f"错误：PDF 文件不存在: {pdf_path}")
+        ui(f"Error: PDF file not found: {pdf_path}")
         sys.exit(1)
 
     existing_md = paper_d / "paper.md"
     dry_run = getattr(args, "dry_run", False)
 
     if dry_run:
-        ui(f"[dry-run] 论文目录: {paper_d}")
-        ui(f"[dry-run] PDF 来源: {pdf_path}")
-        ui(f"[dry-run] 目标 paper.md: {paper_d / 'paper.md'}")
+        ui(f"[dry-run] Paper directory: {paper_d}")
+        ui(f"[dry-run] PDF source: {pdf_path}")
+        ui(f"[dry-run] Target paper.md: {paper_d / 'paper.md'}")
         if existing_md.exists():
-            ui("[dry-run] 警告：已有 paper.md，实际运行时将被覆盖")
-        ui("[dry-run] 将执行: MinerU 转换 → 摘要补全 → 重建索引")
-        ui("[dry-run] 如确认无误，去掉 --dry-run 参数再运行")
+            ui("[dry-run] Warning: paper.md already exists and will be overwritten when run for real")
+        ui("[dry-run] Will run: MinerU conversion -> abstract backfill -> reindex")
+        ui("[dry-run] Remove --dry-run to execute")
         return
 
     if existing_md.exists():
-        ui(f"警告：{paper_d.name} 已有 paper.md，将被覆盖")
+        ui(f"Warning: {paper_d.name} already has paper.md; it will be overwritten")
 
     # Copy PDF to paper directory
     dest_pdf = paper_d / pdf_path.name
     shutil.copy2(str(pdf_path), str(dest_pdf))
-    ui(f"已复制 PDF: {dest_pdf.name}")
+    ui(f"Copied PDF: {dest_pdf.name}")
 
     # Convert PDF → markdown via MinerU
     from scrinium.ingest.mineru import (
@@ -808,21 +820,21 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
             auto_detect=fallback_auto_detect,
         )
         if not ok:
-            ui(f"首选解析器失败: {fallback_err}")
+            ui(f"Preferred parser failed: {fallback_err}")
             sys.exit(1)
-        ui(f"已按配置优先使用 {parser_name} 生成 paper.md")
+        ui(f"Generated paper.md with configured preferred parser {parser_name}")
         preferred_done = True
     elif check_server(cfg.ingest.mineru_endpoint):
         page_count = _get_pdf_page_count(dest_pdf)
         if page_count > local_chunk_limit:
-            ui(f"检测到长 PDF（{page_count} 页，超过 {local_chunk_limit} 页限制），正在分片处理...")
+            ui(f"Long PDF detected ({page_count} pages, over the {local_chunk_limit}-page limit); chunking...")
             result = _convert_long_pdf(dest_pdf, mineru_opts, chunk_size=local_chunk_limit)
         else:
             result = convert_pdf(dest_pdf, mineru_opts)
     else:
         api_key = cfg.resolved_mineru_api_key()
         if not api_key:
-            ui("MinerU 不可达且无 MinerU token，改用 fallback 解析器")
+            ui("MinerU unreachable and no MinerU token configured; switching to fallback parser")
         else:
             from scrinium.ingest.mineru import convert_pdf_cloud
 
@@ -831,7 +843,7 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
                 default_chunk_size=local_chunk_limit,
             )
             if should_chunk:
-                ui(f"检测到云端需分片 PDF（{reason}），正在分片处理...")
+                ui(f"Cloud chunking required ({reason}); chunking...")
                 try:
                     result = _convert_long_pdf_cloud(
                         dest_pdf,
@@ -842,10 +854,10 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
                     )
                 except ImportError as exc:
                     result = None
-                    ui(f"云端分片依赖缺失，尝试 fallback：{exc}。可安装 scrinium[pdf]")
+                    ui(f"Missing dependency for cloud chunking, trying fallback: {exc}. Install scrinium[pdf]")
                 except Exception as exc:
                     result = None
-                    ui(f"云端分片失败，尝试 fallback：{exc}")
+                    ui(f"Cloud chunking failed, trying fallback: {exc}")
             else:
                 result = convert_pdf_cloud(
                     dest_pdf,
@@ -856,7 +868,7 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
 
     if not preferred_done and (result is None or not result.success):
         err = result.error if result is not None else "MinerU unavailable"
-        ui(f"MinerU 转换失败，尝试 fallback: {err}")
+        ui(f"MinerU conversion failed, trying fallback: {err}")
         ok, parser_name, fallback_err = convert_pdf_with_fallback(
             dest_pdf,
             existing_md,
@@ -864,9 +876,9 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
             auto_detect=fallback_auto_detect,
         )
         if not ok:
-            ui(f"fallback 解析失败: {fallback_err}")
+            ui(f"Fallback parsing failed: {fallback_err}")
             sys.exit(1)
-        ui(f"已降级使用 {parser_name} 生成 paper.md")
+        ui(f"Generated paper.md via fallback parser {parser_name}")
     elif result is not None:
         # Move/rename output to paper.md
         if result.md_path and result.md_path != existing_md:
@@ -903,7 +915,7 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
     if dest_pdf.exists() and dest_pdf.name != "paper.pdf":
         dest_pdf.replace(dest_pdf.parent / "paper.pdf")
 
-    ui(f"paper.md 已生成: {paper_d.name}/")
+    ui(f"paper.md generated: {paper_d.name}/")
 
     # Backfill abstract if missing
     from scrinium.ingest.pipeline import HINT_ABSTRACT_MISS
@@ -917,9 +929,9 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
         if abstract:
             data["abstract"] = abstract
             write_meta(paper_d, data)
-            ui(f"abstract 已补全 ({len(abstract)} chars)")
+            ui(f"Abstract backfilled ({len(abstract)} chars)")
         else:
-            ui(f"hint: 正则未提取到摘要；{HINT_ABSTRACT_MISS}")
+            ui(f"hint: regex found no abstract; {HINT_ABSTRACT_MISS}")
 
     # Incremental re-index
     from scrinium.ingest.pipeline import PipelineOptions, step_index
@@ -930,16 +942,18 @@ def cmd_attach_pdf(args: argparse.Namespace, cfg) -> None:
 def _add_enrich_toc_args(p: argparse.ArgumentParser) -> None:
     """Arguments shared by ``enrich toc`` and its legacy alias ``enrich-toc``."""
     p.set_defaults(func=cmd_enrich_toc)
-    p.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
-    p.add_argument("--all", action="store_true", help="处理 papers_dir 中所有论文")
-    p.add_argument("--force", action="store_true", help="强制重新提取")
+    p.add_argument("paper_id", nargs="?", help="Paper ID (required unless --all is given)")
+    p.add_argument("--all", action="store_true", help="Process all papers in papers_dir")
+    p.add_argument("--force", action="store_true", help="Force re-extraction")
 
 
 def _add_backfill_abstract_args(p: argparse.ArgumentParser) -> None:
     """Arguments shared by ``enrich abstract`` and its legacy alias ``backfill-abstract``."""
     p.set_defaults(func=cmd_backfill_abstract)
-    p.add_argument("--dry-run", action="store_true", help="预览，不写文件")
-    p.add_argument("--doi-fetch", action="store_true", help="从出版商网页抓取官方 abstract（覆盖现有）")
+    p.add_argument("--dry-run", action="store_true", help="Preview without writing files")
+    p.add_argument(
+        "--doi-fetch", action="store_true", help="Fetch official abstracts from publisher pages (overwrites existing)"
+    )
 
 
 def _add_pipeline_args(p: argparse.ArgumentParser, *, preset_default: str | None = None) -> None:
@@ -949,51 +963,60 @@ def _add_pipeline_args(p: argparse.ArgumentParser, *, preset_default: str | None
         "preset",
         nargs="?",
         default=preset_default,
-        help="预设名称：full | ingest | enrich | reindex" + (f"（默认 {preset_default}）" if preset_default else ""),
+        help="Preset name: full | ingest | enrich | reindex"
+        + (f" (default: {preset_default})" if preset_default else ""),
     )
-    p.add_argument("--steps", help="自定义步骤序列（逗号分隔），如 abstract,toc,index")
-    p.add_argument("--list", dest="list_steps", action="store_true", help="列出所有步骤和预设")
-    p.add_argument("--dry-run", action="store_true", help="预览，不写文件")
-    p.add_argument("--no-api", action="store_true", help="离线模式，跳过外部 API")
-    p.add_argument("--force", action="store_true", help="强制重新处理（abstract/toc）")
-    p.add_argument("--rebuild", action="store_true", help="重建索引（index 步骤）")
-    p.add_argument("--inbox", help="inbox 目录（默认 data/inbox）")
-    p.add_argument("--papers", help="papers 目录（默认配置值）")
+    p.add_argument("--steps", help="Custom comma-separated step sequence, e.g. abstract,toc,index")
+    p.add_argument("--list", dest="list_steps", action="store_true", help="List all steps and presets")
+    p.add_argument("--dry-run", action="store_true", help="Preview without writing files")
+    p.add_argument("--no-api", action="store_true", help="Offline mode; skip external APIs")
+    p.add_argument("--force", action="store_true", help="Force reprocessing (abstract/toc)")
+    p.add_argument("--rebuild", action="store_true", help="Rebuild the index (index step)")
+    p.add_argument("--inbox", help="Inbox directory (default: data/inbox)")
+    p.add_argument("--papers", help="Papers directory (default: configured value)")
 
 
 def _add_refetch_args(p: argparse.ArgumentParser) -> None:
     """Arguments shared by ``refresh`` and its legacy alias ``refetch``."""
     p.set_defaults(func=cmd_refetch)
-    p.add_argument("paper_id", nargs="?", help="论文 ID（目录名 / UUID / DOI；省略则需 --all）")
-    p.add_argument("--all", action="store_true", help="补查所有缺失引用量的论文")
-    p.add_argument("--force", action="store_true", help="强制重新查询（包括已有引用量的论文）")
-    p.add_argument("--jobs", "-j", type=int, default=5, help="并发数（默认 5）")
+    p.add_argument("paper_id", nargs="?", help="Paper ID (dir_name / UUID / DOI; required unless --all is given)")
+    p.add_argument("--all", action="store_true", help="Refresh all papers missing citation counts")
+    p.add_argument(
+        "--force", action="store_true", help="Force re-query (including papers that already have citation counts)"
+    )
+    p.add_argument("--jobs", "-j", type=int, default=5, help="Concurrency level (default: 5)")
 
 
 def register(sub) -> None:
     """Register ingest-domain subcommands."""
     # --- enrich (grouped entry point) ---
-    p_enrich = sub.add_parser("enrich", help="内容富化：提取目录 / 补全摘要")
+    p_enrich = sub.add_parser("enrich", help="Content enrichment: extract TOC / backfill abstracts")
     p_enrich_sub = p_enrich.add_subparsers(dest="enrich_action", required=True)
-    _add_enrich_toc_args(p_enrich_sub.add_parser("toc", help="纯规则提取论文 TOC 写入 JSON"))
+    _add_enrich_toc_args(p_enrich_sub.add_parser("toc", help="Rule-based TOC extraction written to JSON"))
     _add_backfill_abstract_args(
-        p_enrich_sub.add_parser("abstract", help="补全缺失的 abstract（纯正则，支持 DOI 官方抓取）")
+        p_enrich_sub.add_parser(
+            "abstract", help="Backfill missing abstracts (regex-only, with official DOI fetch support)"
+        )
     )
 
     # --- enrich-toc (legacy alias of `enrich toc`; no help => hidden) ---
     _add_enrich_toc_args(sub.add_parser("enrich-toc"))
 
     # --- pipeline ---
-    _add_pipeline_args(sub.add_parser("pipeline", help="组合步骤流水线（可任意组装）"))
+    _add_pipeline_args(sub.add_parser("pipeline", help="Composable step pipeline"))
 
     # --- ingest (alias for the `pipeline ingest` preset) ---
     _add_pipeline_args(
-        sub.add_parser("ingest", help="入库流水线（等价于 `pipeline ingest`，支持 pipeline 全部选项）"),
+        sub.add_parser(
+            "ingest", help="Ingest pipeline (equivalent to `pipeline ingest`; supports all pipeline options)"
+        ),
         preset_default="ingest",
     )
 
     # --- refresh (primary name; `refetch` kept as a hidden legacy alias) ---
-    _add_refetch_args(sub.add_parser("refresh", help="从 API 刷新论文元数据、引用量与参考文献"))
+    _add_refetch_args(
+        sub.add_parser("refresh", help="Refresh paper metadata, citation counts, and references from APIs")
+    )
 
     # --- refetch (legacy alias of `refresh`; no help => hidden) ---
     _add_refetch_args(sub.add_parser("refetch"))
@@ -1002,57 +1025,65 @@ def register(sub) -> None:
     _add_backfill_abstract_args(sub.add_parser("backfill-abstract"))
 
     # --- rename ---
-    p_rename = sub.add_parser("rename", help="根据 JSON 元数据重命名论文文件")
+    p_rename = sub.add_parser("rename", help="Rename paper files based on JSON metadata")
     p_rename.set_defaults(func=cmd_rename)
-    p_rename.add_argument("paper_id", nargs="?", help="论文 ID（省略则需 --all）")
-    p_rename.add_argument("--all", action="store_true", help="重命名所有文件名不正确的论文")
-    p_rename.add_argument("--dry-run", action="store_true", help="预览，不实际重命名")
+    p_rename.add_argument("paper_id", nargs="?", help="Paper ID (required unless --all is given)")
+    p_rename.add_argument("--all", action="store_true", help="Rename all papers with non-standard filenames")
+    p_rename.add_argument("--dry-run", action="store_true", help="Preview without renaming")
 
     # --- audit ---
-    p_audit = sub.add_parser("audit", help="审计已入库论文的数据质量")
+    p_audit = sub.add_parser("audit", help="Audit data quality of ingested papers")
     p_audit.set_defaults(func=cmd_audit)
-    p_audit.add_argument("--severity", choices=["error", "warning", "info"], help="只显示指定严重级别的问题")
+    p_audit.add_argument(
+        "--severity", choices=["error", "warning", "info"], help="Show only issues at the given severity level"
+    )
 
     # --- tag ---
-    p_tag = sub.add_parser("tag", help="为论文添加/移除/查看策展标签")
+    p_tag = sub.add_parser("tag", help="Add, remove, or view curated tags on a paper")
     p_tag.set_defaults(func=cmd_tag)
-    p_tag.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
-    p_tag.add_argument("tags", nargs="*", help="要添加的标签（别名自动归一；未注册的自动加入词表）")
-    p_tag.add_argument("--remove", action="store_true", help="移除而非添加标签")
-    p_tag.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
+    p_tag.add_argument("paper_id", help="Paper ID (dir_name / UUID / DOI)")
+    p_tag.add_argument(
+        "tags", nargs="*", help="Tags to add (aliases normalized; unregistered tags added to vocabulary)"
+    )
+    p_tag.add_argument("--remove", action="store_true", help="Remove tags instead of adding")
+    p_tag.add_argument("--json", action="store_true", help="Output in JSON format (pipe-friendly)")
 
     # --- tags ---
-    p_tags = sub.add_parser("tags", help="浏览标签词表与各标签论文数")
+    p_tags = sub.add_parser("tags", help="Browse the tag vocabulary and per-tag paper counts")
     p_tags.set_defaults(func=cmd_tags)
-    p_tags.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
+    p_tags.add_argument("--json", action="store_true", help="Output in JSON format (pipe-friendly)")
 
     # --- topics ---
-    p_topics = sub.add_parser("topics", help="主题浏览：标签主题分布总览与钻取（标签即主题）")
+    p_topics = sub.add_parser("topics", help="Browse topics: tag-topic overview and drill-down (tags are topics)")
     p_topics.set_defaults(func=cmd_topics)
-    p_topics.add_argument("tag", nargs="?", default=None, help="主题（标签）名，支持别名；省略时显示总览")
-    p_topics.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
+    p_topics.add_argument(
+        "tag", nargs="?", default=None, help="Topic (tag) name; supports aliases. Omit to show the overview"
+    )
+    p_topics.add_argument("--json", action="store_true", help="Output in JSON format (pipe-friendly)")
 
     # --- pending ---
-    p_pending = sub.add_parser("pending", help="列出待确认项（data/pending 与 data/duplicates）")
+    p_pending = sub.add_parser("pending", help="List pending review items (data/pending and data/duplicates)")
     p_pending.set_defaults(func=cmd_pending)
 
     # --- repair ---
     p_repair = sub.add_parser(
         "repair",
-        help="修复论文元数据（库内论文原地改名；data/pending 待确认项查重后正式入库）",
+        help="Repair paper metadata (rename library papers in place; dedup-check and ingest data/pending items)",
     )
     p_repair.set_defaults(func=cmd_repair)
-    p_repair.add_argument("paper_id", help="论文 ID（库内目录名或 data/pending 下的 pending 项名）")
-    p_repair.add_argument("--title", required=True, help="正确的论文标题")
-    p_repair.add_argument("--doi", default="", help="已知 DOI（加速 API 查询）")
-    p_repair.add_argument("--author", default="", help="一作全名")
-    p_repair.add_argument("--year", type=int, default=None, help="发表年份")
-    p_repair.add_argument("--no-api", action="store_true", help="跳过 API 查询，仅用提供的信息")
-    p_repair.add_argument("--dry-run", action="store_true", help="预览，不实际修改")
+    p_repair.add_argument("paper_id", help="Paper ID (library directory name or item name under data/pending)")
+    p_repair.add_argument("--title", required=True, help="Correct paper title")
+    p_repair.add_argument("--doi", default="", help="Known DOI (speeds up API lookup)")
+    p_repair.add_argument("--author", default="", help="First author's full name")
+    p_repair.add_argument("--year", type=int, default=None, help="Publication year")
+    p_repair.add_argument("--no-api", action="store_true", help="Skip API queries; use only the provided information")
+    p_repair.add_argument("--dry-run", action="store_true", help="Preview without modifying anything")
 
     # --- attach-pdf ---
-    p_ap = sub.add_parser("attach-pdf", help="为已入库论文补充 PDF 并生成 paper.md")
+    p_ap = sub.add_parser("attach-pdf", help="Attach a PDF to an ingested paper and generate paper.md")
     p_ap.set_defaults(func=cmd_attach_pdf)
-    p_ap.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
-    p_ap.add_argument("pdf_path", help="PDF 文件路径")
-    p_ap.add_argument("--dry-run", action="store_true", help="预览将要执行的操作，不实际运行")
+    p_ap.add_argument("paper_id", help="Paper ID (dir_name / UUID / DOI)")
+    p_ap.add_argument("pdf_path", help="Path to the PDF file")
+    p_ap.add_argument(
+        "--dry-run", action="store_true", help="Preview the actions that would be taken without running them"
+    )

@@ -1,4 +1,4 @@
-"""Regression tests for localized CLI/setup messaging."""
+"""Regression tests for CLI/setup messaging."""
 
 from __future__ import annotations
 
@@ -20,30 +20,26 @@ from scrinium.setup import _S
 
 
 class TestSetupImportHints:
-    def test_zh_import_hint_is_fully_localized(self):
-        zh_hint = _S["import_hint"]["zh"]
+    def test_import_hint_is_in_english(self):
+        hint = _S["import_hint"]
 
-        assert zh_hint.startswith("\n提示：")
+        assert hint.startswith("\nTip:")
 
     def test_zotero_examples_use_distinct_placeholders_and_optional_local_collection(self):
-        en_hint = _S["import_hint"]["en"]
-        zh_hint = _S["import_hint"]["zh"]
+        hint = _S["import_hint"]
 
-        assert "--api-key <API_KEY>" in en_hint
-        assert "--collection <COLLECTION_KEY>" in en_hint
-        assert "scrinium import-zotero --local /path/to/zotero.sqlite\n" in en_hint
-        assert "--api-key <API_KEY>" in zh_hint
-        assert "--collection <COLLECTION_KEY>" in zh_hint
-        assert "scrinium import-zotero --local /path/to/zotero.sqlite\n" in zh_hint
+        assert "--api-key <API_KEY>" in hint
+        assert "--collection <COLLECTION_KEY>" in hint
+        assert "scrinium import-zotero --local /path/to/zotero.sqlite\n" in hint
 
 
 class TestSetupPromptTransparency:
     def test_setup_prompts_explain_free_items(self):
-        zh_mineru = _S["mineru_key_prompt"]["zh"]
-        zh_email = _S["email_prompt"]["zh"]
+        mineru_prompt = _S["mineru_key_prompt"]
+        email_prompt = _S["email_prompt"]
 
-        assert "免费" in zh_mineru
-        assert "免费" in zh_email
+        assert "free" in mineru_prompt
+        assert "free" in email_prompt
 
 
 class TestCliHelpLocalization:
@@ -51,28 +47,25 @@ class TestCliHelpLocalization:
         parser = cli._build_parser()
         root_help = parser.format_help()
 
-        assert "面向 AI coding agent 的研究终端" in root_help
-        assert "本地学术文献检索工具" not in root_help
+        assert "Research terminal for AI coding agents" in root_help
+        assert "Local academic literature search tool" not in root_help
 
-    def test_setup_help_is_fully_localized(self):
+    def test_setup_help_is_in_english(self):
         parser = cli._build_parser()
         setup_parser = parser._subparsers._group_actions[0].choices["setup"]
         setup_help = setup_parser.format_help()
         setup_check = setup_parser._subparsers._group_actions[0].choices["check"].format_help()
 
-        assert "默认进入交互式安装向导" in setup_help
-        assert "检查环境状态" in setup_help
-        assert "输出语言（zh 或 en，默认 zh）" in setup_check
-        assert "Start the interactive setup wizard" not in setup_help
-        assert "Check environment status" not in setup_help
-        assert "Output language" not in setup_check
+        assert "Start the interactive setup wizard" in setup_help
+        assert "Check environment status" in setup_help
+        assert "--lang" not in setup_check
 
     def test_toolref_fetch_help_uses_prefix_free_version_example(self):
         parser = cli._build_parser()
         toolref_parser = parser._subparsers._group_actions[0].choices["toolref"]
         toolref_fetch = toolref_parser._subparsers._group_actions[0].choices["fetch"].format_help()
 
-        assert "版本号（如 7.5, 22Jul2025_update3）" in toolref_fetch
+        assert "Version number (e.g. 7.5, 22Jul2025_update3)" in toolref_fetch
         assert "stable_22Jul2025_update3" not in toolref_fetch
 
     def test_fsearch_help_mentions_proceedings_scope(self):
@@ -85,14 +78,13 @@ class TestCliHelpLocalization:
         parser = cli._build_parser()
         root_help = parser.format_help()
 
-        assert "多维文献探索" in root_help
-        assert "期刊全量探索" not in root_help
+        assert "Multi-dimensional literature exploration" in root_help
 
     def test_refetch_help_accepts_uuid_and_doi_identifiers(self):
         parser = cli._build_parser()
         refetch_help = parser._subparsers._group_actions[0].choices["refetch"].format_help()
 
-        assert "目录名 / UUID / DOI" in refetch_help
+        assert "dir_name / UUID / DOI" in refetch_help
 
 
 class TestShowLayer4Headings:
@@ -109,7 +101,7 @@ class TestShowLayer4Headings:
 
         cli.cmd_show(args, cfg)
 
-        assert "\n--- 全文（zh） ---\n" in messages
+        assert "\n--- Full Text (zh) ---\n" in messages
 
     def test_missing_translation_heading_uses_consistent_spacing(self, tmp_papers, monkeypatch):
         messages: list[str] = []
@@ -121,7 +113,7 @@ class TestShowLayer4Headings:
 
         cli.cmd_show(args, cfg)
 
-        assert "\n--- 全文（原文，paper_fr.md 不存在） ---\n" in messages
+        assert "\n--- Full Text (original; paper_fr.md not found) ---\n" in messages
 
 
 class TestRefetchIdentifierResolution:
@@ -139,7 +131,7 @@ class TestRefetchIdentifierResolution:
         cli.cmd_refetch(args, cfg)
 
         assert seen == [tmp_papers / "Smith-2023-Turbulence" / "meta.json"]
-        assert any("并发 refetch（1 workers，共 1 篇）" in m for m in messages)
+        assert any("Concurrent refetch (1 workers, 1 papers)" in m for m in messages)
         assert any("Smith-2023-Turbulence" in m for m in messages)
 
     def test_refetch_resolves_mixed_case_doi_without_registry(self, tmp_papers, tmp_path, monkeypatch):
@@ -154,7 +146,7 @@ class TestRefetchIdentifierResolution:
         cli.cmd_refetch(args, cfg)
 
         assert seen == [tmp_papers / "Smith-2023-Turbulence" / "meta.json"]
-        assert any("并发 refetch（1 workers，共 1 篇）" in m for m in messages)
+        assert any("Concurrent refetch (1 workers, 1 papers)" in m for m in messages)
         assert any("Smith-2023-Turbulence" in m for m in messages)
 
 
@@ -172,9 +164,9 @@ class TestShowNotesIntegration:
 
         cli.cmd_show(args, cfg)
 
-        assert "\n--- Agent 笔记 (notes.md) ---\n" in messages
+        assert "\n--- Agent Notes (notes.md) ---\n" in messages
         assert any("Key finding" in m for m in messages)
-        assert "\n--- 笔记结束 ---\n" in messages
+        assert "\n--- End of Notes ---\n" in messages
 
     def test_no_notes_section_when_file_missing(self, tmp_papers, monkeypatch):
         messages: list[str] = []
@@ -186,7 +178,7 @@ class TestShowNotesIntegration:
 
         cli.cmd_show(args, cfg)
 
-        assert "\n--- Agent 笔记 (notes.md) ---\n" not in messages
+        assert "\n--- Agent Notes (notes.md) ---\n" not in messages
 
     def test_append_notes_visible_in_same_show(self, tmp_papers, monkeypatch):
         messages: list[str] = []
@@ -202,8 +194,8 @@ class TestShowNotesIntegration:
 
         cli.cmd_show(args, cfg)
 
-        assert any("已追加笔记到" in m for m in messages)
-        assert "\n--- Agent 笔记 (notes.md) ---\n" in messages
+        assert any("Appended notes to" in m for m in messages)
+        assert "\n--- Agent Notes (notes.md) ---\n" in messages
         assert any("Important note" in m for m in messages)
 
     def test_append_notes_empty_ignored(self, tmp_papers, monkeypatch):
@@ -216,7 +208,7 @@ class TestShowNotesIntegration:
 
         cli.cmd_show(args, cfg)
 
-        assert any("内容为空" in m for m in messages)
+        assert any("is empty" in m for m in messages)
         assert not (tmp_papers / "Smith-2023-Turbulence" / "notes.md").exists()
 
 
@@ -230,7 +222,7 @@ class TestShowHeaderDirName:
 
         cli.cmd_show(args, cfg)
 
-        assert any("目录名" in m and "Smith-2023-Turbulence" in m for m in messages)
+        assert any("Dir Name" in m and "Smith-2023-Turbulence" in m for m in messages)
 
 
 class TestSearchResultFormatting:
@@ -281,10 +273,8 @@ class TestToolrefCliMessages:
         cli.cmd_toolref(args, SimpleNamespace())
 
         assert any("pw.x/SYSTEM/ecutwfc" in m for m in messages)
-        assert any("段落：" in m and "程序：" in m for m in messages)
+        assert any("Section:" in m and "Program:" in m for m in messages)
         assert all("📖" not in m for m in messages)
-        assert all("Namelist:" not in m for m in messages)
-        assert all("Program:" not in m for m in messages)
 
 
 class TestArxivCommands:
@@ -307,7 +297,7 @@ class TestArxivCommands:
         cli.cmd_arxiv_fetch(args, cfg)
 
         assert downloaded.exists()
-        assert any("已下载到 inbox" in m for m in messages)
+        assert any("Downloaded to inbox" in m for m in messages)
 
     def test_arxiv_fetch_ingest_uses_temp_inbox_pipeline(self, tmp_path, monkeypatch):
         messages: list[str] = []
@@ -337,7 +327,7 @@ class TestArxivCommands:
         assert seen["steps"] == ["mineru", "extract", "dedup", "ingest", "index"]
         assert seen["inbox_dir"] != cfg._root / "data" / "inbox"
         assert seen["opts"].include_aux_inboxes is False
-        assert any("开始直接入库" in m for m in messages)
+        assert any("Starting direct ingest" in m for m in messages)
 
     def test_arxiv_fetch_reports_download_failure(self, tmp_path, monkeypatch):
         messages: list[str] = []
@@ -352,7 +342,7 @@ class TestArxivCommands:
 
         cli.cmd_arxiv_fetch(args, cfg)
 
-        assert any("arXiv 下载失败" in m for m in messages)
+        assert any("arXiv download failed" in m for m in messages)
 
 
 class TestFederatedArxivPresence:
@@ -393,7 +383,7 @@ class TestFederatedArxivPresence:
 
         cli.cmd_fsearch(args, cfg)
 
-        assert any("[已入库]" in m for m in messages)
+        assert any("[In Library]" in m for m in messages)
 
 
 class TestEnrichTocCliProgress:
@@ -414,8 +404,8 @@ class TestEnrichTocCliProgress:
 
         cli.cmd_enrich_toc(args, cfg)
 
-        assert any("开始提取 TOC" in m for m in messages)
-        assert any("TOC 提取完成" in m and "1 节" in m for m in messages)
+        assert any("Extracting TOC" in m for m in messages)
+        assert any("TOC extracted" in m and "1 sections" in m for m in messages)
 
     def test_cmd_enrich_toc_single_paper_failure_emits_hint(self, tmp_papers, monkeypatch):
         messages: list[str] = []
@@ -429,7 +419,7 @@ class TestEnrichTocCliProgress:
 
         from scrinium.ingest.pipeline import HINT_TOC_MISS
 
-        assert any("TOC 提取失败" in m for m in messages)
+        assert any("TOC extraction failed" in m for m in messages)
         hints = [m for m in messages if m.startswith("hint:")]
         assert len(hints) == 1
         assert HINT_TOC_MISS in hints[0]
@@ -479,11 +469,11 @@ class TestEnrichTocCliProgress:
             "Smith-2023-Turbulence",
             "Wang-2024-DeepLearning",
         ]
-        assert any("Smith-2023-Turbulence" in m and "开始处理" in m for m in messages)
-        assert any("Wang-2024-DeepLearning" in m and "开始处理" in m for m in messages)
-        assert any("Smith-2023-Turbulence" in m and "TOC 提取完成" in m for m in messages)
-        assert any("Wang-2024-DeepLearning" in m and "TOC 提取完成" in m for m in messages)
-        assert any("完成: 2 成功 | 0 失败 | 0 跳过" in m for m in messages)
+        assert any("Smith-2023-Turbulence" in m and "Processing" in m for m in messages)
+        assert any("Wang-2024-DeepLearning" in m and "Processing" in m for m in messages)
+        assert any("Smith-2023-Turbulence" in m and "TOC extracted" in m for m in messages)
+        assert any("Wang-2024-DeepLearning" in m and "TOC extracted" in m for m in messages)
+        assert any("Done: 2 succeeded | 0 failed | 0 skipped" in m for m in messages)
 
 
 class TestEnrichTocCliBatchRetries:
@@ -539,12 +529,12 @@ class TestEnrichTocCliBatchRetries:
             "Wang-2024-DeepLearning": 1,
         }
         assert sleep_delays == [1.0, 2.0]
-        assert any("Smith-2023-Turbulence" in m and "开始处理" in m for m in messages)
-        assert any("Wang-2024-DeepLearning" in m and "开始处理" in m for m in messages)
-        assert any("Smith-2023-Turbulence" in m and "重试后成功" in m for m in messages)
-        assert any("Smith-2023-Turbulence" in m and "TOC 提取完成" in m for m in messages)
-        assert any("Wang-2024-DeepLearning" in m and "TOC 提取完成" in m for m in messages)
-        assert any("完成: 2 成功 | 0 失败 | 0 跳过" in m for m in messages)
+        assert any("Smith-2023-Turbulence" in m and "Processing" in m for m in messages)
+        assert any("Wang-2024-DeepLearning" in m and "Processing" in m for m in messages)
+        assert any("Smith-2023-Turbulence" in m and "Succeeded on retry" in m for m in messages)
+        assert any("Smith-2023-Turbulence" in m and "TOC extracted" in m for m in messages)
+        assert any("Wang-2024-DeepLearning" in m and "TOC extracted" in m for m in messages)
+        assert any("Done: 2 succeeded | 0 failed | 0 skipped" in m for m in messages)
 
 
 class TestImportEndnoteOptionalDeps:
@@ -570,7 +560,7 @@ class TestImportEndnoteOptionalDeps:
         else:
             raise AssertionError("expected SystemExit")
 
-        assert any("缺少依赖: endnote_utils" in msg for msg in errors)
+        assert any("Missing dependency: endnote_utils" in msg for msg in errors)
         assert any("pip install scrinium[import]" in msg for msg in errors)
 
 
@@ -586,7 +576,7 @@ class TestOptionalDependencyHints:
         else:
             raise AssertionError("expected SystemExit")
 
-        assert any("缺少依赖: docx" in msg for msg in errors)
+        assert any("Missing dependency: docx" in msg for msg in errors)
         assert any("pip install scrinium[office]" in msg for msg in errors)
 
     def test_pdf_dependency_hint_uses_scrinium_extra(self, monkeypatch):
@@ -600,7 +590,7 @@ class TestOptionalDependencyHints:
         else:
             raise AssertionError("expected SystemExit")
 
-        assert any("缺少依赖: fitz" in msg for msg in errors)
+        assert any("Missing dependency: fitz" in msg for msg in errors)
         assert any("pip install scrinium[pdf]" in msg for msg in errors)
 
 
@@ -1067,8 +1057,8 @@ class TestSetupMetricsFallback:
         monkeypatch.setattr("scrinium.ingest.metadata._models.configure_session", lambda *_: None)
         monkeypatch.setattr("scrinium.ingest.metadata._models.configure_s2_session", lambda *_: None)
         monkeypatch.setattr(cli_misc, "cmd_setup", lambda args, cfg: print("SETUP_OK"))
-        monkeypatch.setattr("sys.argv", ["scrinium", "setup", "check", "--lang", "zh"])
+        monkeypatch.setattr("sys.argv", ["scrinium", "setup", "check"])
 
         cli.main()
 
-        assert any("metrics 初始化失败，已跳过" in msg for msg in messages)
+        assert any("metrics initialization failed, skipped" in msg for msg in messages)

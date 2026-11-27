@@ -1,4 +1,4 @@
-"""Tests for scrinium/si.py — SI 检测、解析链、验证、挂接与获取流程。"""
+"""Tests for scrinium/si.py — SI detection, resolution chain, verification, attachment, and fetch flow."""
 
 from __future__ import annotations
 

@@ -118,7 +118,7 @@ class TestInspectDispatcher:
 
         p = tmp_path / "test.pdf"
         p.write_text("dummy")
-        with pytest.raises(ValueError, match="不支持"):
+        with pytest.raises(ValueError, match="Unsupported"):
             inspect(p)
 
     def test_file_not_found(self, tmp_path):
@@ -130,7 +130,7 @@ class TestInspectDispatcher:
     def test_directory_path_rejected(self, tmp_path):
         from scrinium.document import inspect
 
-        with pytest.raises(ValueError, match="不是文件"):
+        with pytest.raises(ValueError, match="not a file"):
             inspect(tmp_path)
 
 
@@ -139,7 +139,7 @@ class TestInspectPptx:
         from scrinium.document import inspect_pptx
 
         result = inspect_pptx(sample_pptx)
-        assert "2 页" in result
+        assert "2 slides" in result
 
     def test_text_content(self, sample_pptx):
         from scrinium.document import inspect_pptx
@@ -158,9 +158,9 @@ class TestInspectPptx:
         from scrinium.document import inspect_pptx
 
         result = inspect_pptx(sample_pptx)
-        assert "总结" in result
-        assert "表格: 1" in result
-        assert "布局警告:" in result
+        assert "Summary" in result
+        assert "tables: 1" in result
+        assert "layout warnings:" in result
 
     def test_detects_cjk_card_overflow_and_small_textbox(self, tmp_path):
         from pptx import Presentation
@@ -183,9 +183,9 @@ class TestInspectPptx:
         path = tmp_path / "overflow.pptx"
         prs.save(str(path))
         report = inspect_pptx(path)
-        assert "文字可能溢出" in report
-        assert "文字超出所在卡片底边" in report
-        assert "布局警告: 0" not in report
+        assert "Text may overflow" in report
+        assert "Text extends past enclosing card bottom" in report
+        assert "layout warnings: 0" not in report
 
 
 class TestInspectDocx:
@@ -212,7 +212,7 @@ class TestInspectDocx:
         from scrinium.document import inspect_docx
 
         result = inspect_docx(sample_docx)
-        assert "总结" in result
+        assert "Summary" in result
         assert "H1:" in result
         assert "H2:" in result
 
@@ -242,7 +242,7 @@ class TestInspectXlsx:
         from scrinium.document import inspect_xlsx
 
         result = inspect_xlsx(sample_xlsx)
-        assert "冻结窗格" in result
+        assert "freeze panes" in result
 
     def test_chart_detected(self, sample_xlsx):
         from scrinium.document import inspect_xlsx
@@ -255,4 +255,4 @@ class TestInspectXlsx:
         from scrinium.document import inspect_xlsx
 
         result = inspect_xlsx(sample_xlsx)
-        assert "图表: 1" in result
+        assert "charts: 1" in result

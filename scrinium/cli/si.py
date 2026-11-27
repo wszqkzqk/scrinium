@@ -1,4 +1,4 @@
-"""cli/si.py — SI（Supporting Information）扫描、自动获取、状态与挂接。"""
+"""cli/si.py — SI (Supporting Information) scan, auto-fetch, status, and attach."""
 
 from __future__ import annotations
 
@@ -14,16 +14,16 @@ from .common import _emit_json, _resolve_paper
 
 _log = logging.getLogger(__package__)
 
-#: 批量 fetch 时论文之间的限速间隔（秒），与 pipeline 的 api_delay 一致
+#: Rate-limit delay (seconds) between papers during batch fetch, matching pipeline api_delay
 _FETCH_DELAY = 2.0
 
-#: 各 fetch_status 给 agent 的接管提示
+#: Handoff hints to the agent per fetch_status
 _STATUS_HINTS = {
-    "not_found": "规则链未找到 SI 地址，值得 web search 人工寻找",
-    "blocked": "出版社拦截（403/429），建议换渠道（PMC/作者主页/预印本镜像）",
-    "mismatch": "下载件验证未过，需人工核对下载到的文件",
-    "paywalled": "SI 疑似付费墙，可判断是否有 OA 镜像",
-    "error": "网络/转换错误，可直接重试",
+    "not_found": "No SI URL found by rule chain; try a manual web search",
+    "blocked": "Blocked by publisher (403/429); try alternative channels (PMC / author homepage / preprint mirror)",
+    "mismatch": "Downloaded file failed verification; manually inspect the downloaded file",
+    "paywalled": "SI appears paywalled; check whether an OA mirror exists",
+    "error": "Network/conversion error; safe to retry",
 }
 
 
@@ -46,7 +46,7 @@ def _reindex(cfg) -> None:
 
 
 def cmd_si_scan(args: argparse.Namespace, cfg) -> None:
-    """扫描全库：标记正文引用了 SI 的论文（写 meta.json 的 si.mentioned）。"""
+    """Scan the library and mark papers whose full text mentions SI (writes meta.json si.mentioned)."""
     from scrinium.papers import iter_paper_dirs, read_meta, write_meta
     from scrinium.si import paper_si_state, si_mentioned_in_text
 
@@ -77,20 +77,23 @@ def cmd_si_scan(args: argparse.Namespace, cfg) -> None:
         _emit_json({"total": len(states), "mentioned": n_mentioned, "present": n_present, "papers": states})
         return
 
-    ui(f"扫描完成: 共 {len(states)} 篇 | 正文引用 SI: {n_mentioned} 篇 | 已挂接 SI: {n_present} 篇")
+    ui(f"Scan complete: {len(states)} papers | SI mentioned in text: {n_mentioned} | SI attached: {n_present}")
     missing = [s for s in states if s.get("mentioned") and not s.get("present")]
     if missing:
-        ui(f"\n提到 SI 但未挂接: {len(missing)} 篇")
+        ui(f"\nMentions SI but not attached: {len(missing)} papers")
         for s in missing[:20]:
             status = f" [{s['fetch_status']}]" if s.get("fetch_status") else ""
             ui(f"  {s['paper_id']}{status}")
         if len(missing) > 20:
-            ui(f"  ... 以及另外 {len(missing) - 20} 篇")
-        ui("\nhint: 运行 `scrinium si fetch --missing` 自动获取；失败项派 subagent 按 si skill 工作流接管")
+            ui(f"  ... and {len(missing) - 20} more")
+        ui(
+            "\nhint: run `scrinium si fetch --missing` to fetch automatically; "
+            "dispatch a subagent following the si skill workflow for failures"
+        )
 
 
 def cmd_si_fetch(args: argparse.Namespace, cfg) -> None:
-    """自动获取 SI：规则链解析候选 → 下载 → 验证 → 挂接。"""
+    """Auto-fetch SI: resolve candidates via rule chain -> download -> verify -> attach."""
     from scrinium.papers import iter_paper_dirs
     from scrinium.si import TERMINAL_STATUSES, fetch_si_for_paper, paper_si_state
 
@@ -110,17 +113,19 @@ def cmd_si_fetch(args: argparse.Namespace, cfg) -> None:
                 continue
             targets.append(pdir)
         if not targets:
-            ui("没有需要获取 SI 的论文（scan 标记 mentioned 且未挂接）。")
-            ui("hint: 先运行 `scrinium si scan` 刷新标记；或用 `scrinium si fetch <paper-id>` 指定论文")
+            ui("No papers need SI fetch (marked as mentioned by scan and not yet attached).")
+            ui(
+                "hint: run `scrinium si scan` first to refresh flags, or specify a paper with `scrinium si fetch <paper-id>`"
+            )
             return
 
-    ui(f"待获取: {len(targets)} 篇")
+    ui(f"To fetch: {len(targets)} papers")
     stats: dict[str, int] = {}
     failed: list[tuple[str, str]] = []
     for idx, pdir in enumerate(targets):
         try:
             status = fetch_si_for_paper(pdir, cfg, convert=convert, dry_run=dry_run, force=force)
-        except Exception as exc:
+        except Exception:
             _log.exception("si fetch failed for %s", pdir.name)
             status = "error"
         stats[status] = stats.get(status, 0) + 1
@@ -130,23 +135,23 @@ def cmd_si_fetch(args: argparse.Namespace, cfg) -> None:
         if not dry_run and idx < len(targets) - 1:
             time.sleep(_FETCH_DELAY)
 
-    ui("\n获取完成: " + " | ".join(f"{k}: {v}" for k, v in sorted(stats.items())))
+    ui("\nFetch complete: " + " | ".join(f"{k}: {v}" for k, v in sorted(stats.items())))
     if stats.get("ok") and not dry_run:
         _reindex(cfg)
-        ui("索引已更新（SI 内容可检索）")
+        ui("Index updated (SI content is now searchable)")
     if failed:
-        ui("\n失败项（建议派 subagent 按 si skill 工作流接管）:")
+        ui("\nFailed items (consider dispatching a subagent following the si skill workflow):")
         for name, status in failed:
             hint = _STATUS_HINTS.get(status, "")
             ui(f"  [{status}] {name}" + (f" — {hint}" if hint else ""))
         ui(
-            "hint: 人工找到 SI 文件后用 `scrinium attach-si <paper-id> <file>` 挂接；"
-            "确认不存在则将 meta.json 的 si.fetch_status 置为 exhausted"
+            "hint: after locating the SI file manually, attach it with `scrinium attach-si <paper-id> <file>`; "
+            "if confirmed unavailable, set si.fetch_status to exhausted in meta.json"
         )
 
 
 def cmd_si_status(args: argparse.Namespace, cfg) -> None:
-    """SI 队列总览：各状态计数 + 待 agent 接管清单。"""
+    """SI queue overview: counts by status + list awaiting agent takeover."""
     states = _iter_states(cfg)
     total = len(states)
     mentioned = sum(1 for s in states if s.get("mentioned"))
@@ -170,33 +175,33 @@ def cmd_si_status(args: argparse.Namespace, cfg) -> None:
         )
         return
 
-    ui(f"论文总数: {total} | 提到 SI: {mentioned} | 已挂接: {present}（{n_files} 个文件）")
+    ui(f"Total papers: {total} | SI mentioned: {mentioned} | Attached: {present} ({n_files} files)")
     if not by_status:
-        ui("队列清空：提到 SI 的论文均已挂接或标记终态。")
+        ui("Queue empty: all papers mentioning SI are attached or marked with a terminal status.")
         return
-    ui("\n未挂接队列:")
+    ui("\nUnattached queue:")
     for status, ids in sorted(by_status.items()):
-        ui(f"  [{status}] {len(ids)} 篇")
+        ui(f"  [{status}] {len(ids)} papers")
         for pid in ids[:10]:
             ui(f"    {pid}")
         if len(ids) > 10:
-            ui(f"    ... 以及另外 {len(ids) - 10} 篇")
+            ui(f"    ... and {len(ids) - 10} more")
     pending = [s for s in ("pending", "not_found", "blocked", "mismatch") if s in by_status]
     if pending:
         ui(
-            "\nhint: `scrinium si fetch --missing` 可重试 pending/error 项；"
-            "not_found/blocked/mismatch 建议派 subagent 接管"
+            "\nhint: `scrinium si fetch --missing` retries pending/error items; "
+            "consider dispatching a subagent for not_found/blocked/mismatch items"
         )
 
 
 def cmd_attach_si(args: argparse.Namespace, cfg) -> None:
-    """把本地文件作为 SI 挂接到论文（agent 接管的统一入口）。"""
+    """Attach a local file as SI to a paper (unified entry point for agent takeover)."""
     from scrinium.si import attach_si
 
     paper_d = _resolve_paper(args.paper_id, cfg)
     src = Path(args.file)
     if not src.exists():
-        ui(f"错误：文件不存在: {src}")
+        ui(f"Error: file not found: {src}")
         sys.exit(1)
 
     res = attach_si(
@@ -214,7 +219,7 @@ def cmd_attach_si(args: argparse.Namespace, cfg) -> None:
         sys.exit(1)
     if res["status"] != "dry_run":
         _reindex(cfg)
-        ui("索引已更新")
+        ui("Index updated")
 
 
 # ============================================================================
@@ -224,31 +229,41 @@ def cmd_attach_si(args: argparse.Namespace, cfg) -> None:
 
 def register(sub) -> None:
     """Register SI subcommands."""
-    p_si = sub.add_parser("si", help="Supporting Information 扫描、获取与挂接")
+    p_si = sub.add_parser("si", help="Scan, fetch, and attach Supporting Information")
     p_si.set_defaults(func=cmd_si_status)
     si_sub = p_si.add_subparsers(dest="si_action")
 
-    p_scan = si_sub.add_parser("scan", help="扫描全库，标记正文引用了 SI 的论文")
+    p_scan = si_sub.add_parser("scan", help="Scan the library and mark papers whose text mentions SI")
     p_scan.set_defaults(func=cmd_si_scan)
-    p_scan.add_argument("--json", action="store_true", help="以 JSON 格式输出")
+    p_scan.add_argument("--json", action="store_true", help="Output in JSON format")
 
-    p_fetch = si_sub.add_parser("fetch", help="自动获取 SI（规则链 → 下载 → 验证 → 挂接）")
+    p_fetch = si_sub.add_parser("fetch", help="Auto-fetch SI (rule chain -> download -> verify -> attach)")
     p_fetch.set_defaults(func=cmd_si_fetch)
-    p_fetch.add_argument("paper_id", nargs="?", default=None, help="论文 ID（缺省配合 --missing 批量）")
-    p_fetch.add_argument("--missing", action="store_true", help="批量处理提到 SI 但未挂接的论文")
-    p_fetch.add_argument("--force", action="store_true", help="忽略已有文件与终态，强制重试")
-    p_fetch.add_argument("--no-convert", action="store_true", help="只存原始文件，不转 Markdown")
-    p_fetch.add_argument("--dry-run", action="store_true", help="预览模式")
+    p_fetch.add_argument("paper_id", nargs="?", default=None, help="Paper ID (omit with --missing for batch mode)")
+    p_fetch.add_argument(
+        "--missing", action="store_true", help="Batch process papers that mention SI but have none attached"
+    )
+    p_fetch.add_argument(
+        "--force", action="store_true", help="Ignore existing files and terminal statuses; force retry"
+    )
+    p_fetch.add_argument(
+        "--no-convert", action="store_true", help="Keep original files only; do not convert to Markdown"
+    )
+    p_fetch.add_argument("--dry-run", action="store_true", help="Preview mode")
 
-    p_status = si_sub.add_parser("status", help="SI 队列总览与待接管清单")
+    p_status = si_sub.add_parser("status", help="SI queue overview and items awaiting takeover")
     p_status.set_defaults(func=cmd_si_status)
-    p_status.add_argument("--json", action="store_true", help="以 JSON 格式输出")
+    p_status.add_argument("--json", action="store_true", help="Output in JSON format")
 
-    p_attach = sub.add_parser("attach-si", help="把本地文件作为 SI 挂接到论文（验证 → 转换 → 入库）")
+    p_attach = sub.add_parser("attach-si", help="Attach a local file as SI to a paper (verify -> convert -> ingest)")
     p_attach.set_defaults(func=cmd_attach_si)
-    p_attach.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
-    p_attach.add_argument("file", help="SI 文件路径（PDF/Office/数据文件）")
-    p_attach.add_argument("--source-url", dest="source_url", default="", help="SI 来源 URL（审计追溯）")
-    p_attach.add_argument("--no-convert", action="store_true", help="只存原始文件，不转 Markdown")
-    p_attach.add_argument("--no-verify", action="store_true", help="跳过与主文的匹配验证（慎用）")
-    p_attach.add_argument("--dry-run", action="store_true", help="预览模式")
+    p_attach.add_argument("paper_id", help="Paper ID (dir_name / UUID / DOI)")
+    p_attach.add_argument("file", help="Path to the SI file (PDF/Office/data file)")
+    p_attach.add_argument("--source-url", dest="source_url", default="", help="Source URL of the SI (for audit trail)")
+    p_attach.add_argument(
+        "--no-convert", action="store_true", help="Keep original files only; do not convert to Markdown"
+    )
+    p_attach.add_argument(
+        "--no-verify", action="store_true", help="Skip verification against the main text (use with caution)"
+    )
+    p_attach.add_argument("--dry-run", action="store_true", help="Preview mode")

@@ -32,16 +32,16 @@ def _arxiv_id_from_doi(doi: str) -> str:
 
 
 def metadata_to_dict(meta: PaperMetadata) -> dict:
-    """将 :class:`PaperMetadata` 转换为可序列化的字典。
+    """Convert :class:`PaperMetadata` into a JSON-serializable dict.
 
-    输出字段包括 ``title``, ``authors``, ``year``, ``doi``, ``journal``,
-    ``abstract``, ``citation_count``, ``ids``, ``api_sources`` 等。
+    Output fields include ``title``, ``authors``, ``year``, ``doi``, ``journal``,
+    ``abstract``, ``citation_count``, ``ids``, ``api_sources``, etc.
 
     Args:
-        meta: 元数据实例。
+        meta: Metadata instance.
 
     Returns:
-        JSON 可序列化的字典。
+        JSON-serializable dictionary.
     """
     d: dict = {
         "id": meta.id,
@@ -99,11 +99,11 @@ def metadata_to_dict(meta: PaperMetadata) -> dict:
 
 
 def write_metadata_json(meta: PaperMetadata, output_path: Path) -> None:
-    """将元数据写入 JSON 文件（原子写入）。
+    """Write metadata to a JSON file (atomic write).
 
     Args:
-        meta: 元数据实例。
-        output_path: 输出 JSON 文件路径。
+        meta: Metadata instance.
+        output_path: Output JSON file path.
     """
     from scrinium.papers import write_meta
 
@@ -117,17 +117,17 @@ def write_metadata_json(meta: PaperMetadata, output_path: Path) -> None:
 
 
 def refetch_metadata(json_path: Path) -> bool:
-    """对已入库论文重新查询 API，补全引用量等字段。
+    """Re-query APIs for an ingested paper to fill citation counts and other fields.
 
-    从 JSON 反构造 :class:`PaperMetadata`，调用 :func:`enrich_metadata`
-    重新查询三个 API，然后将新数据合并回 JSON（保留 ``toc``、
-    ``l3_conclusion`` 等已有富化字段）。
+    Rebuilds :class:`PaperMetadata` from JSON, calls :func:`enrich_metadata`
+    to query the three APIs again, and merges the new data back into JSON
+    (preserving existing enriched fields such as ``toc`` and ``l3_conclusion``).
 
     Args:
-        json_path: 已入库论文的 JSON 文件路径。
+        json_path: Path to the ingested paper's JSON file.
 
     Returns:
-        ``True`` 表示有字段被更新，``False`` 表示无变化或查询失败。
+        ``True`` if any field was updated; ``False`` if unchanged or lookup failed.
     """
     from ._api import enrich_metadata
 
@@ -274,17 +274,18 @@ def refetch_metadata(json_path: Path) -> bool:
 
 
 def rename_paper(json_path: Path, *, dry_run: bool = False) -> Path | None:
-    """根据 JSON 元数据重命名论文目录。
+    """Rename a paper directory based on its JSON metadata.
 
-    读取 ``meta.json`` 中的 ``first_author_lastname``、``year``、``title``，
-    用 :func:`generate_new_stem` 生成标准目录名。若新旧目录名一致则跳过。
+    Reads ``first_author_lastname``, ``year``, and ``title`` from ``meta.json``
+    and generates a standard directory name via :func:`generate_new_stem`.
+    Skips if the old and new directory names match.
 
     Args:
-        json_path: 论文 ``meta.json`` 文件路径。
-        dry_run: 为 ``True`` 时只返回新路径，不实际重命名。
+        json_path: Path to the paper's ``meta.json``.
+        dry_run: Return the new path without renaming when ``True``.
 
     Returns:
-        重命名后的新 ``meta.json`` 路径，未变更时返回 ``None``。
+        New ``meta.json`` path after renaming, or ``None`` if unchanged.
     """
     data = json.loads(json_path.read_text(encoding="utf-8"))
     meta = PaperMetadata(
@@ -329,15 +330,15 @@ def rename_paper(json_path: Path, *, dry_run: bool = False) -> Path | None:
 
 
 def generate_new_stem(meta: PaperMetadata) -> str:
-    """生成标准化文件名 stem: ``{LastName}-{year}-{FullTitle}``。
+    """Generate a standardized filename stem: ``{LastName}-{year}-{FullTitle}``.
 
-    去除变音符号、LaTeX 公式、非法字符，适用于文件系统。
+    Strips diacritics, LaTeX formulas, and illegal characters to make it filesystem-safe.
 
     Args:
-        meta: 元数据实例。
+        meta: Metadata instance.
 
     Returns:
-        文件系统安全的文件名 stem（不含扩展名）。
+        Filesystem-safe filename stem (without extension).
     """
     lastname = _strip_diacritics(meta.first_author_lastname or "Unknown")
     year_str = str(meta.year) if meta.year else "XXXX"

@@ -538,7 +538,7 @@ def _build_manifest(tool: str, version: str) -> list[dict]:
         return _build_openfoam_manifest(version)
     if manifest_name == "bioinformatics":
         return _build_bioinformatics_manifest(version)
-    raise ValueError(f"{tool} 未定义 manifest")
+    raise ValueError(f"No manifest defined for {tool}")
 
 
 def _expected_manifest_pages(tool: str, version: str, cfg: Config | None = None) -> int:

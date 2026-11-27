@@ -1,12 +1,13 @@
 """
-papers.py — 论文目录结构的唯一真相源
-======================================
+papers.py — Single source of truth for the paper directory layout
+=================================================================
 
-所有模块通过此模块访问论文路径，不自行拼路径。
+All modules access paper paths through this module rather than joining paths
+themselves.
 
-目录结构：
+Directory layout:
     data/papers/<dir_name>/
-    ├── meta.json    # 含 "id": "<uuid>" 字段
+    ├── meta.json    # contains "id": "<uuid>"
     └── paper.md
 """
 
@@ -55,13 +56,13 @@ def generate_uuid() -> str:
 
 
 def best_citation(meta: dict) -> int:
-    """从 ``citation_count`` 字典中取最大值。
+    """Return the maximum value in the ``citation_count`` dict.
 
     Args:
-        meta: 论文元数据字典。
+        meta: Paper metadata dict.
 
     Returns:
-        最大引用数，无数据时返回 0。
+        Highest citation count, or 0 if no data is available.
     """
     cc = meta.get("citation_count")
     if not cc or not isinstance(cc, dict):
@@ -71,17 +72,17 @@ def best_citation(meta: dict) -> int:
 
 
 def parse_year_range(year: str) -> tuple[int | None, int | None]:
-    """解析年份过滤表达式，返回 ``(start, end)``。
+    """Parse a year filter expression and return ``(start, end)``.
 
-    支持格式: ``"2023"`` (单年), ``"2020-2024"`` (范围),
-    ``"2020-"`` (起始年至今), ``"-2024"`` (截至某年)。
+    Supported formats: ``"2023"`` (single year), ``"2020-2024"`` (range),
+    ``"2020-"`` (from year onward), ``"-2024"`` (up to year).
 
     Args:
-        year: 年份过滤表达式。
+        year: Year filter expression.
 
     Returns:
-        ``(start, end)`` 二元组，缺失端为 ``None``。
-        单年返回 ``(2023, 2023)``。
+        ``(start, end)`` tuple, with ``None`` for an open bound.
+        A single year returns ``(2023, 2023)``.
     """
     year = year.strip()
     if "-" in year:
@@ -90,11 +91,11 @@ def parse_year_range(year: str) -> tuple[int | None, int | None]:
         try:
             return (int(start) if start else None, int(end) if end else None)
         except ValueError as e:
-            raise ValueError(f"无法解析年份范围: {year!r}（格式: 2020, 2020-2024, 2020-, -2024）") from e
+            raise ValueError(f"Invalid year range: {year!r} (expected: 2020, 2020-2024, 2020-, -2024)") from e
     try:
         y = int(year)
     except ValueError as e:
-        raise ValueError(f"无法解析年份: {year!r}（格式: 2020, 2020-2024, 2020-, -2024）") from e
+        raise ValueError(f"Invalid year: {year!r} (expected: 2020, 2020-2024, 2020-, -2024)") from e
     return (y, y)
 
 

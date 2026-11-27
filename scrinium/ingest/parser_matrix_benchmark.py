@@ -233,7 +233,7 @@ def _run_cli_parser(
                 "command": " ".join(shlex.quote(part) for part in cmd),
                 "returncode": 2,
                 "ok": False,
-                "error": f"docling artifacts_path 不存在: {artifacts_dir}",
+                "error": f"docling artifacts_path does not exist: {artifacts_dir}",
             }
 
     timeout_sec = int(cfg.options.get("timeout_sec", 3600))

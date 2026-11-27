@@ -17,24 +17,24 @@ def convert_pdf_with_fallback(
     *,
     auto_detect: bool = True,
 ) -> tuple[bool, str | None, str | None]:
-    """在 MinerU 不可用时，尝试替代 PDF 解析器。
+    """Try alternative PDF parsers when MinerU is unavailable.
 
     Args:
-        pdf_path: 输入 PDF 路径。
-        md_path: 目标 Markdown 路径。
-        parser_order: 解析器尝试顺序（例如 ``["docling", "pymupdf"]``）。
-            支持 ``auto`` 占位符（展开为本机可用解析器）。
-        auto_detect: 是否启用自动检测。开启后 ``auto`` 会展开为可用解析器列表。
+        pdf_path: Input PDF path.
+        md_path: Target Markdown path.
+        parser_order: Order of parsers to try (e.g. ``["docling", "pymupdf"]``).
+            Supports the ``auto`` placeholder (expands to locally available parsers).
+        auto_detect: Enable auto-detection; when enabled, ``auto`` expands to available parsers.
 
     Returns:
-        三元组 ``(ok, parser_name, error)``：
-        - ok: 是否成功输出 Markdown。
-        - parser_name: 成功时实际使用的解析器。
-        - error: 全部失败时的汇总错误信息。
+        Tuple ``(ok, parser_name, error)``:
+        - ok: Whether Markdown output was produced.
+        - parser_name: The parser actually used on success.
+        - error: Aggregated error message when all parsers fail.
     """
     order = resolve_parser_order(parser_order, auto_detect=auto_detect)
     if not order:
-        return False, None, "未配置可用的 fallback 解析器"
+        return False, None, "No available fallback parser configured"
 
     errors: list[str] = []
 
@@ -45,20 +45,20 @@ def convert_pdf_with_fallback(
             elif parser == "pymupdf":
                 ok, err = run_pymupdf(pdf_path, md_path)
             else:
-                ok, err = False, f"未知解析器: {parser}"
+                ok, err = False, f"Unknown parser: {parser}"
         except Exception as exc:
-            ok, err = False, f"{parser} 异常: {exc}"
+            ok, err = False, f"{parser} raised an exception: {exc}"
 
         if ok:
             return True, parser, None
         if err:
             errors.append(err)
 
-    return False, None, " | ".join(errors) if errors else "所有 fallback 解析器均失败"
+    return False, None, " | ".join(errors) if errors else "All fallback parsers failed"
 
 
 def resolve_parser_order(parser_order: Iterable[str] | None, *, auto_detect: bool = True) -> list[str]:
-    """解析用户配置的降级链，支持 ``auto`` 自动展开与去重。"""
+    """Resolve the configured fallback parser chain, expanding ``auto`` and deduplicating."""
     raw: list[str] = []
     for parser in parser_order or ["auto"]:
         if parser is None or not isinstance(parser, str):
@@ -108,7 +108,7 @@ def prefers_fallback_parser(preferred_parser: str | None) -> bool:
 
 
 def detect_available_parsers() -> list[str]:
-    """自动检测本机可用的 fallback 解析器。"""
+    """Auto-detect locally available fallback parsers."""
     available: list[str] = []
     if shutil.which("docling"):
         available.append("docling")
@@ -124,7 +124,7 @@ def detect_available_parsers() -> list[str]:
 def _run_docling(pdf_path: Path, md_path: Path) -> tuple[bool, str | None]:
     cmd = shutil.which("docling")
     if not cmd:
-        return False, "docling 未安装（缺少 docling CLI）"
+        return False, "docling is not installed (docling CLI not found)"
 
     with tempfile.TemporaryDirectory(prefix="scrinium-docling-") as tmp:
         out_dir = Path(tmp)
@@ -135,7 +135,7 @@ def _run_docling(pdf_path: Path, md_path: Path) -> tuple[bool, str | None]:
             timeout=300,
         )
         if proc.returncode != 0:
-            return False, f"docling 失败: {proc.stderr.strip()[:120] or proc.stdout.strip()[:120]}"
+            return False, f"docling failed: {proc.stderr.strip()[:120] or proc.stdout.strip()[:120]}"
         return pick_and_write_md(out_dir, md_path, "docling")
 
 
@@ -143,7 +143,7 @@ def run_pymupdf(pdf_path: Path, md_path: Path) -> tuple[bool, str | None]:
     try:
         import fitz
     except ImportError:
-        return False, "PyMuPDF 未安装（pip install 'scrinium[pdf]'）"
+        return False, "PyMuPDF is not installed (pip install 'scrinium[pdf]')"
 
     try:
         parts: list[str] = []
@@ -153,22 +153,22 @@ def run_pymupdf(pdf_path: Path, md_path: Path) -> tuple[bool, str | None]:
                 if txt:
                     parts.append(f"## Page {i}\n\n{txt}")
         if not parts:
-            return False, "PyMuPDF 未提取到文本（可能是扫描版 PDF）"
+            return False, "PyMuPDF extracted no text (the PDF may be a scanned image)"
         md_path.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
         return True, None
     except Exception as exc:
-        return False, f"PyMuPDF 解析失败: {exc}"
+        return False, f"PyMuPDF parsing failed: {exc}"
 
 
 def pick_and_write_md(out_dir: Path, md_path: Path, parser_name: str) -> tuple[bool, str | None]:
     candidates = list(out_dir.rglob("*.md"))
     if not candidates:
-        return False, f"{parser_name} 未生成 markdown 输出"
+        return False, f"{parser_name} produced no markdown output"
 
     selected = max(candidates, key=lambda p: p.stat().st_size)
     content = selected.read_text(encoding="utf-8", errors="ignore")
     if not content.strip():
-        return False, f"{parser_name} 生成 markdown 为空"
+        return False, f"{parser_name} produced empty markdown"
 
     copy_parser_assets(selected, md_path)
     md_path.write_text(content.rstrip() + "\n", encoding="utf-8")

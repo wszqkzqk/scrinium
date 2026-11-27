@@ -149,8 +149,8 @@ class TestCliTag:
             cli.cmd_tag(args, cfg)
 
         out = caplog.text
-        assert "新标签已加入词表: force-field" in out
-        assert "新标签已加入词表: md" in out
+        assert "Registered new tag: force-field" in out
+        assert "Registered new tag: md" in out
         assert paper_tags(tmp_papers / _SMITH) == ["force-field", "md"]
         assert resolve_tag(cfg, "Force Field") == "force-field"
 
@@ -178,7 +178,7 @@ class TestCliTag:
         args = Namespace(paper_id=_WANG, tags=[], remove=False, json=False)
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tag(args, cfg)
-        assert "暂无标签" in caplog.text
+        assert "No tags yet" in caplog.text
 
     def test_remove_tags(self, tmp_path, tmp_papers, caplog):
         cfg = _cfg(tmp_path, tmp_papers)
@@ -188,7 +188,7 @@ class TestCliTag:
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tag(args, cfg)
 
-        assert "已移除标签: force-field" in caplog.text
+        assert "Removed tags: force-field" in caplog.text
         assert paper_tags(tmp_papers / _SMITH) == ["md"]
 
     def test_json_add_output(self, tmp_path, tmp_papers, capsys):
@@ -217,9 +217,9 @@ class TestCliTags:
             cli.cmd_tags(args, cfg)
 
         out = caplog.text
-        assert "force-field（别名: FF）: 1 篇" in out
-        assert "md: 2 篇" in out
-        assert "总计: 2 个标签，3 次标注" in out
+        assert "force-field (aliases: FF): 1 paper" in out
+        assert "md: 2 papers" in out
+        assert "Total: 2 tags, 3 taggings" in out
 
     def test_json_output(self, tmp_path, tmp_papers, capsys):
         cfg = _cfg(tmp_path, tmp_papers)
@@ -241,7 +241,7 @@ class TestCliTags:
         args = Namespace(json=False)
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_tags(args, cfg)
-        assert "标签词表为空" in caplog.text
+        assert "Tag vocabulary is empty" in caplog.text
 
 
 class TestTagSearchFilter:
@@ -273,7 +273,7 @@ class TestTagSearchFilter:
 
     def test_cmd_search_unknown_tag_raises(self, tagged_index):
         args = Namespace(query=["for"], top=None, year=None, journal=None, paper_type=None, tags=["nope"], json=False)
-        with pytest.raises(ValueError, match="未知标签"):
+        with pytest.raises(ValueError, match="Unknown tag"):
             cli.cmd_search(args, tagged_index)
 
     def test_cmd_search_alias_and_json_tags(self, tagged_index, capsys):
@@ -354,14 +354,14 @@ class TestShowHeader:
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_show(args, cfg)
 
-        assert "标签     : force-field, md" in caplog.text
+        assert "Tags      : force-field, md" in caplog.text
 
     def test_l1_header_omits_tags_when_empty(self, tmp_path, tmp_papers, caplog):
         cfg = _cfg(tmp_path, tmp_papers)
         args = Namespace(paper_id=_SMITH, layer=1, json=False)
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_show(args, cfg)
-        assert "标签" not in caplog.text
+        assert "Tags" not in caplog.text
 
 
 class TestAuditUntagged:
@@ -370,7 +370,7 @@ class TestAuditUntagged:
         untagged = [i for i in issues if i.rule == "untagged"]
         assert {i.paper_id for i in untagged} == {_SMITH, _WANG}
         assert all(i.severity == "info" for i in untagged)
-        assert all(i.message == "未打策展标签" for i in untagged)
+        assert all(i.message == "No curated tags" for i in untagged)
         assert "scrinium tag" in _RULE_HINTS["untagged"]
 
     def test_tagged_paper_not_reported(self, tmp_papers):

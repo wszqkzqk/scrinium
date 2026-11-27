@@ -627,7 +627,7 @@ def test_fsearch_proceedings_scope_returns_proceedings_results(tmp_path: Path, m
     cli.cmd_fsearch(type("Args", (), {"query": ["granular"], "scope": "proceedings", "top": 10})(), cfg)
 
     joined = "\n".join(messages)
-    assert "── [论文集] ──" in joined
+    assert "── [Proceedings] ──" in joined
     assert "proceedings:" in joined
     assert "Wave propagation in porous media" in joined
 
@@ -642,7 +642,7 @@ def test_fsearch_main_scope_excludes_proceedings_results(tmp_path: Path, monkeyp
     cli.cmd_fsearch(type("Args", (), {"query": ["granular"], "scope": "main", "top": 10})(), cfg)
 
     joined = "\n".join(messages)
-    assert "── [主库] ──" in joined
+    assert "── [Main Library] ──" in joined
     assert "proceedings:" not in joined
 
 
@@ -688,7 +688,7 @@ def test_cli_proceedings_apply_split_applies_plan_and_reports_success(tmp_path: 
     assert meta["split_status"] == "applied"
     assert meta["child_paper_count"] == 1
     assert len(child_dirs) == 1
-    assert "已应用 proceedings split plan" in joined
+    assert "Applied proceedings split plan" in joined
 
 
 def test_apply_proceedings_split_plan_rejects_empty_result_without_deleting_existing_papers(tmp_path: Path):
@@ -910,6 +910,6 @@ def test_cli_proceedings_clean_commands_build_and_apply(tmp_path: Path, monkeypa
     joined = "\n".join(messages)
     meta = json.loads((proceeding_dir / "meta.json").read_text(encoding="utf-8"))
 
-    assert "已生成 proceedings clean candidates" in joined
-    assert "已应用 proceedings clean plan" in joined
+    assert "Generated proceedings clean candidates" in joined
+    assert "Applied proceedings clean plan" in joined
     assert meta["child_paper_count"] == 0

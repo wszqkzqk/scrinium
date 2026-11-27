@@ -17,16 +17,17 @@ _log = logging.getLogger(__name__)
 
 
 def extract_abstract_from_md(md_path: Path) -> str | None:
-    """从 MinerU 解析的 markdown 文件中提取 Abstract 段落（纯正则）。
+    """Extract the Abstract section from MinerU-parsed markdown (regex only).
 
-    规则提取失败时返回 ``None``；调用方应输出 handoff hint，
-    由 agent 阅读原文后直接写 ``meta.json`` 的 ``abstract`` 字段。
+    Returns ``None`` when rule-based extraction fails; the caller should emit
+    a handoff hint so an agent can read the original text and write the
+    ``abstract`` field in ``meta.json`` directly.
 
     Args:
-        md_path: MinerU 输出的 ``.md`` 文件路径。
+        md_path: Path to the ``.md`` file produced by MinerU.
 
     Returns:
-        提取到的 abstract 文本，无法提取时返回 ``None``。
+        Extracted abstract text, or ``None`` if extraction fails.
     """
     text = md_path.read_text(encoding="utf-8")
     head = text[:8000]
@@ -131,17 +132,17 @@ def _clean_abstract(text: str) -> str | None:
 
 
 def fetch_abstract_by_doi(doi: str) -> str | None:
-    """通过 DOI 从出版商落地页抓取 abstract。
+    """Fetch the abstract from the publisher landing page via DOI.
 
-    先用 ``requests`` 访问 ``https://doi.org/<doi>`` 并跟随重定向，
-    从 HTML meta 标签提取 abstract。若遭遇 Cloudflare 403，
-    回退到 ``curl_cffi``（模拟浏览器 TLS 指纹）重试。
+    First requests ``https://doi.org/<doi>`` with ``requests`` (following
+    redirects) and extracts the abstract from HTML meta tags. If Cloudflare
+    returns 403, retries with ``curl_cffi`` (browser TLS fingerprint).
 
     Args:
-        doi: 论文 DOI，如 ``"10.1017/jfm.2024.1191"``。
+        doi: Paper DOI, e.g. ``"10.1017/jfm.2024.1191"``.
 
     Returns:
-        提取到的 abstract 文本，失败时返回 ``None``。
+        Extracted abstract text, or ``None`` on failure.
     """
     if not doi or doi == "null":
         return None
@@ -180,7 +181,7 @@ def fetch_abstract_by_doi(doi: str) -> str | None:
 
 
 def _extract_abstract_from_html(html: str) -> str | None:
-    """从出版商 HTML 页面提取 abstract。"""
+    """Extract the abstract from a publisher HTML page."""
     # Strategy 1: meta tags (Cambridge, Annual Reviews, ASME, etc.)
     for tag in ("citation_abstract", "dc.description", "og:description", "description"):
         pat = rf'<meta\s+(?:name|property)="{re.escape(tag)}"\s+content="(.*?)"'
@@ -204,24 +205,26 @@ def _extract_abstract_from_html(html: str) -> str | None:
 
 
 def backfill_abstracts(papers_dir: Path, *, dry_run: bool = False, doi_fetch: bool = False) -> dict:
-    """批量补全或更新论文 abstract（纯正则 + DOI 抓取）。
+    """Backfill or update paper abstracts in batch (regex + DOI fetch).
 
-    扫描 ``papers_dir`` 下所有 JSON：
+    Scans all JSON files under ``papers_dir``:
 
-    - **默认模式**：只处理缺 abstract 的论文，从 ``.md`` 纯正则提取。
-    - **``doi_fetch=True``**：对所有有 DOI 的论文尝试从出版商网页抓取官方
-      abstract。成功则覆盖现有 abstract（官方源优先）；失败则保留原有值，
-      仅对仍无 abstract 的论文 fallback 到 ``.md`` 提取。
+    - **Default mode**: only processes papers missing an abstract, extracting
+      it from ``.md`` via regex.
+    - **``doi_fetch=True``**: tries to fetch the official abstract from the
+      publisher page for every paper with a DOI. On success, overwrites any
+      existing abstract (official source wins); on failure, keeps the existing
+      value and falls back to ``.md`` extraction only if still missing.
 
     Args:
-        papers_dir: 已入库论文目录。
-        dry_run: 为 ``True`` 时只预览，不写文件。
-        doi_fetch: 为 ``True`` 时启用 DOI 网页抓取（官方源优先）。
+        papers_dir: Directory of ingested papers.
+        dry_run: Preview only without writing files when ``True``.
+        doi_fetch: Enable DOI web fetching (official source preferred) when ``True``.
 
     Returns:
-        统计字典：``{"filled": N, "skipped": N, "failed": N, "updated": N,
-        "failed_dirs": [...]}``。``failed_dirs`` 列出正则未命中的论文目录名，
-        供调用方输出 agent 接管 hint。
+        Stats dict ``{"filled": N, "skipped": N, "failed": N, "updated": N,
+        "failed_dirs": [...]}``. ``failed_dirs`` lists paper directory names
+        where regex found no abstract, so the caller can emit an agent hint.
     """
     from scrinium.papers import iter_paper_dirs
 
@@ -246,10 +249,10 @@ def backfill_abstracts(papers_dir: Path, *, dry_run: bool = False, doi_fetch: bo
             if fetched:
                 if existing and fetched != existing:
                     stats["updated"] += 1
-                    _write_abstract(json_path, data, fetched, dry_run, label="官方覆盖")
+                    _write_abstract(json_path, data, fetched, dry_run, label="official override")
                 elif not existing:
                     stats["filled"] += 1
-                    _write_abstract(json_path, data, fetched, dry_run, label="DOI 抓取")
+                    _write_abstract(json_path, data, fetched, dry_run, label="DOI fetch")
                 else:
                     stats["skipped"] += 1
                 continue
@@ -279,7 +282,7 @@ def backfill_abstracts(papers_dir: Path, *, dry_run: bool = False, doi_fetch: bo
             continue
 
         stats["filled"] += 1
-        _write_abstract(json_path, data, abstract, dry_run, label=".md 提取")
+        _write_abstract(json_path, data, abstract, dry_run, label=".md extraction")
 
     return stats
 

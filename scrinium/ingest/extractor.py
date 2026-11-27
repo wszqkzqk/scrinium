@@ -1,13 +1,14 @@
 """
-extractor.py — 论文元数据提取器
-================================
+extractor.py — Paper metadata extractor
+=======================================
 
-Stage-1 元数据提取（从 MinerU markdown 提取 title/authors/year/doi/journal）。
-框架内只保留 RegexExtractor（纯正则，零模型调用）；规则失败的疑难件
-转入 pending 队列，由 agent/subagent 审查接管。
+Stage-1 metadata extraction (extracts title/authors/year/doi/journal from
+MinerU markdown). Only RegexExtractor (regex only, zero model calls) is kept
+in the framework; difficult files that fail rule-based extraction are routed
+to the pending queue for agent/subagent review.
 
-用法
-----
+Usage
+-----
     from scrinium.ingest.extractor import get_extractor
 
     extractor = get_extractor()
@@ -33,16 +34,16 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class MetadataExtractor(Protocol):
-    """元数据提取器协议，所有提取器必须实现此接口。"""
+    """Metadata extractor protocol; all extractors must implement this interface."""
 
     def extract(self, filepath: Path) -> PaperMetadata:
-        """从 Markdown 文件提取论文元数据。
+        """Extract paper metadata from a Markdown file.
 
         Args:
-            filepath: MinerU 输出的 ``.md`` 文件路径。
+            filepath: Path to the ``.md`` file produced by MinerU.
 
         Returns:
-            填充后的 :class:`~scrinium.ingest.metadata.PaperMetadata` 实例。
+            Populated :class:`~scrinium.ingest.metadata.PaperMetadata` instance.
         """
         ...
 
@@ -53,10 +54,10 @@ class MetadataExtractor(Protocol):
 
 
 class RegexExtractor:
-    """纯正则元数据提取器。
+    """Regex-only metadata extractor.
 
-    封装 ``scrinium.ingest.metadata`` 中的正则提取逻辑，不调用 LLM。
-    零模型调用、速度快，适用于 OCR 质量好的论文。
+    Wraps the regex extraction logic in ``scrinium.ingest.metadata`` without
+    calling any LLM. Fast and model-free; works best on papers with clean OCR.
     """
 
     def extract(self, filepath: Path) -> PaperMetadata:
@@ -93,9 +94,9 @@ def _extract_patent_number(meta, text: str) -> None:
 
 
 def get_extractor() -> MetadataExtractor:
-    """返回元数据提取器实例（恒为 :class:`RegexExtractor`）。
+    """Return a metadata extractor instance (always :class:`RegexExtractor`).
 
     Returns:
-        :class:`RegexExtractor` 实例。
+        A :class:`RegexExtractor` instance.
     """
     return RegexExtractor()

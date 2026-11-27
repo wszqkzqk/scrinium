@@ -34,15 +34,15 @@ _log = logging.getLogger(__name__)
 
 
 def query_semantic_scholar(doi: str = "", title: str = "", arxiv_id: str = "") -> dict:
-    """查询 Semantic Scholar API。
+    """Query the Semantic Scholar API.
 
     Args:
-        doi: DOI 标识符（优先使用）。
-        arxiv_id: arXiv 标识符（如 ``2401.12345``，DOI 为空时使用）。
-        title: 论文标题（DOI 和 arXiv ID 均为空时用于搜索）。
+        doi: DOI identifier (preferred).
+        arxiv_id: arXiv identifier (e.g. ``2401.12345``, used when DOI is empty).
+        title: Paper title (used for search when both DOI and arXiv ID are empty).
 
     Returns:
-        API 返回的论文数据字典，未找到时返回空字典。
+        Paper data dict from the API, or an empty dict if not found.
     """
     if doi:
         paper_id = quote(f"DOI:{doi}", safe="")
@@ -81,14 +81,14 @@ def query_semantic_scholar(doi: str = "", title: str = "", arxiv_id: str = "") -
 
 
 def query_openalex(doi: str = "", title: str = "") -> dict:
-    """查询 OpenAlex API。
+    """Query the OpenAlex API.
 
     Args:
-        doi: DOI 标识符（优先使用）。
-        title: 论文标题（DOI 为空时用于搜索）。
+        doi: DOI identifier (preferred).
+        title: Paper title (used for search when DOI is empty).
 
     Returns:
-        API 返回的论文数据字典，未找到时返回空字典。
+        Paper data dict from the API, or an empty dict if not found.
     """
     if doi:
         url = f"{OA_BASE}/doi:{doi}"
@@ -126,16 +126,16 @@ def query_openalex(doi: str = "", title: str = "") -> dict:
 
 
 def query_crossref(doi: str = "", title: str = "") -> dict:
-    """查询 Crossref API（DOI 权威注册中心）。
+    """Query the Crossref API (authoritative DOI registration agency).
 
-    Crossref 提供最规范的期刊名、作者列表和论文类型分类。
+    Crossref provides the most standardized journal names, author lists, and paper types.
 
     Args:
-        doi: DOI 标识符（优先使用）。
-        title: 论文标题（DOI 为空时用于搜索）。
+        doi: DOI identifier (preferred).
+        title: Paper title (used for search when DOI is empty).
 
     Returns:
-        API 返回的论文数据字典，未找到时返回空字典。
+        Paper data dict from the API, or an empty dict if not found.
     """
     if doi:
         url = f"{CR_BASE}/{doi}"
@@ -374,22 +374,22 @@ def _apply_arxiv_metadata(meta: PaperMetadata, arxiv_data: dict) -> None:
 
 
 def enrich_metadata(meta: PaperMetadata) -> PaperMetadata:
-    """通过 API 查询补全和覆盖元数据。
+    """Fill in and override metadata via API queries.
 
-    查询策略（多层降级）:
-      1. **Tier 1** — DOI 直查（三个 API 并行，无限流）
-      2. **Tier 2** — Crossref + OA 标题搜索（严格匹配 ≥0.85）
-      3. **Tier 3** — Crossref + OA 放宽搜索（匹配 ≥0.65）
-      4. **Tier 4** — S2 标题搜索（最后手段，可能被限流）
-      5. **Tier 5** — 本地数据（无 API 结果可用）
+    Lookup strategy (multi-tier fallback):
+      1. **Tier 1** — Direct DOI lookup (all three APIs, not rate-limited)
+      2. **Tier 2** — Crossref + OA title search (strict match >= 0.85)
+      3. **Tier 3** — Crossref + OA relaxed search (match >= 0.65)
+      4. **Tier 4** — S2 title search (last resort, may be rate-limited)
+      5. **Tier 5** — Local data (no API results available)
 
-    合并优先级: Crossref > Semantic Scholar > OpenAlex > 正则提取。
+    Merge priority: Crossref > Semantic Scholar > OpenAlex > regex extraction.
 
     Args:
-        meta: 已提取的元数据（至少需要 ``title`` 或 ``doi``）。
+        meta: Extracted metadata (requires at least ``title`` or ``doi``).
 
     Returns:
-        同一个 :class:`PaperMetadata` 实例，字段已被 API 数据覆盖/补全。
+        The same :class:`PaperMetadata` instance with fields overridden/filled from APIs.
     """
     cr_data: dict = {}
     s2_data: dict = {}

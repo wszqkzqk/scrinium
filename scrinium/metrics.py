@@ -1,10 +1,9 @@
 """
-metrics.py -- Scrinium 指标采集与持久化
-==========================================
+metrics.py -- Scrinium metrics collection and persistence.
 
-两大功能：
-  1. MetricsStore — SQLite 持久化（data/metrics.db）
-  2. timer / timed — 计时上下文管理器 / 装饰器
+Provides:
+  1. MetricsStore -- SQLite-backed event store (data/metrics.db)
+  2. timer / timed -- timing context manager and decorator
 """
 
 from __future__ import annotations
@@ -31,10 +30,10 @@ _log = logging.getLogger(__name__)
 
 @dataclass
 class TimerResult:
-    """计时结果，由 :func:`timer` 上下文管理器 yield。
+    """Timing result yielded by the :func:`timer` context manager.
 
-    在 ``with`` 块内部读取 ``elapsed`` 返回实时耗时；
-    退出后返回最终耗时。
+    Reading ``elapsed`` inside the ``with`` block returns live elapsed time;
+    after exit it returns the final duration.
     """
 
     def __init__(self) -> None:
@@ -86,8 +85,8 @@ class MetricsStore:
     """SQLite-backed metrics store.
 
     Args:
-        db_path: 数据库文件路径，传 ``":memory:"`` 用于测试。
-        session_id: 当前会话 ID。
+        db_path: Database file path (pass ``":memory:"`` for tests).
+        session_id: Current session ID.
     """
 
     def __init__(self, db_path: Path | str, session_id: str) -> None:
@@ -116,20 +115,20 @@ class MetricsStore:
         status: str = "ok",
         detail: dict | None = None,
     ) -> None:
-        """写入一条 metrics 事件。
+        """Record one metrics event.
 
         Args:
-            category: 事件类别，如 ``"step"``、``"api"``、``"search"``、``"read"``。
-            name: 事件名称，如 ``"pipeline.inbox.mineru"``、``"search"``。
-            duration_s: 耗时（秒）。
-            tokens_in: prompt token 数。
-            tokens_out: completion token 数。
-            model: 模型名。
-            status: ``"ok"`` | ``"error"`` | ``"skip"``。
-            detail: 额外信息（序列化为 JSON）。
+            category: Event category (e.g. ``"step"``, ``"api"``, ``"search"``, ``"read"``).
+            name: Event name (e.g. ``"pipeline.inbox.mineru"``, ``"search"``).
+            duration_s: Duration in seconds.
+            tokens_in: Prompt token count (legacy).
+            tokens_out: Completion token count (legacy).
+            model: Model name (legacy).
+            status: ``"ok"`` | ``"error"`` | ``"skip"``.
+            detail: Optional extra metadata (serialized as JSON).
 
-        注：``tokens_in`` / ``tokens_out`` / ``model`` 三列为 legacy——
-        框架内已无生产者，仅为兼容旧 metrics.db 中的历史事件保留。
+        Note: ``tokens_in`` / ``tokens_out`` / ``model`` are legacy columns kept
+        only for compatibility with historical events in older metrics.db files.
         """
         with self._lock:
             self._conn.execute(
@@ -158,16 +157,16 @@ class MetricsStore:
         until: str | None = None,
         limit: int = 200,
     ) -> list[dict]:
-        """查询 metrics 事件。
+        """Query metrics events in reverse chronological order.
 
         Args:
-            category: 按类别过滤。
-            since: 起始时间（ISO 8601）。
-            until: 结束时间（ISO 8601）。
-            limit: 最大返回数。
+            category: Optional category filter.
+            since: Start timestamp (ISO 8601).
+            until: End timestamp (ISO 8601).
+            limit: Maximum number of rows to return.
 
         Returns:
-            事件字典列表，按时间倒序。
+            List of event dictionaries ordered by newest first.
         """
         clauses = []
         params: list[Any] = []
@@ -223,14 +222,14 @@ _store: MetricsStore | None = None
 
 
 def init(db_path: Path | str, session_id: str) -> MetricsStore:
-    """初始化全局 MetricsStore 单例。
+    """Initialize the global MetricsStore singleton.
 
     Args:
-        db_path: SQLite 数据库路径。
-        session_id: 当前会话 ID。
+        db_path: SQLite database path.
+        session_id: Current session ID.
 
     Returns:
-        初始化后的 MetricsStore 实例。
+        The initialized MetricsStore instance.
     """
     global _store
     db = Path(db_path)
@@ -241,12 +240,12 @@ def init(db_path: Path | str, session_id: str) -> MetricsStore:
 
 
 def get_store() -> MetricsStore | None:
-    """返回全局 MetricsStore 实例，未初始化时返回 None。"""
+    """Return the global MetricsStore instance, or None if uninitialized."""
     return _store
 
 
 def reset() -> None:
-    """关闭并重置全局 store（仅供测试使用）。"""
+    """Close and reset the global store (test helper only)."""
     global _store
     if _store:
         _store.close()
@@ -260,20 +259,20 @@ def reset() -> None:
 
 @contextmanager
 def timer(name: str, category: str = "step") -> Generator[TimerResult, None, None]:
-    """计时上下文管理器，自动记录到 MetricsStore。
+    """Context manager that times a block and records it to MetricsStore.
 
     Args:
-        name: 事件名称。
-        category: 事件类别。
+        name: Event name.
+        category: Event category.
 
     Yields:
-        :class:`TimerResult`，退出时 ``elapsed`` 已填充。
+        :class:`TimerResult` with ``elapsed`` populated on exit.
 
     Example::
 
         with timer("mineru.cloud", category="api") as t:
             do_something()
-        print(f"耗时 {t.elapsed:.1f}s")
+        print(f"elapsed {t.elapsed:.1f}s")
     """
     result = TimerResult()
     result._t0 = time.monotonic()
@@ -290,11 +289,11 @@ def timer(name: str, category: str = "step") -> Generator[TimerResult, None, Non
 
 
 def timed(name: str = "", category: str = "step"):
-    """计时装饰器。
+    """Decorator that times function calls.
 
     Args:
-        name: 事件名称，默认为函数全限定名。
-        category: 事件类别。
+        name: Event name (defaults to the fully qualified function name).
+        category: Event category.
     """
 
     def decorator(fn):

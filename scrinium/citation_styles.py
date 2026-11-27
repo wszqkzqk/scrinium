@@ -238,10 +238,10 @@ BUILTIN_STYLES: dict[str, FormatterFn] = {
 
 # Human-readable descriptions shown in `style list`
 BUILTIN_DESCRIPTIONS: dict[str, str] = {
-    "apa": "APA 第七版（作者-年份，默认）",
-    "vancouver": "Vancouver / ICMJE 编号格式（生物医学期刊）",
-    "chicago-author-date": "Chicago 第十七版作者-年份格式（人文社科）",
-    "mla": "MLA 第九版（人文学科，容器模型）",
+    "apa": "APA 7th edition (author-date, default)",
+    "vancouver": "Vancouver / ICMJE numbered style (biomedical journals)",
+    "chicago-author-date": "Chicago 17th edition author-date (humanities and social sciences)",
+    "mla": "MLA 9th edition (humanities, container model)",
 }
 
 
@@ -314,29 +314,33 @@ def get_formatter(name: str, cfg: Config) -> FormatterFn:
     import re
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", name):
-        raise ValueError(f"引用格式名称无效 '{name}'：只允许字母、数字、连字符和下划线。")
+        raise ValueError(
+            f"Invalid citation style name '{name}': only letters, digits, hyphens, and underscores are allowed."
+        )
 
     style_file = styles_dir(cfg) / f"{name}.py"
     if not style_file.resolve().is_relative_to(styles_dir(cfg).resolve()):
-        raise ValueError(f"引用格式名称无效 '{name}'：检测到路径穿越攻击。")
+        raise ValueError(f"Invalid citation style name '{name}': path traversal detected.")
     if not style_file.exists():
         available = ", ".join(s["name"] for s in list_styles(cfg))
         raise FileNotFoundError(
-            f"引用格式 '{name}' 不存在。\n"
-            f"可用格式：{available}\n"
-            f"如需添加新格式，请告诉 agent：'帮我获取 {name} 的引用格式'"
+            f"Citation style '{name}' not found.\n"
+            f"Available styles: {available}\n"
+            f"To add a new style, ask the agent: 'Fetch the {name} citation style for me'"
         )
 
     spec = importlib.util.spec_from_file_location(f"_csl_{name}", style_file)
     if spec is None or spec.loader is None:
-        raise ImportError(f"无法加载引用格式 '{name}'：导入机制未返回有效 spec/loader（{style_file}）")
+        raise ImportError(
+            f"Cannot load citation style '{name}': import mechanism returned no valid spec/loader ({style_file})"
+        )
     mod = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(mod)  # type: ignore[union-attr]
     except Exception as exc:
-        raise ImportError(f"加载引用格式 '{name}' 失败（{style_file}）：{exc}") from exc
+        raise ImportError(f"Failed to load citation style '{name}' ({style_file}): {exc}") from exc
     if not hasattr(mod, "format_ref"):
-        raise AttributeError(f"格式文件 {style_file} 必须定义 `format_ref(meta, idx)` 函数。")
+        raise AttributeError(f"Style file {style_file} must define a `format_ref(meta, idx)` function.")
     return mod.format_ref
 
 
@@ -356,16 +360,18 @@ def show_style(name: str, cfg: Config) -> str:
     """
     if name in BUILTIN_STYLES:
         desc = BUILTIN_DESCRIPTIONS.get(name, "")
-        return f"# 内置格式：{name}\n# {desc}\n# （实现位于 scrinium/citation_styles.py）"
+        return f"# Built-in style: {name}\n# {desc}\n# (implemented in scrinium/citation_styles.py)"
 
     import re as _re
 
     if not _re.match(r"^[a-zA-Z0-9_-]+$", name):
-        raise ValueError(f"引用格式名称无效 '{name}'：只允许字母、数字、连字符和下划线。")
+        raise ValueError(
+            f"Invalid citation style name '{name}': only letters, digits, hyphens, and underscores are allowed."
+        )
 
     style_file = styles_dir(cfg) / f"{name}.py"
     if not style_file.resolve().is_relative_to(styles_dir(cfg).resolve()):
-        raise ValueError(f"引用格式名称无效 '{name}'：检测到路径穿越攻击。")
+        raise ValueError(f"Invalid citation style name '{name}': path traversal detected.")
     if not style_file.exists():
-        raise FileNotFoundError(f"引用格式 '{name}' 不存在。")
+        raise FileNotFoundError(f"Citation style '{name}' not found.")
     return style_file.read_text(encoding="utf-8")

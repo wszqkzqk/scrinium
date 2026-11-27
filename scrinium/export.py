@@ -1,8 +1,8 @@
 """
-export.py — 论文导出（BibTeX / RIS / Markdown / DOCX 等格式）
-==============================================================
+export.py — Paper export (BibTeX / RIS / Markdown / DOCX formats)
+================================================================
 
-将 meta.json 转换为标准引用格式输出。
+Convert meta.json records to standard citation formats and Markdown to DOCX.
 """
 
 from __future__ import annotations
@@ -308,7 +308,7 @@ def export_markdown_refs(
         fmt_fn = BUILTIN_STYLES[style]
     else:
         if cfg is None:
-            raise ValueError("自定义引用格式需要传入 cfg 参数")
+            raise ValueError("Custom citation styles require the cfg parameter")
         fmt_fn = get_formatter(style, cfg)
 
     year_start, year_end = parse_year_range(year) if year else (None, None)
@@ -366,7 +366,7 @@ def export_docx(
         from docx import Document
         from docx.shared import Pt
     except ImportError:
-        raise ImportError("python-docx 未安装，请运行: pip install scrinium[office]")
+        raise ImportError("python-docx is not installed; run: pip install scrinium[office]")
 
     doc = Document()
 
@@ -389,7 +389,7 @@ def _md_to_docx(doc, content: str) -> None:
     try:
         from docx.shared import Pt
     except ImportError:
-        raise ImportError("python-docx 未安装，请运行: pip install scrinium[office]")
+        raise ImportError("python-docx is not installed; run: pip install scrinium[office]")
 
     lines = content.splitlines()
     i = 0

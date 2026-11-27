@@ -105,9 +105,9 @@ class TestCmdTopicsOverview:
             cli.cmd_topics(args, tagged_lib)
 
         out = caplog.text
-        assert "主题总览：2 篇论文，2 个主题" in out
-        assert "md（2 篇, 100.0%）" in out
-        assert "force-field（1 篇, 50.0%）  分子力场相关" in out
+        assert "Topic overview: 2 papers, 2 topics" in out
+        assert "md (2 papers, 100.0%)" in out
+        assert "force-field (1 papers, 50.0%)  分子力场相关" in out
 
     def test_text_output_shows_untagged_hint(self, tagged_lib, tmp_papers, caplog):
         set_paper_tags(tmp_papers / _WANG, [])
@@ -115,7 +115,7 @@ class TestCmdTopicsOverview:
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_topics(args, tagged_lib)
 
-        assert "未打标: 1 篇" in caplog.text
+        assert "Untagged: 1 paper" in caplog.text
 
     def test_json_output(self, tagged_lib, capsys):
         args = Namespace(tag=None, json=True)
@@ -133,7 +133,7 @@ class TestCmdTopicsOverview:
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_topics(args, cfg)
 
-        assert "主题词表为空" in caplog.text
+        assert "Topic vocabulary is empty" in caplog.text
 
 
 class TestCmdTopicsDrilldown:
@@ -143,7 +143,7 @@ class TestCmdTopicsDrilldown:
             cli.cmd_topics(args, tagged_lib)
 
         out = caplog.text
-        assert "主题 md: 2 篇论文" in out
+        assert "Topic md: 2 papers" in out
         assert "Turbulence modeling in boundary layers" in out
         assert _SMITH in out
         assert _WANG in out
@@ -154,7 +154,7 @@ class TestCmdTopicsDrilldown:
             cli.cmd_topics(args, tagged_lib)
 
         out = caplog.text
-        assert "主题 force-field: 1 篇论文" in out
+        assert "Topic force-field: 1 paper" in out
         assert _SMITH in out
         assert _WANG not in out
 
@@ -172,7 +172,7 @@ class TestCmdTopicsDrilldown:
 
     def test_unknown_tag_raises_with_taxonomy_hint(self, tagged_lib):
         args = Namespace(tag="nope", json=False)
-        with pytest.raises(ValueError, match="未知标签: nope") as exc_info:
+        with pytest.raises(ValueError, match="Unknown tag: nope") as exc_info:
             cli.cmd_topics(args, tagged_lib)
 
         assert "force-field" in str(exc_info.value)
@@ -183,7 +183,7 @@ class TestCmdTopicsDrilldown:
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_topics(args, tagged_lib)
 
-        assert "主题 force-field 下没有论文" in caplog.text
+        assert "No papers under topic force-field" in caplog.text
 
 
 class TestWorkspaceAddTag:
@@ -210,7 +210,7 @@ class TestWorkspaceAddTag:
             cli.cmd_ws(args, cfg)
 
         assert read_paper_ids(ws_dir) == {"aaaa-1111", "bbbb-2222"}
-        assert "主题 md: 找到 2 篇论文" in caplog.text
+        assert "Topic md: found 2 papers" in caplog.text
 
     def test_add_by_tag_alias(self, tagged_lib, tmp_path, tmp_db, caplog):
         build_index(tagged_lib.papers_dir, tmp_db)
@@ -223,7 +223,7 @@ class TestWorkspaceAddTag:
             cli.cmd_ws(args, cfg)
 
         assert read_paper_ids(ws_dir) == {"aaaa-1111"}
-        assert "主题 force-field: 找到 1 篇论文" in caplog.text
+        assert "Topic force-field: found 1 papers" in caplog.text
 
     def test_add_unknown_tag_raises_and_does_not_add(self, tagged_lib, tmp_path, tmp_db):
         build_index(tagged_lib.papers_dir, tmp_db)
@@ -232,7 +232,7 @@ class TestWorkspaceAddTag:
         create(ws_dir)
 
         args = self._ws_args("nope")
-        with pytest.raises(ValueError, match="未知标签: nope") as exc_info:
+        with pytest.raises(ValueError, match="Unknown tag: nope") as exc_info:
             cli.cmd_ws(args, cfg)
 
         assert read_paper_ids(ws_dir) == set()

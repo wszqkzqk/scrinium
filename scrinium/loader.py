@@ -1,17 +1,18 @@
 """
-loader.py — 分层内容加载 + TOC 提取（纯规则）
-====================================================
+loader.py — Layered content loading + rule-based TOC extraction
+===============================================================
 
-L1: title / authors / year / journal / doi  ← JSON 字段
-L2: abstract                                ← JSON 字段
-L3: conclusion                              ← JSON 字段（由 agent 分析后写入）
-L4: full markdown                           ← 读 .md 文件
+L1: title / authors / year / journal / doi  ← JSON fields
+L2: abstract                                ← JSON field
+L3: conclusion                              ← JSON field (written after agent analysis)
+L4: full markdown                           ← .md file
 
-TOC 提取（enrich_toc）
------------------------
-纯规则提取：regex 提取所有 # 标题 + 行号，过滤 running headers、
-期刊名、论文标题重复等噪声，并按编号推断层级（level）。
-结果写入 JSON["toc"]：[{"line": N, "level": N, "title": "..."}]
+TOC extraction (enrich_toc)
+---------------------------
+Pure rule-based extraction: collect all # headings with line numbers via
+regex, filter noise (running headers, journal names, repeated paper titles),
+and infer heading levels from numbering.
+Results are written to JSON["toc"]: [{"line": N, "level": N, "title": "..."}]
 """
 
 from __future__ import annotations
@@ -52,14 +53,14 @@ def validate_lang(lang: str) -> str:
 
 
 def load_l1(json_path: Path) -> dict:
-    """加载 L1 层元数据（标题、作者、年份、期刊、DOI、SI 状态）。
+    """Load L1 metadata (title, authors, year, journal, DOI, SI status).
 
     Args:
-        json_path: 论文 JSON 元数据文件路径。
+        json_path: Path to the paper's JSON metadata file.
 
     Returns:
-        包含 ``paper_id``, ``title``, ``authors``, ``year``,
-        ``journal``, ``doi``, ``si`` 等键的字典。
+        Dict with keys ``paper_id``, ``title``, ``authors``, ``year``,
+        ``journal``, ``doi``, ``si``, etc.
     """
     data = json.loads(json_path.read_text(encoding="utf-8"))
     return {
@@ -77,45 +78,46 @@ def load_l1(json_path: Path) -> dict:
 
 
 def load_l2(json_path: Path) -> str:
-    """加载 L2 层摘要文本。
+    """Load L2 abstract text.
 
     Args:
-        json_path: 论文 JSON 元数据文件路径。
+        json_path: Path to the paper's JSON metadata file.
 
     Returns:
-        摘要文本，无摘要时返回 ``"[No abstract available]"``。
+        Abstract text, or ``"[No abstract available]"`` if absent.
     """
     data = json.loads(json_path.read_text(encoding="utf-8"))
     return data.get("abstract") or "[No abstract available]"
 
 
 def load_l3(json_path: Path) -> str | None:
-    """加载 L3 层结论文本。
+    """Load L3 conclusion text.
 
-    结论由 agent 阅读全文后写入 ``l3_conclusion`` 字段。
+    The conclusion is written to the ``l3_conclusion`` field by the agent
+    after reading the full text.
 
     Args:
-        json_path: 论文 JSON 元数据文件路径。
+        json_path: Path to the paper's JSON metadata file.
 
     Returns:
-        结论文本，尚未写入时返回 ``None``。
+        Conclusion text, or ``None`` if not yet written.
     """
     data = json.loads(json_path.read_text(encoding="utf-8"))
     return data.get("l3_conclusion") or None
 
 
 def load_l4(md_path: Path, *, lang: str | None = None) -> str:
-    """加载 L4 层全文 Markdown，可选加载翻译版本。
+    """Load L4 full-text Markdown, optionally preferring a translated version.
 
-    当指定 ``lang`` 时，优先加载 ``paper_{lang}.md``（如 ``paper_zh.md``），
-    不存在则回退到原文 ``paper.md``。
+    When ``lang`` is specified, prefer ``paper_{lang}.md`` (e.g. ``paper_zh.md``)
+    and fall back to the original ``paper.md`` if the translation is absent.
 
     Args:
-        md_path: MinerU 输出的 ``.md`` 文件路径。
-        lang: 目标语言代码（如 ``"zh"``），为 ``None`` 时加载原文。
+        md_path: Path to the ``.md`` file produced by MinerU.
+        lang: Target language code (e.g. ``"zh"``); ``None`` loads the original.
 
     Returns:
-        完整 Markdown 文本。
+        Full Markdown text.
     """
     if lang:
         # Normalize + validate lang to prevent path traversal
@@ -132,13 +134,13 @@ def load_l4(md_path: Path, *, lang: str | None = None) -> str:
 
 
 def load_si(paper_dir: Path) -> list[tuple[str, str]]:
-    """加载论文的 SI 转换文本。
+    """Load converted SI Markdown texts for a paper.
 
     Args:
-        paper_dir: 论文目录。
+        paper_dir: Paper directory.
 
     Returns:
-        ``(文件名, Markdown 文本)`` 列表（按文件名排序），无 SI 时为空列表。
+        List of ``(filename, markdown_text)`` sorted by filename; empty if no SI.
     """
     si_dir = paper_dir / "si"
     if not si_dir.is_dir():
@@ -160,16 +162,16 @@ _NOTES_FILENAME = "notes.md"
 
 
 def load_notes(paper_dir: Path) -> str | None:
-    """加载论文的 agent 分析笔记。
+    """Load the agent's analysis notes for a paper.
 
-    笔记文件 (``notes.md``) 由 agent 在分析论文时自动创建和追加，
-    用于跨会话、跨工作区复用分析结论。
+    The notes file (``notes.md``) is created and appended by the agent during
+    paper analysis so conclusions can be reused across sessions and workspaces.
 
     Args:
-        paper_dir: 论文目录路径（包含 ``meta.json`` 的目录）。
+        paper_dir: Paper directory path (containing ``meta.json``).
 
     Returns:
-        笔记文本，不存在时返回 ``None``。
+        Notes text, or ``None`` if absent or empty.
     """
     notes_path = paper_dir / _NOTES_FILENAME
     if notes_path.exists():
@@ -181,13 +183,14 @@ def load_notes(paper_dir: Path) -> str | None:
 
 
 def append_notes(paper_dir: Path, section: str) -> None:
-    """向论文笔记文件追加一条分析记录。
+    """Append an analysis section to a paper's notes file.
 
-    如果 ``notes.md`` 不存在则创建。每条记录之间用空行分隔。
+    Creates ``notes.md`` if it does not exist. Sections are separated by a
+    single blank line.
 
     Args:
-        paper_dir: 论文目录路径。
-        section: 要追加的笔记内容（Markdown 格式，建议以 ``## 日期 | 来源`` 开头）。
+        paper_dir: Paper directory path.
+        section: Markdown content to append (recommended to start with ``## YYYY-MM-DD | <source>``).
     """
     notes_path = paper_dir / _NOTES_FILENAME
     section = section.rstrip("\n")
@@ -228,18 +231,18 @@ def enrich_toc(
     *,
     force: bool = False,
 ) -> bool:
-    """纯规则提取论文目录结构，写入 ``JSON["toc"]``。
+    """Extract the paper's table of contents with rules only and write ``JSON["toc"]``.
 
-    从 Markdown 中提取所有 ``#`` 标题，用规则过滤 running headers、
-    期刊名、作者名等噪声，并按编号推断层级。
+    Collects all ``#`` headings from the Markdown, filters noise such as running
+    headers, journal names, and author lines, and infers levels from numbering.
 
     Args:
-        json_path: 论文 JSON 元数据文件路径（结果写回此文件）。
-        md_path: 论文 Markdown 文件路径。
-        force: 为 ``True`` 时覆盖已有 TOC。
+        json_path: Path to the paper's JSON metadata file (updated in place).
+        md_path: Path to the paper's Markdown file.
+        force: Overwrite an existing TOC when ``True``.
 
     Returns:
-        提取成功返回 ``True``，失败返回 ``False``。
+        ``True`` on success, ``False`` on failure.
     """
     from scrinium.papers import read_meta, write_meta
 
@@ -277,7 +280,7 @@ def enrich_toc(
 
 
 def _extract_headers(lines: list[str]) -> list[dict]:
-    """提取所有 # 标题及行号（1-indexed）。"""
+    """Extract all # headings with 1-indexed line numbers."""
     headers = []
     for i, line in enumerate(lines, start=1):
         m = re.match(r"^(#{1,4})\s+(.+)", line.rstrip())

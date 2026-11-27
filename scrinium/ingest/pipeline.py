@@ -1,19 +1,19 @@
 """
-pipeline.py — 可组合步骤流水线
-================================
+pipeline.py — Composable step pipeline
+======================================
 
-步骤（scope）：
-  inbox  — 每个 PDF 依次执行：mineru → extract → dedup → ingest
-  papers — 每篇已入库论文执行：abstract → toc（纯规则）
-  global — 全局执行一次：index
+Steps (by scope):
+  inbox  — run per PDF: mineru -> extract -> dedup -> ingest
+  papers — run per ingested paper: abstract -> toc (rule-based)
+  global — run once overall: index
 
-预设：
+Presets:
   full    = mineru, extract, dedup, ingest, index
   ingest  = mineru, extract, dedup, ingest, index
   enrich  = abstract, toc
   reindex = index
 
-用法（CLI）：
+CLI usage:
   scrinium pipeline full
   scrinium pipeline enrich --force
   scrinium pipeline --steps abstract,toc
@@ -48,7 +48,7 @@ class PipelineError(RuntimeError):
     """Fatal pipeline error raised by library code (replaces in-library ``sys.exit``).
 
     The CLI boundary (``scrinium.cli.main``) converts this into a one-line
-    ``错误: ...`` message plus exit code 1; library callers may catch it.
+    ``Error: ...`` message plus exit code 1; library callers may catch it.
     """
 
 
@@ -91,7 +91,7 @@ def _coerce_opts(opts: PipelineOptions | Mapping[str, Any]) -> PipelineOptions:
 
 
 class StepResult(Enum):
-    """流水线步骤返回值。"""
+    """Return value of a pipeline step."""
 
     OK = "ok"
     SKIP = "skip"
@@ -106,21 +106,31 @@ class StepResult(Enum):
 #  corresponding skill workflow (ingest pending review, audit repair, ...).
 # ============================================================================
 
-HINT_LOW_CONFIDENCE = "元数据置信度低（缺 title/authors）；建议派 subagent 读原文核对后用 scrinium repair 修正"
-HINT_NO_DOI = "建议派 subagent 读原文判定类型并核对元数据，然后 scrinium repair 修正或放回 data/inbox/ 重新入库"
-HINT_NO_PUB_NUM = "建议派 subagent 确认公开号后 scrinium repair 修正，或放回 data/inbox-patent/ 重新入库"
-HINT_DUPLICATE = "建议派 subagent 对比两篇论文后决定去留"
-HINT_ABSTRACT_MISS = "建议 agent 阅读原文后直接写 meta.json 的 abstract 字段"
-HINT_TOC_MISS = "建议 agent 阅读全文后直接写 meta.json 的 toc 字段"
+HINT_LOW_CONFIDENCE = (
+    "Low-confidence metadata (missing title/authors); dispatch a subagent to verify "
+    "against the original text and fix with scrinium repair"
+)
+HINT_NO_DOI = (
+    "Dispatch a subagent to read the original text, determine the document type, and verify the metadata, "
+    "then fix it with scrinium repair or move it back to data/inbox/ to re-ingest"
+)
+HINT_NO_PUB_NUM = (
+    "Dispatch a subagent to confirm the publication number and fix it with scrinium repair, "
+    "or move it back to data/inbox-patent/ to re-ingest"
+)
+HINT_DUPLICATE = "Dispatch a subagent to compare the two papers and decide which to keep"
+HINT_ABSTRACT_MISS = "Have the agent read the original text and write the abstract field in meta.json directly"
+HINT_TOC_MISS = "Have the agent read the full text and write the toc field in meta.json directly"
 HINT_L3_MISSING = (
-    "建议 agent（或派 subagent）阅读全文（--layer 4）后写入 "
-    "meta.json 的 l3_conclusion 字段，并运行 scrinium index 使其可检索"
+    "Have the agent (or a subagent) read the full text (--layer 4), write the l3_conclusion field "
+    "in meta.json, and run scrinium index to make it searchable"
 )
 # Fallback takeover hint for pending issue types without a specific hint
-HINT_PENDING_FALLBACK = "建议派 subagent 审查后处理"
+HINT_PENDING_FALLBACK = "Dispatch a subagent to review and resolve"
 HINT_SI_ORPHAN = (
-    "建议派 subagent 阅读 SI 确认主文：主文在库则用 scrinium attach-si <paper-id> <file> 挂接；"
-    "主文未入库则先入库主文（入库时按 DOI 自动对账挂接）；确认无对应主文可删除该 pending 项"
+    "Dispatch a subagent to read the SI and confirm its parent paper: if the parent is in the library, "
+    "attach it with scrinium attach-si <paper-id> <file>; if not, ingest the parent first "
+    "(SI is reconciled and attached by DOI during ingest); if there is no parent paper, delete this pending item"
 )
 
 # Recommended takeover action per pending.json issue type
@@ -140,12 +150,12 @@ _PAPERS_STEP_HINTS = {
 
 @dataclass
 class StepDef:
-    """流水线步骤定义。
+    """Pipeline step definition.
 
     Attributes:
-        fn: 步骤执行函数。
-        scope: 作用域，``"inbox"`` | ``"papers"`` | ``"global"``。
-        desc: 步骤描述（用于 ``--list`` 输出）。
+        fn: Step execution function.
+        scope: Step scope: ``"inbox"`` | ``"papers"`` | ``"global"``.
+        desc: Step description (shown in ``--list`` output).
     """
 
     fn: Callable
@@ -155,21 +165,21 @@ class StepDef:
 
 @dataclass
 class InboxCtx:
-    """Inbox 步骤间传递的单文件上下文。
+    """Per-file context passed between inbox steps.
 
     Attributes:
-        pdf_path: 原始 PDF 路径，md-only 入库时为 ``None``。
-        inbox_dir: inbox 目录路径。
-        papers_dir: 已入库论文目录路径。
-        existing_dois: 已入库论文的 DOI → JSON 路径映射（用于去重）。
-        cfg: 全局配置。
-        opts: 运行选项（:class:`PipelineOptions`；传入旧 dict 会在
-            ``__post_init__`` 中自动转换）。
-        pending_dir: 无 DOI 论文的待审目录。
-        md_path: Markdown 文件路径（MinerU 输出或直接放入）。
-        meta: 提取后的 :class:`~scrinium.ingest.metadata.PaperMetadata`。
-        status: 当前状态，``"pending"`` | ``"ingested"`` | ``"duplicate"``
-            | ``"needs_review"`` | ``"failed"`` | ``"skipped"``。
+        pdf_path: Original PDF path, or ``None`` for md-only ingest.
+        inbox_dir: Inbox directory path.
+        papers_dir: Ingested papers directory path.
+        existing_dois: Map of ingested paper DOI -> JSON path (for dedup).
+        cfg: Global configuration.
+        opts: Run options (:class:`PipelineOptions`; legacy dicts are converted
+            automatically in ``__post_init__``).
+        pending_dir: Review queue directory for papers without a DOI.
+        md_path: Markdown file path (MinerU output or placed directly).
+        meta: Extracted :class:`~scrinium.ingest.metadata.PaperMetadata`.
+        status: Current status: ``"pending"`` | ``"ingested"`` | ``"duplicate"``
+            | ``"needs_review"`` | ``"failed"`` | ``"skipped"``.
     """
 
     pdf_path: Path | None
@@ -199,17 +209,17 @@ class InboxCtx:
 
 
 def step_office_convert(ctx: InboxCtx) -> StepResult:
-    """Office 文档（DOCX / XLSX / PPTX）→ Markdown 转换（MarkItDown）。
+    """Convert Office documents (DOCX / XLSX / PPTX) to Markdown (MarkItDown).
 
-    仅当 ``ctx.opts.office_path`` 存在时执行（由 ``_process_inbox`` 在扫描
-    Office 文件时注入；非 Office 文件入口时 ``office_path`` 不存在，步骤直接跳过）。
-    已有同名 ``.md`` 时跳过转换并直接使用已有文件。
+    Runs only when ``ctx.opts.office_path`` is set (injected by ``_process_inbox``
+    when scanning Office files; for non-Office entries ``office_path`` is unset and
+    this step is a no-op). Skips conversion and reuses an existing sibling ``.md``.
 
     Args:
-        ctx: Inbox 上下文，转换后 ``ctx.md_path`` 指向生成的 ``.md``。
+        ctx: Inbox context; on success ``ctx.md_path`` points to the generated ``.md``.
 
     Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败。
+        ``StepResult.OK`` on success, ``StepResult.FAIL`` on failure.
     """
     office_path: Path | None = ctx.opts.office_path
     if office_path is None:
@@ -231,7 +241,7 @@ def step_office_convert(ctx: InboxCtx) -> StepResult:
     try:
         from markitdown import MarkItDown
     except ImportError:
-        _log.error("MarkItDown 未安装，无法转换 Office 文件。请运行: pip install scrinium[office]")
+        _log.error("MarkItDown is not installed; cannot convert Office files. Run: pip install scrinium[office]")
         ctx.status = "failed"
         return StepResult.FAIL
 
@@ -240,30 +250,31 @@ def step_office_convert(ctx: InboxCtx) -> StepResult:
         result = md_obj.convert(str(office_path))
         md_text = result.text_content or ""
         if not md_text.strip():
-            _log.warning("Office 文件内容为空: %s", office_path.name)
+            _log.warning("Office file is empty: %s", office_path.name)
         md_path.write_text(md_text, encoding="utf-8")
         ctx.md_path = md_path
         _log.debug("office convert OK: %s -> %s", office_path.name, md_path.name)
         return StepResult.OK
     except Exception as exc:
-        _log.error("MarkItDown 转换失败 %s: %s", office_path.name, exc)
+        _log.error("MarkItDown conversion failed for %s: %s", office_path.name, exc)
         ctx.status = "failed"
         return StepResult.FAIL
 
 
 def step_mineru(ctx: InboxCtx) -> StepResult:
-    """PDF → Markdown 转换（MinerU）。
+    """Convert PDF to Markdown (MinerU).
 
-    md-only 入库项（无 PDF）自动跳过。已有同名 ``.md`` 时也跳过。
-    本地 MinerU 不可达时自动 fallback 到 MinerU 云端 CLI（需配置 ``mineru_api_key`` / token）。
-    超长 PDF 会在需要时自动切分后逐段转换再合并。
-    本地 MinerU 使用 ``chunk_page_limit``，云端 MinerU 同时遵循 600 页 / 200MB。
+    Skips md-only entries (no PDF) and entries that already have a sibling ``.md``.
+    Falls back automatically to the MinerU cloud CLI when local MinerU is unreachable
+    (requires ``mineru_api_key`` / token). Long PDFs are split into chunks, converted,
+    and merged when needed. Local MinerU uses ``chunk_page_limit``; cloud MinerU also
+    enforces the 600-page / 200MB limits.
 
     Args:
-        ctx: Inbox 上下文，转换后 ``ctx.md_path`` 指向生成的 ``.md``。
+        ctx: Inbox context; on success ``ctx.md_path`` points to the generated ``.md``.
 
     Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败。
+        ``StepResult.OK`` on success, ``StepResult.FAIL`` on failure.
     """
     from scrinium.ingest.mineru import (
         ConvertOptions,
@@ -337,7 +348,7 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
             _log.error("preferred parser chain failed: %s", err)
             ctx.status = "failed"
             return StepResult.FAIL
-        ui(f"已按配置优先使用 {parser_name} 解析。")
+        ui(f"Used preferred parser {parser_name} as configured.")
         ctx.md_path = md_path
         return StepResult.OK
 
@@ -357,7 +368,7 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
                 _log.error("fallback parsers failed: %s", fallback_err)
                 ctx.status = "failed"
                 return StepResult.FAIL
-            ui(f"MinerU 不可用，已降级使用 {parser_name} 解析。")
+            ui(f"MinerU unavailable; fell back to {parser_name}.")
             ctx.md_path = md_path
             return StepResult.OK
 
@@ -370,14 +381,16 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
         page_count = _get_pdf_page_count(pdf_path)
         is_long = page_count > local_chunk_limit
         if is_long:
-            ui(f"检测到长 PDF（{page_count} 页，超过 {local_chunk_limit} 页限制），正在分片处理...")
+            ui(
+                f"Long PDF detected ({page_count} pages, exceeds {local_chunk_limit}-page limit); splitting into chunks..."
+            )
     else:
         is_long, cloud_chunk_size, cloud_chunk_reason = _plan_cloud_chunking(
             pdf_path,
             default_chunk_size=local_chunk_limit,
         )
         if is_long:
-            ui(f"检测到云端需分片 PDF（{cloud_chunk_reason}），正在分片处理...")
+            ui(f"PDF requires cloud chunking ({cloud_chunk_reason}); splitting into chunks...")
 
     # Try local MinerU first, fallback to MinerU cloud CLI
     if local_mineru_available:
@@ -425,7 +438,7 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
             _log.error("fallback parsers failed: %s", fallback_err)
             ctx.status = "failed"
             return StepResult.FAIL
-        ui(f"MinerU 不可用，已降级使用 {parser_name} 解析。")
+        ui(f"MinerU unavailable; fell back to {parser_name}.")
         ctx.md_path = md_path
         return StepResult.OK
 
@@ -434,16 +447,16 @@ def step_mineru(ctx: InboxCtx) -> StepResult:
 
 
 def step_extract_doc(ctx: InboxCtx) -> StepResult:
-    """从非论文文档提取元数据（纯规则：regex + 最小回退元数据）。
+    """Extract metadata from a non-paper document (rules only: regex + minimal fallback).
 
-    以首标题/文件名 + 前 500 词作为最小元数据入库；正式标题/摘要
-    由 agent 后处理直写 meta.json。
+    Ingests minimal metadata built from the first heading/filename plus the first
+    500 words; an agent writes the proper title and abstract into meta.json afterwards.
 
     Args:
-        ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
+        ctx: Inbox context with ``ctx.md_path`` set.
 
     Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败。
+        ``StepResult.OK`` on success, ``StepResult.FAIL`` on failure.
     """
     if ctx.opts.dry_run:
         _log.debug("would extract document metadata from: %s", ctx.md_path.name if ctx.md_path else "?")
@@ -476,16 +489,16 @@ def step_extract_doc(ctx: InboxCtx) -> StepResult:
 
 
 def step_extract(ctx: InboxCtx) -> StepResult:
-    """从 Markdown 头部提取论文元数据（纯正则）。
+    """Extract paper metadata from the Markdown header (regex only).
 
-    结果存入 ``ctx.meta``；低置信结果（缺 title/authors）在入库时
-    附 handoff hint，由 agent/subagent 核对。
+    Stores the result in ``ctx.meta``; low-confidence results (missing
+    title/authors) carry a handoff hint at ingest time for agent/subagent review.
 
     Args:
-        ctx: Inbox 上下文，需要 ``ctx.md_path`` 已设置。
+        ctx: Inbox context with ``ctx.md_path`` set.
 
     Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败。
+        ``StepResult.OK`` on success, ``StepResult.FAIL`` on failure.
     """
     from scrinium.ingest.extractor import get_extractor
 
@@ -551,20 +564,23 @@ def _hard_timeout(seconds: int, label: str):
 
 
 def step_dedup(ctx: InboxCtx) -> StepResult:
-    """API 查询补全 + DOI / 公开号去重检查。
+    """API enrichment + DOI / publication number dedup check.
 
-    1. 调用 Crossref / S2 / OpenAlex API 补全元数据
-    2. 有 DOI 时检查是否与已入库论文重复
-    3. thesis inbox 标记直接放行
-    4. patent inbox 标记 paper_type=patent，按公开号去重；无公开号转 pending
-    5. 无 DOI 时：检测是否为专利（文本中含公开号），是则按公开号去重并入库
-    6. 无 DOI 且非 thesis/patent/book 才转入 ``data/pending/``
+    1. Query Crossref / S2 / OpenAlex APIs to enrich metadata
+    2. When a DOI exists, check for duplicates against ingested papers
+    3. Pass thesis inbox entries straight through with the thesis flag
+    4. Mark patent inbox entries as paper_type=patent and dedup by publication
+       number; route to pending if no publication number is found
+    5. Without a DOI, detect patents (publication number in text) and dedup/ingest
+       by publication number
+    6. Route to ``data/pending/`` only when there is no DOI and the file is not a
+       thesis/patent/book
 
     Args:
-        ctx: Inbox 上下文，需要 ``ctx.meta`` 已设置。
+        ctx: Inbox context with ``ctx.meta`` set.
 
     Returns:
-        ``StepResult.OK`` 通过, ``StepResult.FAIL`` 重复/无 DOI。
+        ``StepResult.OK`` to proceed, ``StepResult.FAIL`` on duplicate or missing DOI.
     """
     from scrinium.ingest.metadata import enrich_metadata
 
@@ -581,14 +597,14 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
     if ctx.is_thesis:
         ctx.meta.paper_type = "thesis"
         _log.debug("thesis inbox, skipping API and dedup")
-        ui(f"学位论文: {ctx.meta.title or '?'}")
+        ui(f"Thesis: {ctx.meta.title or '?'}")
         return StepResult.OK
 
     # Patent inbox: set paper_type, skip API query, use publication_number for dedup
     if ctx.is_patent:
         ctx.meta.paper_type = "patent"
         _log.debug("patent inbox, skipping API query")
-        ui(f"专利: {ctx.meta.title or '?'}")
+        ui(f"Patent: {ctx.meta.title or '?'}")
         # Patent publication number dedup
         pub_num = (ctx.meta.publication_number or "").upper().strip()
         if not pub_num:
@@ -596,7 +612,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
             _move_to_pending(
                 ctx,
                 issue="no_pub_num",
-                message="专利 inbox 未提取到公开号，需人工确认",
+                message="No publication number extracted from patent inbox; manual confirmation required",
             )
             ctx.status = "needs_review"
             return StepResult.FAIL
@@ -606,7 +622,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
             _move_to_pending(
                 ctx,
                 issue="duplicate",
-                message="专利公开号与已入库专利重复",
+                message="Patent publication number duplicates an existing patent",
                 extra={"duplicate_of": existing_json.parent.name, "publication_number": pub_num},
             )
             ctx.status = "duplicate"
@@ -644,7 +660,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
         _move_to_pending(
             ctx,
             issue="duplicate",
-            message="arXiv 预印本与已入库论文重复",
+            message="arXiv preprint duplicates an existing paper",
             extra={"duplicate_of": existing_json.parent.name, "arxiv_id": arxiv_key},
         )
         ctx.status = "duplicate"
@@ -660,7 +676,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
                 _move_to_pending(
                     ctx,
                     issue="no_pub_num",
-                    message="检测为专利但未提取到公开号，需人工确认",
+                    message="Detected as a patent but no publication number extracted; manual confirmation required",
                 )
                 ctx.status = "needs_review"
                 return StepResult.FAIL
@@ -669,29 +685,29 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
                 _move_to_pending(
                     ctx,
                     issue="duplicate",
-                    message="专利公开号与已入库专利重复",
+                    message="Patent publication number duplicates an existing patent",
                     extra={"duplicate_of": existing_json.parent.name, "publication_number": pub_num},
                 )
                 ctx.status = "duplicate"
                 return StepResult.FAIL
-            ui("检测为专利，无 DOI 直接入库")
+            ui("Detected as a patent; ingesting directly without DOI")
             return StepResult.OK
         # No DOI -> heuristic thesis detection (miss -> pending for agent review)
         if _detect_thesis(ctx):
             ctx.meta.paper_type = "thesis"
             ctx.is_thesis = True
-            ui("检测为学位论文，无 DOI 直接入库")
+            ui("Detected as a thesis; ingesting directly without DOI")
             return StepResult.OK
         # No DOI -> heuristic book detection (miss -> pending for agent review)
         if _detect_book(ctx):
             ctx.meta.paper_type = "book"
-            ui("检测为书籍，无 DOI 直接入库")
+            ui("Detected as a book; ingesting directly without DOI")
             return StepResult.OK
         # No DOI -> check arXiv preprint (has arXiv ID from extraction or API)
         if ctx.meta.arxiv_id:
             if not ctx.meta.paper_type:
                 ctx.meta.paper_type = "preprint"
-            ui(f"检测为 arXiv 预印本（{ctx.meta.arxiv_id}），无 DOI 直接入库")
+            ui(f"Detected as an arXiv preprint ({ctx.meta.arxiv_id}); ingesting directly without DOI")
             return StepResult.OK
         # Not thesis/book/patent/arXiv -> move to pending
         _log.debug("no DOI and not thesis/book/patent/arXiv, moving to pending")
@@ -702,8 +718,9 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
     doi_key = ctx.meta.doi.lower().strip()
     if doi_key in ctx.existing_dois:
         existing_json = ctx.existing_dois[doi_key]
-        # SI 钩子：DOI 与库中论文重复且新文件疑似 SI 时，挂接为已有论文的
-        # SI 而非按重复转 pending（SI 常印有主文 DOI，这是 SI 入库的主路径）
+        # SI hook: when the DOI duplicates a library paper and the new file looks
+        # like SI, attach it as SI to the existing paper instead of routing to
+        # pending as a duplicate (SI often prints the parent DOI; main SI path)
         from scrinium.si import attach_si, looks_like_si_filename, looks_like_si_text
 
         si_by_name = bool(ctx.pdf_path) and looks_like_si_filename(ctx.pdf_path.name)
@@ -712,12 +729,13 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
             si_by_text = looks_like_si_text(ctx.md_path.read_text(encoding="utf-8", errors="replace"))
         if si_by_name or si_by_text:
             src = ctx.pdf_path or ctx.md_path
-            # DOI 去重命中即来源绑定，跳过内容验证（图版 SI 无文本可验）
+            # A DOI dedup hit already binds the source; skip content verification
+            # (figure-only SI has no text to verify)
             res = attach_si(
                 existing_json.parent, src, ctx.cfg, md_path=ctx.md_path, attached_by="pipeline", verify=False
             )
             if res["ok"]:
-                ui(f"检测为已入库论文的 SI，已挂接: {existing_json.parent.name}/si/")
+                ui(f"Detected as SI for an existing paper; attached: {existing_json.parent.name}/si/")
                 pdf_stem = ctx.pdf_path.stem if ctx.pdf_path else ""
                 md_stem = ctx.md_path.stem if ctx.md_path else ""
                 _move_si_images(ctx.inbox_dir, existing_json.parent / "si", pdf_stem, md_stem)
@@ -725,7 +743,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
                 _cleanup_assets(ctx.inbox_dir, pdf_stem, md_stem)
                 ctx.status = "skipped"
                 return StepResult.FAIL
-            ui(f"疑似 SI 但挂接验证未过（{res['message']}），按重复转 pending")
+            ui(f"Suspected SI failed attach verification ({res['message']}); moving to pending as duplicate")
         existing_md = existing_json.parent / "paper.md"
         if not existing_md.exists() and ctx.md_path and ctx.md_path.exists():
             # MD missing from existing paper: restore it automatically
@@ -742,7 +760,7 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
             _move_to_pending(
                 ctx,
                 issue="duplicate",
-                message="DOI 与已入库论文重复，如需覆盖请手动处理",
+                message="DOI duplicates an existing paper; handle manually if you want to overwrite it",
                 extra={"duplicate_of": existing_json.parent.name, "doi": doi_key},
             )
         ctx.status = "duplicate"
@@ -752,16 +770,16 @@ def step_dedup(ctx: InboxCtx) -> StepResult:
 
 
 def step_ingest(ctx: InboxCtx) -> StepResult:
-    """将论文正式写入 ``data/papers/``。
+    """Write the paper into ``data/papers/``.
 
-    生成标准化文件名 ``{LastName}-{year}-{Title}``，
-    写入 JSON 元数据，移动 ``.md`` 文件，清理 inbox。
+    Generates a standardized name ``{LastName}-{year}-{Title}``, writes the JSON
+    metadata, moves the ``.md`` file, and cleans up the inbox.
 
     Args:
-        ctx: Inbox 上下文，需要 ``ctx.meta`` 和 ``ctx.md_path`` 已设置。
+        ctx: Inbox context with ``ctx.meta`` and ``ctx.md_path`` set.
 
     Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败。
+        ``StepResult.OK`` on success, ``StepResult.FAIL`` on failure.
     """
     from scrinium.ingest.metadata import generate_new_stem, write_metadata_json
     from scrinium.papers import generate_uuid
@@ -778,7 +796,7 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
 
     if not (ctx.meta.title or "").strip() and not (ctx.meta.abstract or "").strip():
         _log.error("ingest failed: no title and no abstract")
-        ui("跳过：无标题且无摘要，无法入库")
+        ui("Skipped: no title and no abstract; cannot ingest")
         ctx.status = "failed"
         return StepResult.FAIL
 
@@ -859,18 +877,18 @@ def step_ingest(ctx: InboxCtx) -> StepResult:
 
 
 def step_toc(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """纯规则提取 TOC 写入 JSON（papers 作用域封装）。
+    """Extract the TOC via rules and write it to JSON (papers-scope wrapper).
 
-    规则未命中时返回 FAIL，调用方输出 handoff hint，由 agent 直接
-    阅读全文后写 ``meta.json`` 的 ``toc`` 字段。
+    Returns FAIL when rules do not match; the caller emits a handoff hint so
+    an agent can read the full text and write the ``toc`` field in ``meta.json``.
 
     Args:
-        json_path: 论文 JSON 路径（meta.json）。
-        cfg: 全局配置。
-        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
+        json_path: Paper JSON path (meta.json).
+        cfg: Global configuration.
+        opts: Run options (legacy dicts are converted to :class:`PipelineOptions`).
 
     Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败, ``StepResult.SKIP`` 跳过。
+        ``StepResult.OK`` on success, ``StepResult.FAIL`` on failure, ``StepResult.SKIP`` if skipped.
     """
     from scrinium.loader import enrich_toc
 
@@ -889,19 +907,19 @@ def step_toc(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any
 
 
 def step_abstract(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """纯正则从 paper.md 补全缺失的 abstract（papers 作用域封装）。
+    """Backfill a missing abstract from paper.md via regex (papers-scope wrapper).
 
-    已有 abstract 且未 ``--force`` 时跳过。规则未命中时返回 FAIL，
-    调用方输出 handoff hint，由 agent 阅读原文后直写 ``meta.json``
-    的 ``abstract`` 字段。
+    Skips when an abstract already exists and ``--force`` is not set. Returns FAIL
+    when rules do not match; the caller emits a handoff hint so an agent can read
+    the original text and write the ``abstract`` field in ``meta.json``.
 
     Args:
-        json_path: 论文 JSON 路径（meta.json）。
-        cfg: 全局配置。
-        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
+        json_path: Paper JSON path (meta.json).
+        cfg: Global configuration.
+        opts: Run options (legacy dicts are converted to :class:`PipelineOptions`).
 
     Returns:
-        ``StepResult.OK`` 成功, ``StepResult.FAIL`` 失败, ``StepResult.SKIP`` 跳过。
+        ``StepResult.OK`` on success, ``StepResult.FAIL`` on failure, ``StepResult.SKIP`` if skipped.
     """
     from scrinium.papers import read_meta, write_meta
 
@@ -937,15 +955,15 @@ def step_abstract(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str
 
 
 def step_index(papers_dir: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """更新 SQLite FTS5 索引（global 作用域）。
+    """Update the SQLite FTS5 index (global scope).
 
     Args:
-        papers_dir: 论文目录。
-        cfg: 全局配置。
-        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
+        papers_dir: Papers directory.
+        cfg: Global configuration.
+        opts: Run options (legacy dicts are converted to :class:`PipelineOptions`).
 
     Returns:
-        ``StepResult.OK``。
+        ``StepResult.OK``.
     """
     from scrinium.index import build_index
 
@@ -964,15 +982,15 @@ def step_index(papers_dir: Path, cfg: Config, opts: PipelineOptions | dict[str, 
 
 
 def step_refetch(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str, Any]) -> StepResult:
-    """重新查询 API 补全引用量等缺失字段（papers 作用域封装）。
+    """Re-query APIs to fill missing fields such as citation counts (papers-scope wrapper).
 
     Args:
-        json_path: 论文 JSON 路径。
-        cfg: 全局配置。
-        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
+        json_path: Paper JSON path.
+        cfg: Global configuration.
+        opts: Run options (legacy dicts are converted to :class:`PipelineOptions`).
 
     Returns:
-        ``StepResult.OK`` 有更新, ``StepResult.SKIP`` 跳过。
+        ``StepResult.OK`` if updated, ``StepResult.SKIP`` if skipped.
     """
     import json as _json
 
@@ -1014,17 +1032,19 @@ def step_refetch(json_path: Path, cfg: Config, opts: PipelineOptions | dict[str,
 
 STEPS: dict[str, StepDef] = {
     "office_convert": StepDef(
-        fn=step_office_convert, scope="inbox", desc="Office 文档（DOCX/XLSX/PPTX）→ Markdown（MarkItDown）"
+        fn=step_office_convert, scope="inbox", desc="Office documents (DOCX/XLSX/PPTX) -> Markdown (MarkItDown)"
     ),
-    "mineru": StepDef(fn=step_mineru, scope="inbox", desc="PDF → Markdown（MinerU）"),
-    "extract": StepDef(fn=step_extract, scope="inbox", desc="Markdown → 元数据提取（纯正则）"),
-    "extract_doc": StepDef(fn=step_extract_doc, scope="inbox", desc="文档 → 元数据提取（纯规则）"),
-    "dedup": StepDef(fn=step_dedup, scope="inbox", desc="API 查询 + DOI 去重"),
-    "ingest": StepDef(fn=step_ingest, scope="inbox", desc="写入 data/papers/"),
-    "abstract": StepDef(fn=step_abstract, scope="papers", desc="纯正则补全缺失的 abstract"),
-    "toc": StepDef(fn=step_toc, scope="papers", desc="纯规则提取 TOC 写入 JSON"),
-    "refetch": StepDef(fn=step_refetch, scope="papers", desc="重新查询 API 补全引用量等字段"),
-    "index": StepDef(fn=step_index, scope="global", desc="更新 SQLite FTS5 索引"),
+    "mineru": StepDef(fn=step_mineru, scope="inbox", desc="PDF -> Markdown (MinerU)"),
+    "extract": StepDef(fn=step_extract, scope="inbox", desc="Markdown -> metadata extraction (regex only)"),
+    "extract_doc": StepDef(fn=step_extract_doc, scope="inbox", desc="Document -> metadata extraction (rule-based)"),
+    "dedup": StepDef(fn=step_dedup, scope="inbox", desc="API enrichment + DOI dedup"),
+    "ingest": StepDef(fn=step_ingest, scope="inbox", desc="Write to data/papers/"),
+    "abstract": StepDef(fn=step_abstract, scope="papers", desc="Backfill missing abstract via regex"),
+    "toc": StepDef(fn=step_toc, scope="papers", desc="Extract TOC into JSON (rule-based)"),
+    "refetch": StepDef(
+        fn=step_refetch, scope="papers", desc="Re-query APIs to fill missing fields such as citation counts"
+    ),
+    "index": StepDef(fn=step_index, scope="global", desc="Update SQLite FTS5 index"),
 }
 
 # Document inbox uses a different step sequence (no DOI dedup).
@@ -1065,25 +1085,25 @@ def _process_inbox(
     existing_pub_nums: dict[str, Path] | None = None,
     existing_arxiv_ids: dict[str, Path] | None = None,
 ) -> None:
-    """处理单个 inbox 目录中的所有文件。
+    """Process all files in a single inbox directory.
 
     Args:
-        inbox_dir: inbox 目录路径。
-        papers_dir: 已入库论文目录。
-        pending_dir: 待审目录。
-        existing_dois: 已入库 DOI 映射（会被原地更新）。
-        inbox_steps: inbox 作用域步骤名列表。
-        cfg: 全局配置。
-        opts: 运行选项（旧 dict 自动转换为 :class:`PipelineOptions`）。
-        dry_run: 是否预览模式。
-        ingested_jsons: 新入库的 JSON 路径列表（会被原地追加）。
-        is_thesis: 是否为 thesis inbox（跳过 DOI 去重，标记 paper_type）。
-        is_patent: 是否为 patent inbox（跳过 DOI 去重，用公开号去重）。
-        existing_pub_nums: 已入库专利公开号映射（用于去重）。
-        existing_arxiv_ids: 已入库 arXiv ID 映射（用于预印本去重）。
+        inbox_dir: Inbox directory path.
+        papers_dir: Ingested papers directory.
+        pending_dir: Review queue directory.
+        existing_dois: Ingested DOI map (updated in place).
+        inbox_steps: Inbox-scope step names.
+        cfg: Global configuration.
+        opts: Run options (legacy dicts are converted to :class:`PipelineOptions`).
+        dry_run: Preview mode.
+        ingested_jsons: List of newly ingested JSON paths (appended in place).
+        is_thesis: Whether this is the thesis inbox (skips DOI dedup, sets paper_type).
+        is_patent: Whether this is the patent inbox (skips DOI dedup, dedups by publication number).
+        existing_pub_nums: Ingested patent publication number map (for dedup).
+        existing_arxiv_ids: Ingested arXiv ID map (for preprint dedup).
 
     Raises:
-        PipelineError: 需要 MinerU 但本地与云端均不可用时。
+        PipelineError: When MinerU is needed but neither local nor cloud is available.
     """
     opts = _coerce_opts(opts)
     if not inbox_dir.exists():
@@ -1128,8 +1148,8 @@ def _process_inbox(
                 use_cloud_batch = True
             else:
                 raise PipelineError(
-                    f"MinerU 不可达（本地: {cfg.ingest.mineru_endpoint}，且未配置 MinerU token），"
-                    "无法解析 inbox 中的 PDF；请先启动本地 MinerU 服务或配置 MINERU_TOKEN"
+                    f"MinerU is unreachable (local: {cfg.ingest.mineru_endpoint}, and no MinerU token is configured); "
+                    "cannot parse PDFs in the inbox. Start the local MinerU server or configure MINERU_TOKEN first."
                 )
 
     extra_info = []
@@ -1209,7 +1229,7 @@ def _process_inbox(
                 if not br.success:
                     batch_retry_stems.add(did)
                     _log.error("MinerU batch failed for %s: %s", br.pdf_path.name, br.error)
-                    ui(f"  {br.pdf_path.name}: MinerU 批量预处理失败，后续将按单文件解析流重试")
+                    ui(f"  {br.pdf_path.name}: MinerU batch preprocessing failed; will retry via single-file parsing")
                     continue
                 entry = entries.get(did)
                 if entry is not None and entry["md"] is None and br.md_path and br.md_path.exists():
@@ -1221,14 +1241,17 @@ def _process_inbox(
                     batch_completed_stems.add(did)
                 else:
                     batch_retry_stems.add(did)
-                    ui(f"  {br.pdf_path.name}: MinerU 批量预处理未生成有效 Markdown，后续将按单文件解析流重试")
+                    ui(
+                        f"  {br.pdf_path.name}: MinerU batch preprocessing produced no valid Markdown; "
+                        "will retry via single-file parsing"
+                    )
 
             missing_batch_stems = expected_batch_stems - batch_completed_stems - batch_retry_stems
             if missing_batch_stems:
                 batch_retry_stems.update(missing_batch_stems)
                 for stem in sorted(missing_batch_stems):
                     _log.error("MinerU batch missing result for %s.pdf", stem)
-                    ui(f"  {stem}.pdf: MinerU 批量预处理结果缺失，后续将按单文件解析流重试")
+                    ui(f"  {stem}.pdf: MinerU batch preprocessing result missing; will retry via single-file parsing")
 
     # ---- Per-file pipeline (remaining steps, or all steps if local MinerU) ----
     per_file_steps = inbox_steps
@@ -1242,8 +1265,8 @@ def _process_inbox(
     if mineru_time:
         step_times["mineru"] = mineru_time
 
-    # SI 候选（按文件名识别）延后处理：先让主文入库，再尝试挂接；
-    # 仅在真正的入库流程中路由（转换-only 运行不触发）
+    # Defer SI candidates (detected by filename): ingest main papers first, then
+    # try attaching; only routed in real ingest runs (convert-only runs skip it)
     route_si = "ingest" in inbox_steps and not (is_thesis or is_patent or is_proceedings)
     si_entries: list[tuple[str, dict]] = []
     normal_entries: list[tuple[str, dict]] = []
@@ -1253,7 +1276,7 @@ def _process_inbox(
         else:
             normal_entries.append((stem, paths))
     if si_entries:
-        ui(f"{label_prefix}检测到 {len(si_entries)} 个疑似 SI 文件，将在主文处理后单独路由")
+        ui(f"{label_prefix}Detected {len(si_entries)} suspected SI file(s); routing separately after main papers")
 
     def _run_one_entry(stem: str, paths: dict, idx: int, total: int) -> None:
         office_path = paths.get("office")
@@ -1317,7 +1340,7 @@ def _process_inbox(
         stats[final_status] += 1
         if final_status == "ingested" and ctx.ingested_json:
             ingested_jsons.append(ctx.ingested_json)
-            # 新论文入库后按 DOI 对账 pending 中的 si_orphan，命中即挂接
+            # After a new paper is ingested, reconcile si_orphan items in pending by DOI and attach matches
             if ctx.meta and ctx.meta.doi:
                 _reconcile_si_orphans(pending_dir, ctx.meta.doi, ctx.ingested_json.parent, cfg, dry_run)
 
@@ -1327,7 +1350,7 @@ def _process_inbox(
     for idx, (stem, paths) in enumerate(normal_entries):
         _run_one_entry(stem, paths, idx, len(normal_entries))
 
-    # ---- 第二遍：SI 路由（挂接到主文 / si_orphan 待审 / 误判回正常流程） ----
+    # ---- Second pass: SI routing (attach to parent / si_orphan pending / false positive -> normal flow) ----
     si_attached = si_orphaned = 0
     for stem, paths in si_entries:
         ui(f"\n{label_prefix}[SI] {(paths.get('pdf') or paths.get('md') or paths.get('office')).name}")
@@ -1352,7 +1375,8 @@ def _process_inbox(
             stats["needs_review"] += 1
     if si_entries:
         ui(
-            f"SI 路由: {si_attached} 挂接 | {si_orphaned} 待审(si_orphan) | {len(si_entries) - si_attached - si_orphaned} 其他"
+            f"SI routing: {si_attached} attached | {si_orphaned} pending (si_orphan) | "
+            f"{len(si_entries) - si_attached - si_orphaned} other"
         )
 
     # Clean up stray MinerU artifacts left in inbox
@@ -1373,7 +1397,9 @@ def _process_inbox(
         f"\n{label_prefix}inbox done: {stats['ingested']} ingested | {stats['duplicate']} duplicate | {stats['needs_review']} review | {stats['failed']} failed | {stats['skipped']} skipped"
     )
     if stats["needs_review"]:
-        ui("提示: 运行 `scrinium pending` 查看待确认项；建议按 hint 派 subagent 审查处理")
+        ui(
+            "Tip: run `scrinium pending` to view items awaiting confirmation; dispatch subagents to review them following the hints"
+        )
     if step_times:
         ui("Step timing:")
         for sn, st in step_times.items():
@@ -1386,30 +1412,30 @@ def run_pipeline(
     cfg: Config,
     opts: PipelineOptions | dict[str, Any],
 ) -> None:
-    """执行指定步骤序列。
+    """Execute the given sequence of steps.
 
-    按 scope 分三阶段依次执行:
-      1. **inbox** — 逐个文件: mineru → extract → dedup → ingest
-      2. **papers** — 逐篇已入库论文: abstract → toc（纯规则）
-      3. **global** — 全局执行一次: index
+    Runs in three phases by scope:
+      1. **inbox** — per file: mineru -> extract -> dedup -> ingest
+      2. **papers** — per ingested paper: abstract -> toc (rule-based)
+      3. **global** — once overall: index
 
     Args:
-        step_names: 步骤名称列表，如 ``["extract", "dedup", "ingest"]``。
-            可用步骤见 :data:`STEPS`。
-        cfg: 全局配置。
-        opts: 运行选项（:class:`PipelineOptions`；旧 dict 自动转换）。
-            字段说明见 :class:`PipelineOptions`，``inbox_dir`` / ``papers_dir``
-            为 ``None`` 时分别回退到 ``cfg._root / "data/inbox"`` 和 ``cfg.papers_dir``。
+        step_names: Step names, e.g. ``["extract", "dedup", "ingest"]``.
+            See :data:`STEPS` for available steps.
+        cfg: Global configuration.
+        opts: Run options (:class:`PipelineOptions`; legacy dicts are converted).
+            See :class:`PipelineOptions` for fields; ``inbox_dir`` / ``papers_dir``
+            fall back to ``cfg._root / "data/inbox"`` and ``cfg.papers_dir`` when ``None``.
 
     Raises:
-        PipelineError: 步骤名未知，或 inbox 中的 PDF 需要 MinerU 但本地与云端均不可用。
+        PipelineError: Unknown step name, or inbox PDFs need MinerU when neither local nor cloud is available.
     """
     opts = _coerce_opts(opts)
 
     # Validate steps
     for name in step_names:
         if name not in STEPS:
-            raise PipelineError(f"未知步骤 '{name}'，可用步骤: {', '.join(STEPS)}")
+            raise PipelineError(f"Unknown step '{name}'; available steps: {', '.join(STEPS)}")
 
     inbox_dir: Path = opts.inbox_dir or cfg._root / "data/inbox"
     papers_dir: Path = opts.papers_dir or cfg.papers_dir
@@ -1431,7 +1457,7 @@ def run_pipeline(
         existing_arxiv_ids = collected.arxiv_ids
         failed_reads = collected.failed
         if failed_reads:
-            ui(f"警告: {len(failed_reads)} 篇已入库论文的 meta.json 读取失败，去重可能不完整")
+            ui(f"Warning: failed to read meta.json for {len(failed_reads)} existing paper(s); dedup may be incomplete")
 
         # Process regular inbox
         _result = _process_inbox(
@@ -1523,13 +1549,13 @@ def run_pipeline(
             )
 
     # ---- SI auto-fetch for newly ingested papers ----
-    # 放在 papers/global 步骤之前，当次 index 即可收录 SI 内容；
-    # 失败不阻断流水线，只记录 fetch_status 供后续接管
+    # Runs before papers/global steps so the same index run picks up SI content;
+    # failures do not block the pipeline and only record fetch_status for takeover
     if inbox_steps and ingested_jsons and not dry_run and not opts.no_api:
         if getattr(getattr(cfg, "ingest", None), "si_fetch_on_ingest", True):
             from scrinium.si import fetch_si_for_paper
 
-            ui(f"\n为新入库论文自动获取 SI（{len(ingested_jsons)} 篇）...")
+            ui(f"\nAuto-fetching SI for newly ingested papers ({len(ingested_jsons)})...")
             si_ok = 0
             for jp in ingested_jsons:
                 try:
@@ -1539,11 +1565,11 @@ def run_pipeline(
                     continue
                 if status == "ok":
                     si_ok += 1
-                    ui(f"  {jp.parent.name} -> SI 已挂接")
+                    ui(f"  {jp.parent.name} -> SI attached")
                 elif status != "skip":
-                    ui(f"  {jp.parent.name} -> SI 未获取（{status}），可运行 scrinium si fetch 重试")
+                    ui(f"  {jp.parent.name} -> SI not fetched ({status}); run scrinium si fetch to retry")
             if si_ok:
-                ui(f"SI 获取完成: {si_ok}/{len(ingested_jsons)} 篇命中")
+                ui(f"SI fetch complete: {si_ok}/{len(ingested_jsons)} found")
 
     # ---- Papers scope ----
     if papers_steps:
@@ -1656,21 +1682,21 @@ def import_external(
     no_api: bool = False,
     dry_run: bool = False,
 ) -> dict[str, int]:
-    """从外部来源（Endnote 等）批量导入论文。
+    """Batch-import papers from an external source (Endnote, etc.).
 
-    对每条记录运行 dedup + ingest，最后一次性重建 index。
-    如提供 ``pdf_paths``（与 records 索引对齐），入库时自动复制
-    PDF 到论文目录。
+    Runs dedup + ingest for each record, then rebuilds the index once at the end.
+    When ``pdf_paths`` is provided (index-aligned with records), copies each PDF
+    into its paper directory during ingest.
 
     Args:
-        records: PaperMetadata 列表。
-        cfg: 全局配置。
-        pdf_paths: 与 records 对齐的 PDF 路径列表（可选）。
-        no_api: 跳过 API 查询。
-        dry_run: 预览模式。
+        records: List of PaperMetadata.
+        cfg: Global configuration.
+        pdf_paths: Optional list of PDF paths aligned with records.
+        no_api: Skip API queries.
+        dry_run: Preview mode.
 
     Returns:
-        统计字典 ``{"ingested": N, "duplicate": N, "needs_review": N, "failed": N, "skipped": N}``。
+        Stats dict ``{"ingested": N, "duplicate": N, "needs_review": N, "failed": N, "skipped": N}``.
     """
     papers_dir = cfg.papers_dir
     pending_dir = cfg._root / "data" / "pending"
@@ -1691,7 +1717,7 @@ def import_external(
         # Fast DOI dedup check before expensive API calls
         doi = meta.doi.lower().strip() if meta.doi else ""
         if doi and doi in existing_dois:
-            ui(f"DOI 重复，跳过: {meta.doi}")
+            ui(f"Duplicate DOI, skipping: {meta.doi}")
             stats["duplicate"] += 1
             continue
 
@@ -1736,10 +1762,13 @@ def import_external(
             time.sleep(1.0)
 
     ui(
-        f"\n导入完成: {stats['ingested']} 入库 | {stats['duplicate']} 重复 | {stats['needs_review']} 待审 | {stats['failed']} 失败"
+        f"\nImport complete: {stats['ingested']} ingested | {stats['duplicate']} duplicate | "
+        f"{stats['needs_review']} review | {stats['failed']} failed"
     )
     if stats["needs_review"]:
-        ui("提示: 运行 `scrinium pending` 查看待确认项；建议按 hint 派 subagent 审查处理")
+        ui(
+            "Tip: run `scrinium pending` to view items awaiting confirmation; dispatch subagents to review them following the hints"
+        )
 
     # Batch index
     if not dry_run and ingested_jsons:
@@ -1821,18 +1850,18 @@ def _flatten_cloud_batch_output(inbox_dir: Path, stem: str, md_src: Path) -> Pat
 
 
 def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
-    """批量转换已入库论文的 PDF 为 paper.md。
+    """Batch-convert PDFs of ingested papers to paper.md.
 
-    扫描 ``data/papers/`` 中有 PDF 无 paper.md 的论文，
-    云端模式使用 ``convert_pdfs_cloud_batch()`` 真正批量转换，
-    本地模式逐篇调用。转换后补全缺失的 abstract（纯正则），
-    最后一次性重建 index。
+    Scans ``data/papers/`` for papers that have a PDF but no paper.md. Cloud mode
+    uses ``convert_pdfs_cloud_batch()`` for true batch conversion; local mode
+    converts one by one. Afterwards, backfills missing abstracts (regex only)
+    and rebuilds the index once.
 
     Args:
-        cfg: 全局配置。
+        cfg: Global configuration.
 
     Returns:
-        统计字典 ``{"converted": N, "failed": N, "skipped": N}``。
+        Stats dict ``{"converted": N, "failed": N, "skipped": N}``.
     """
     from scrinium.papers import iter_paper_dirs
 
@@ -1847,7 +1876,7 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
 
     stats: dict[str, int] = {"converted": 0, "failed": 0, "skipped": 0}
     if not to_convert:
-        ui("没有需要转换的 PDF")
+        ui("No PDFs need conversion")
         return stats
 
     from scrinium.ingest.mineru import ConvertOptions, check_server
@@ -1869,9 +1898,11 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
     if not use_local:
         api_key = cfg.resolved_mineru_api_key()
         if not api_key:
-            ui("MinerU 不可达且无 MinerU token，改用 fallback 解析器继续批量转换")
+            ui(
+                "MinerU is unreachable and no MinerU token is configured; continuing batch conversion with fallback parsers"
+            )
 
-    ui(f"\n开始批量转换 {len(to_convert)} 个 PDF...")
+    ui(f"\nStarting batch conversion of {len(to_convert)} PDF(s)...")
 
     converted_dirs: list[Path] = []
 
@@ -1883,13 +1914,13 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
             auto_detect=fallback_auto_detect,
         )
         if not ok:
-            ui(f"  {pdir.name}: fallback 失败: {err}")
+            ui(f"  {pdir.name}: fallback failed: {err}")
             stats["failed"] += 1
             return False
         if pdf_path.exists() and pdf_path.name != "paper.pdf":
             # Preserve the source PDF in the paper directory
             pdf_path.replace(pdf_path.parent / "paper.pdf")
-        ui(f"  {pdir.name}: 已降级使用 {parser_name}")
+        ui(f"  {pdir.name}: fell back to {parser_name}")
         converted_dirs.append(pdir)
         stats["converted"] += 1
         return True
@@ -1916,7 +1947,7 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
             )
             result = convert_pdf(pdf_path, mineru_opts)
             if not result.success:
-                ui(f"  MinerU 失败: {result.error}")
+                ui(f"  MinerU failed: {result.error}")
                 _run_fallback(pdir, pdf_path)
                 continue
 
@@ -1987,13 +2018,13 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
                         continue
 
                     if not br.success:
-                        ui(f"  {pdir.name}: MinerU 失败: {br.error}")
+                        ui(f"  {pdir.name}: MinerU failed: {br.error}")
                         _run_fallback(pdir, br.pdf_path)
                         continue
 
                     md_src = br.md_path if br.md_path and br.md_path.exists() else None
                     if md_src is None:
-                        ui(f"  {pdir.name}: MinerU 未生成有效的 markdown，转为本地回退")
+                        ui(f"  {pdir.name}: MinerU produced no valid markdown; falling back locally")
                         _run_fallback(pdir, br.pdf_path)
                         continue
 
@@ -2013,7 +2044,7 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
 
         for idx, (pdir, pdf_path, chunk_size, reason) in enumerate(chunked_items, start=len(pdf_paths) + 1):
             ui(f"[{idx}/{len(pdf_paths) + len(chunked_items)}] {pdir.name}")
-            ui(f"  {pdir.name}: 云端分片处理（{reason}，chunk_size={chunk_size}）")
+            ui(f"  {pdir.name}: cloud chunked conversion ({reason}, chunk_size={chunk_size})")
             mineru_opts = ConvertOptions(
                 output_dir=pdir,
                 backend=cfg.ingest.mineru_backend_local,
@@ -2036,22 +2067,24 @@ def batch_convert_pdfs(cfg: Config) -> dict[str, int]:
                     chunk_size=chunk_size,
                 )
             except ImportError as exc:
-                ui(f"  {pdir.name}: 云端分片依赖缺失，转为本地回退: {exc}")
+                ui(f"  {pdir.name}: missing cloud chunking dependency, falling back locally: {exc}")
                 _run_fallback(pdir, pdf_path)
                 continue
             except Exception as exc:
-                ui(f"  {pdir.name}: 云端分片失败，转为本地回退: {exc}")
+                ui(f"  {pdir.name}: cloud chunking failed, falling back locally: {exc}")
                 _run_fallback(pdir, pdf_path)
                 continue
             if not result.success:
-                ui(f"  {pdir.name}: MinerU 失败: {result.error}")
+                ui(f"  {pdir.name}: MinerU failed: {result.error}")
                 _run_fallback(pdir, pdf_path)
                 continue
             _postprocess_convert(pdir, pdf_path, result)
             converted_dirs.append(pdir)
             stats["converted"] += 1
 
-    ui(f"批量转换完成: {stats['converted']} 成功 / {stats['failed']} 失败 / {stats['skipped']} 跳过")
+    ui(
+        f"Batch conversion complete: {stats['converted']} succeeded / {stats['failed']} failed / {stats['skipped']} skipped"
+    )
 
     # Post-processing: abstract backfill + index
     if converted_dirs:
@@ -2115,9 +2148,9 @@ def _batch_postprocess(
         except (ValueError, FileNotFoundError) as e:
             _log.debug("failed to backfill abstract for %s: %s", pdir.name, e)
     if backfilled:
-        ui(f"Abstract 已补全: {backfilled} 篇")
+        ui(f"Abstracts backfilled: {backfilled} paper(s)")
     if missed:
-        ui(f"hint: {len(missed)} 篇正则未提取到摘要（{', '.join(missed[:5])}）；" + HINT_ABSTRACT_MISS)
+        ui(f"hint: Regex found no abstract for {len(missed)} paper(s) ({', '.join(missed[:5])}); " + HINT_ABSTRACT_MISS)
 
     # Re-index once
     step_index(cfg.papers_dir, cfg, PipelineOptions())
@@ -2269,17 +2302,17 @@ _DETECT_HEURISTICS: dict[str, dict] = {
 
 
 def _detect_type(ctx: InboxCtx, kind: str) -> bool:
-    """启发式判断无 DOI 文档是否属于指定类型（thesis/book）。
+    """Heuristically check whether a no-DOI document is of the given type (thesis/book).
 
-    只使用确定性信号：API 返回的 paper_type 与标题关键词。
-    未命中时返回 False（文档转入 pending，由 agent/subagent 审查接管）。
+    Uses only deterministic signals: API-returned paper_type and title keywords.
+    Returns False when neither matches (the document goes to pending for agent review).
 
     Args:
-        ctx: Inbox 上下文，需要 ``ctx.meta`` 已设置。
-        kind: 检测类型，``"thesis"`` 或 ``"book"``。
+        ctx: Inbox context with ``ctx.meta`` set.
+        kind: Detection kind, ``"thesis"`` or ``"book"``.
 
     Returns:
-        ``True`` 如果判定为对应类型。
+        ``True`` if the document is classified as the given type.
     """
     heuristics = _DETECT_HEURISTICS[kind]
 
@@ -2300,7 +2333,7 @@ def _detect_type(ctx: InboxCtx, kind: str) -> bool:
 
 
 def _detect_thesis(ctx: InboxCtx) -> bool:
-    """启发式判断无 DOI 论文是否为学位论文（``_detect_type`` 的薄包装）。"""
+    """Heuristically check whether a no-DOI document is a thesis (thin wrapper over ``_detect_type``)."""
     return _detect_type(ctx, "thesis")
 
 
@@ -2316,21 +2349,23 @@ def _ingest_proceedings_ctx(ctx: InboxCtx, *, force: bool) -> bool:
     source_name = ctx.pdf_path.name if ctx.pdf_path else ctx.md_path.name
     if dry_run:
         ctx.status = "skipped"
-        ui(f"检测为论文集；dry-run 模式下跳过写入 {proceedings_root}。")
-        ui("预览模式不会生成 proceeding.md 和 split_candidates.json。")
-        ui("退出 dry-run 后重新执行，可生成待审阅的论文集拆分文件。")
+        ui(f"Detected as proceedings; skipping write to {proceedings_root} in dry-run mode.")
+        ui("Dry-run mode does not generate proceeding.md or split_candidates.json.")
+        ui("Rerun without dry-run to generate the proceedings split files for review.")
         return True
 
     ingest_proceedings_markdown(proceedings_root, ctx.md_path, source_name=source_name)
     _cleanup_inbox(ctx.pdf_path, ctx.md_path, dry_run=dry_run)
     ctx.status = "ingested"
-    ui("检测为论文集，已生成 proceeding.md 和 split_candidates.json。")
-    ui("等待 agent 审阅 split_candidates.json 并生成 split_plan.json，然后再执行后续拆分入库。")
+    ui("Detected as proceedings; generated proceeding.md and split_candidates.json.")
+    ui(
+        "Waiting for an agent to review split_candidates.json and create split_plan.json before splitting and ingesting."
+    )
     return True
 
 
 def _detect_book(ctx: InboxCtx) -> bool:
-    """启发式判断无 DOI 论文是否为书籍/专著（``_detect_type`` 的薄包装）。"""
+    """Heuristically check whether a no-DOI document is a book/monograph (thin wrapper over ``_detect_type``)."""
     return _detect_type(ctx, "book")
 
 
@@ -2378,16 +2413,16 @@ def _move_to_pending(
     ctx: InboxCtx,
     *,
     issue: str = "no_doi",
-    message: str = "API 查询后仍无 DOI，需人工确认后补充 DOI 再入库",
+    message: str = "Still no DOI after API lookup; manually confirm and add a DOI before ingesting",
     extra: dict | None = None,
 ) -> None:
-    """将文件移入 pending 目录（每篇一个子目录）。
+    """Move the file into the pending directory (one subdirectory per item).
 
     Args:
-        ctx: Inbox 上下文。
-        issue: 问题类型标识（``"no_doi"`` | ``"no_pub_num"`` | ``"duplicate"``）。
-        message: 人类可读的问题描述。
-        extra: 附加信息写入 pending.json（如重复论文的已有路径）。
+        ctx: Inbox context.
+        issue: Issue type identifier (``"no_doi"`` | ``"no_pub_num"`` | ``"duplicate"``).
+        message: Human-readable issue description.
+        extra: Extra info written to pending.json (e.g. existing path of a duplicate paper).
     """
     from scrinium.ingest.metadata import metadata_to_dict
 
@@ -2440,7 +2475,7 @@ def _move_to_pending(
 
 
 def _entry_looks_like_si(paths: dict) -> bool:
-    """按文件名判断 inbox 条目是否疑似 SI。"""
+    """Check by filename whether an inbox entry looks like SI."""
     from scrinium.si import looks_like_si_filename
 
     for key in ("pdf", "md", "office"):
@@ -2463,17 +2498,18 @@ def _route_si_entry(
     dry_run: bool,
     inbox_steps: list[str],
 ) -> str:
-    """路由疑似 SI 的 inbox 条目。
+    """Route a suspected-SI inbox entry.
 
-    返回 ``"attached"``（挂接到库中主文）| ``"orphan"``（转 si_orphan 待审）
-    | ``"normal"``（文件名误报，回正常入库流程）| ``"dry"``（预览）。
+    Returns ``"attached"`` (attached to a library parent) | ``"orphan"`` (moved to
+    si_orphan pending) | ``"normal"`` (filename false positive; back to normal
+    ingest flow) | ``"dry"`` (preview).
     """
     from scrinium.si import attach_si, extract_dois_from_text, looks_like_si_text
 
     pdf = paths.get("pdf")
     md = paths.get("md")
 
-    # SI 判定和 DOI 提取都依赖文本，先确保 md 存在
+    # Both SI detection and DOI extraction need text, so make sure md exists first
     if md is None and pdf is not None and "mineru" in inbox_steps and not dry_run:
         ctx = InboxCtx(
             pdf_path=pdf,
@@ -2488,7 +2524,7 @@ def _route_si_entry(
             md = ctx.md_path
 
     if dry_run:
-        ui("  [dry-run] SI 候选，将尝试 DOI 匹配主文，未命中则转 si_orphan")
+        ui("  [dry-run] SI candidate; will try matching parent by DOI, otherwise move to si_orphan")
         return "dry"
 
     if md is None or not md.exists():
@@ -2503,16 +2539,16 @@ def _route_si_entry(
         if parent_json is None:
             continue
         paper_d = parent_json.parent
-        # SI 文本印有主文 DOI 即来源绑定，跳过内容验证
+        # Printing the parent DOI in the SI text already binds the source; skip content verification
         res = attach_si(paper_d, pdf or md, cfg, md_path=md, attached_by="pipeline", verify=False)
         if res["ok"]:
-            ui(f"  SI 挂接到: {paper_d.name}/si/")
+            ui(f"  SI attached to: {paper_d.name}/si/")
             pdf_stem = pdf.stem if pdf else ""
             _move_si_images(inbox_dir, paper_d / "si", pdf_stem, md.stem)
             _cleanup_inbox(pdf, md, dry_run=False)
             _cleanup_assets(inbox_dir, pdf_stem, md.stem)
             return "attached"
-        ui(f"  SI 与主文 {paper_d.name} 验证未过（{res['message']}），转 si_orphan")
+        ui(f"  SI verification against parent {paper_d.name} failed ({res['message']}); moving to si_orphan")
         break
 
     ctx = InboxCtx(
@@ -2525,12 +2561,16 @@ def _route_si_entry(
         pending_dir=pending_dir,
         md_path=md,
     )
-    _move_to_pending(ctx, issue="si_orphan", message="检测为 SI 但未匹配到库中主文（SI 文本中的 DOI 未命中）")
+    _move_to_pending(
+        ctx,
+        issue="si_orphan",
+        message="Detected as SI but no parent paper matched in library (DOIs in SI text did not match)",
+    )
     return "orphan"
 
 
 def _reconcile_si_orphans(pending_dir: Path, new_doi: str, new_paper_d: Path, cfg: Config, dry_run: bool) -> None:
-    """新论文入库后，按 DOI 对账 pending 中的 si_orphan，命中则自动挂接并移除。"""
+    """After a new paper is ingested, match si_orphan items in pending by DOI; attach and remove matches."""
     from scrinium.si import attach_si, extract_dois_from_text
 
     if not new_doi or not pending_dir.is_dir():
@@ -2557,18 +2597,18 @@ def _reconcile_si_orphans(pending_dir: Path, new_doi: str, new_paper_d: Path, cf
         if src is None:
             continue
         if dry_run:
-            ui(f"  [dry-run] si_orphan 对账命中: {d.name} -> {new_paper_d.name}")
+            ui(f"  [dry-run] si_orphan matched: {d.name} -> {new_paper_d.name}")
             continue
         res = attach_si(
             new_paper_d, src, cfg, md_path=md if md.exists() else None, attached_by="pipeline", verify=False
         )
         if res["ok"]:
-            ui(f"  si_orphan 对账命中，已挂接: {d.name} -> {new_paper_d.name}/si/")
+            ui(f"  si_orphan matched and attached: {d.name} -> {new_paper_d.name}/si/")
             shutil.rmtree(d)
 
 
 def _move_si_images(inbox_dir: Path, si_dir: Path, pdf_stem: str, md_stem: str) -> None:
-    """把 inbox 中 SI 的 MinerU 图片合并进 ``si/images/``（图片名为哈希不冲突）。"""
+    """Merge MinerU images for an inbox SI into ``si/images/`` (hash filenames do not collide)."""
     images_dir, _, _ = _find_assets(inbox_dir, pdf_stem, md_stem)
     if not images_dir:
         return
@@ -2581,7 +2621,7 @@ def _move_si_images(inbox_dir: Path, si_dir: Path, pdf_stem: str, md_stem: str) 
 
 
 def _repair_abstract(json_path: Path, md_path: Path) -> None:
-    """已入库论文 MD 补全后，检查并补写 abstract。"""
+    """After restoring an ingested paper's MD, check and backfill the abstract."""
     from scrinium.papers import read_meta, write_meta
 
     paper_d = json_path.parent

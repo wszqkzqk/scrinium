@@ -941,7 +941,7 @@ def test_toolref_use_falls_back_to_text_marker_when_symlink_fails(toolref_home, 
     assert marker.is_file()
     assert not marker.is_symlink()
     assert marker.read_text(encoding="utf-8") == "7.5"
-    assert "符号链接" in caplog.text
+    assert "Cannot create symlink" in caplog.text
 
 
 def test_get_current_reads_text_marker(toolref_home):
@@ -976,7 +976,7 @@ def test_toolref_use_requires_existing_version_dir(toolref_home):
 
 
 def test_toolref_use_rejects_unsafe_version_path(toolref_home):
-    with pytest.raises(ValueError, match="非法版本号"):
+    with pytest.raises(ValueError, match="Invalid version"):
         toolref_use("qe", "../outside", cfg=None)
 
     assert not (toolref_home / "qe" / "current").exists()
@@ -988,9 +988,9 @@ def test_toolref_use_rejects_unsafe_version_path(toolref_home):
 
 
 def test_toolref_fetch_rejects_unknown_tool_and_bad_version():
-    with pytest.raises(ValueError, match="未知工具"):
+    with pytest.raises(ValueError, match="Unknown tool"):
         toolref_fetch("vasp", cfg=None)
-    with pytest.raises(ValueError, match="无效版本号"):
+    with pytest.raises(ValueError, match="Invalid version"):
         toolref_fetch("qe", version="../x", cfg=None)
 
 
@@ -1625,9 +1625,9 @@ def test_toolref_show_lammps_resolves_alias_from_query(toolref_home):
 
 
 def test_search_and_show_reject_unknown_tool():
-    with pytest.raises(ValueError, match="未知工具"):
+    with pytest.raises(ValueError, match="Unknown tool"):
         toolref_search("vasp", "anything", cfg=None)
-    with pytest.raises(ValueError, match="未知工具"):
+    with pytest.raises(ValueError, match="Unknown tool"):
         toolref_show("vasp", "anything", cfg=None)
 
 

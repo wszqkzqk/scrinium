@@ -1,15 +1,16 @@
 """
-index.py — SQLite FTS5 全文检索索引
-=====================================
+index.py — SQLite FTS5 full-text search index
+=============================================
 
-索引字段：title + abstract + conclusion + tags + si（均可检索）
-其余字段（paper_id, authors, year, journal, doi, paper_type, citation_count, md_path）
-存储但不参与检索。
+Indexed fields: title + abstract + conclusion + tags + si (all searchable).
+Other fields (paper_id, authors, year, journal, doi, paper_type, citation_count,
+md_path) are stored but not indexed.
 
-FTS schema 版本由 ``PRAGMA user_version`` 记录（当前为 ``_SCHEMA_VERSION``）；
-检测到旧版本时自动 drop 重建 FTS 表并触发全量重索引。
+The FTS schema version is recorded in ``PRAGMA user_version`` (currently
+``_SCHEMA_VERSION``); when an older version is detected, the FTS table is
+automatically dropped/recreated and a full reindex is triggered.
 
-用法：
+Usage:
     from scrinium.index import build_index, search
     build_index(papers_dir, db_path)
     results = search("turbulent boundary layer", db_path)
@@ -155,7 +156,7 @@ _best_citation = best_citation  # backward compat alias
 
 
 def _load_si_text(pdir: Path) -> str:
-    """读取论文 ``si/`` 下所有转换后的 Markdown，拼接为 FTS 索引文本（上限 300 KB）。"""
+    """Read all converted Markdown under a paper's ``si/`` and join for FTS indexing (capped at 300 KB)."""
     si_dir = pdir / "si"
     if not si_dir.is_dir():
         return ""
@@ -213,19 +214,20 @@ def _drop_vector_storage(conn: sqlite3.Connection) -> None:
 
 
 def build_index(papers_dir: Path, db_path: Path, rebuild: bool = False) -> int:
-    """建立或增量更新 SQLite FTS5 全文检索索引。
+    """Build or incrementally update the SQLite FTS5 full-text search index.
 
-    索引字段: ``title`` + ``abstract`` + ``conclusion`` + ``tags``，
-    均参与全文检索。其余字段（``paper_id``, ``authors`` 等）仅存储。
-    标签同时同步到 ``paper_tags`` 过滤表供 ``--tag`` 精确过滤。
+    Indexed fields: ``title`` + ``abstract`` + ``conclusion`` + ``tags`` are all
+    full-text searchable. Other fields (``paper_id``, ``authors``, etc.) are
+    stored only. Tags are also synced to the ``paper_tags`` filter table for
+    exact ``--tag`` filtering.
 
     Args:
-        papers_dir: 已入库论文目录，扫描其中的 ``*.json``。
-        db_path: SQLite 数据库路径，不存在时自动创建。
-        rebuild: 为 ``True`` 时清空旧数据后重建。
+        papers_dir: Ingested papers directory; scans ``*.json`` inside it.
+        db_path: SQLite database path (created if missing).
+        rebuild: Clear old data and rebuild from scratch when ``True``.
 
     Returns:
-        本次索引的论文数量。
+        Number of papers indexed in this run.
     """
     from scrinium.papers import iter_paper_dirs
     from scrinium.papers import read_meta as _read_meta
@@ -539,7 +541,7 @@ def _ensure_fts_table(conn: sqlite3.Connection) -> None:
     """
     has_table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='papers'").fetchone()
     if not has_table:
-        raise FileNotFoundError("FTS5 索引表不存在，请先运行 `scrinium index`")
+        raise FileNotFoundError("FTS5 index table does not exist; run `scrinium index` first")
     if _ensure_schema(conn):
         conn.commit()
 
@@ -547,7 +549,7 @@ def _ensure_fts_table(conn: sqlite3.Connection) -> None:
 def _ensure_proceedings_fts_table(conn: sqlite3.Connection) -> None:
     has_table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='proceedings_fts'").fetchone()
     if not has_table:
-        raise FileNotFoundError("论文集 FTS5 索引表不存在，请先构建论文集索引")
+        raise FileNotFoundError("Proceedings FTS5 index table does not exist; build the proceedings index first")
 
 
 def build_proceedings_index(proceedings_root: Path, db_path: Path, rebuild: bool = False) -> int:
@@ -634,7 +636,7 @@ def search_proceedings(
 ) -> list[dict]:
     """Keyword search over proceedings child papers."""
     if not db_path.exists():
-        raise FileNotFoundError(f"索引文件不存在：{db_path}")
+        raise FileNotFoundError(f"Index file does not exist: {db_path}")
 
     conn = sqlite3.connect(db_path)
     try:
@@ -668,36 +670,37 @@ def search(
     paper_ids: set[str] | None = None,
     tags: list[str] | None = None,
 ) -> list[dict]:
-    """FTS5 关键词全文检索。
+    """FTS5 keyword full-text search.
 
-    在 ``title``、``abstract``、``conclusion``、``tags`` 字段上执行 FTS5
-    MATCH，按 BM25 相关性排序返回结果。BM25 按列加权（见
-    ``_BM25_WEIGHTS``）：标题与策展标签命中的权重显著高于正文字段。
+    Runs an FTS5 MATCH across ``title``, ``abstract``, ``conclusion``, and
+    ``tags``, returning results ranked by BM25 relevance. BM25 is weighted per
+    column (see ``_BM25_WEIGHTS``): title and curated-tag hits weigh significantly
+    more than body-text hits.
 
     Args:
-        query: 检索词（多词用空格分隔，FTS5 语法）。
-        db_path: SQLite 索引数据库路径。
-        top_k: 最多返回条数，为 ``None`` 时从 ``cfg.search.top_k`` 读取。
-        cfg: 可选的 :class:`~scrinium.config.Config` 实例。
-        year: 年份过滤（``"2023"`` / ``"2020-2024"`` / ``"2020-"``）。
-        journal: 期刊名过滤（LIKE 模糊匹配）。
-        paper_type: 论文类型过滤（如 ``"review"``、``"journal-article"``）。
-        paper_ids: 论文 UUID 白名单，仅返回集合内的结果。
-        tags: 策展标签（canonical 名）列表，AND 语义精确过滤。
+        query: Search terms (space-separated, FTS5 syntax).
+        db_path: SQLite index database path.
+        top_k: Maximum results to return; read from ``cfg.search.top_k`` when ``None``.
+        cfg: Optional :class:`~scrinium.config.Config` instance.
+        year: Year filter (``"2023"`` / ``"2020-2024"`` / ``"2020-"``).
+        journal: Journal name filter (LIKE fuzzy match).
+        paper_type: Paper type filter (e.g. ``"review"``, ``"journal-article"``).
+        paper_ids: Paper UUID whitelist; returns only results in this set.
+        tags: List of curated tags (canonical names) for exact AND filtering.
 
     Returns:
-        匹配的论文字典列表，每项包含 ``paper_id``, ``title``,
+        List of matching paper dicts, each with ``paper_id``, ``title``,
         ``authors``, ``year``, ``journal``, ``doi``, ``paper_type``,
-        ``citation_count``, ``tags``（标签列表）。
+        ``citation_count``, and ``tags`` (list of tags).
 
     Raises:
-        FileNotFoundError: 索引文件或 FTS5 表不存在。
+        FileNotFoundError: Index file or FTS5 table does not exist.
     """
     if top_k is None:
         top_k = cfg.search.top_k if cfg is not None else 20
 
     if not db_path.exists():
-        raise FileNotFoundError(f"索引文件不存在：{db_path}\n请先运行 `scrinium index`")
+        raise FileNotFoundError(f"Index file does not exist: {db_path}\nRun `scrinium index` first")
 
     conn = sqlite3.connect(db_path)
     try:
@@ -740,26 +743,26 @@ def search_author(
     paper_type: str | None = None,
     paper_ids: set[str] | None = None,
 ) -> list[dict]:
-    """按作者名搜索论文（LIKE 模糊匹配）。
+    """Search papers by author name (LIKE fuzzy match).
 
     Args:
-        query: 作者名（或部分名字），不区分大小写。
-        db_path: SQLite 索引数据库路径。
-        top_k: 最多返回条数，为 ``None`` 时从 ``cfg.search.top_k`` 读取。
-        cfg: 可选的 :class:`~scrinium.config.Config` 实例。
-        year: 年份过滤（``"2023"`` / ``"2020-2024"`` / ``"2020-"``）。
-        journal: 期刊名过滤（LIKE 模糊匹配）。
-        paper_type: 论文类型过滤（如 ``"review"``、``"journal-article"``）。
-        paper_ids: 论文 UUID 白名单，仅返回集合内的结果。
+        query: Author name (or partial name), case-insensitive.
+        db_path: SQLite index database path.
+        top_k: Maximum results to return; read from ``cfg.search.top_k`` when ``None``.
+        cfg: Optional :class:`~scrinium.config.Config` instance.
+        year: Year filter (``"2023"`` / ``"2020-2024"`` / ``"2020-"``).
+        journal: Journal name filter (LIKE fuzzy match).
+        paper_type: Paper type filter (e.g. ``"review"``, ``"journal-article"``).
+        paper_ids: Paper UUID whitelist; returns only results in this set.
 
     Returns:
-        匹配的论文字典列表。
+        List of matching paper dicts.
     """
     if top_k is None:
         top_k = cfg.search.top_k if cfg is not None else 20
 
     if not db_path.exists():
-        raise FileNotFoundError(f"索引文件不存在：{db_path}\n请先运行 `scrinium index`")
+        raise FileNotFoundError(f"Index file does not exist: {db_path}\nRun `scrinium index` first")
 
     conn = sqlite3.connect(db_path)
     try:
@@ -800,24 +803,24 @@ def top_cited(
     paper_type: str | None = None,
     paper_ids: set[str] | None = None,
 ) -> list[dict]:
-    """按引用量降序返回论文。
+    """Return papers sorted by citation count descending.
 
     Args:
-        db_path: SQLite 索引数据库路径。
-        top_k: 最多返回条数。
-        year: 年份过滤（``"2023"`` / ``"2020-2024"`` / ``"2020-"``）。
-        journal: 期刊名过滤（LIKE 模糊匹配）。
-        paper_type: 论文类型过滤（如 ``"review"``、``"journal-article"``）。
-        paper_ids: 论文 UUID 白名单，仅返回集合内的结果。
+        db_path: SQLite index database path.
+        top_k: Maximum results to return.
+        year: Year filter (``"2023"`` / ``"2020-2024"`` / ``"2020-"``).
+        journal: Journal name filter (LIKE fuzzy match).
+        paper_type: Paper type filter (e.g. ``"review"``, ``"journal-article"``).
+        paper_ids: Paper UUID whitelist; returns only results in this set.
 
     Returns:
-        论文字典列表，按 ``citation_count`` 降序排列。
+        List of paper dicts ordered by ``citation_count`` descending.
 
     Raises:
-        FileNotFoundError: 索引文件或 FTS5 表不存在。
+        FileNotFoundError: Index file or FTS5 table does not exist.
     """
     if not db_path.exists():
-        raise FileNotFoundError(f"索引文件不存在：{db_path}\n请先运行 `scrinium index`")
+        raise FileNotFoundError(f"Index file does not exist: {db_path}\nRun `scrinium index` first")
 
     conn = sqlite3.connect(db_path)
     try:
@@ -851,15 +854,16 @@ def top_cited(
 
 
 def _parse_year_filter(year: str) -> tuple[str, list[str]]:
-    """解析年份过滤表达式，返回 SQL WHERE 片段和参数。
+    """Parse a year filter expression and return a SQL WHERE fragment and parameters.
 
-    支持格式: ``"2023"`` (单年), ``"2020-2024"`` (范围), ``"2020-"`` (起始年至今)。
+    Supported formats: ``"2023"`` (single year), ``"2020-2024"`` (range),
+    ``"2020-"`` (from start year onward).
 
     Args:
-        year: 年份过滤表达式。
+        year: Year filter expression.
 
     Returns:
-        ``(where_clause, params)`` 二元组。
+        ``(where_clause, params)`` tuple.
     """
     start, end = parse_year_range(year)
     if start is not None and end is not None:
@@ -879,18 +883,18 @@ def _build_filter_clause(
     paper_type: str | None = None,
     tags: list[str] | None = None,
 ) -> tuple[str, list[str]]:
-    """构建过滤 WHERE 子句（不含前导 AND/WHERE）。
+    """Build a filter WHERE clause (without a leading AND/WHERE).
 
     Args:
-        year: 年份过滤表达式，为 ``None`` 时不过滤。
-        journal: 期刊名（LIKE 模糊匹配），为 ``None`` 时不过滤。
-        paper_type: 论文类型（LIKE 模糊匹配，如 ``review``、``journal-article``），
-            为 ``None`` 时不过滤。
-        tags: 策展标签（canonical 名）列表，AND 语义（论文须同时拥有全部
-            标签），为 ``None`` 时不过滤。
+        year: Year filter expression; no filtering when ``None``.
+        journal: Journal name (LIKE fuzzy match); no filtering when ``None``.
+        paper_type: Paper type (LIKE fuzzy match, e.g. ``review``,
+            ``journal-article``); no filtering when ``None``.
+        tags: List of curated tags (canonical names) with AND semantics (the
+            paper must have all of them); no filtering when ``None``.
 
     Returns:
-        ``(clauses_str, params)``，clauses_str 每个条件前带 ``AND``。
+        ``(clauses_str, params)`` where each condition in clauses_str is prefixed with ``AND``.
     """
     clauses: list[str] = []
     params: list[str] = []
@@ -913,14 +917,14 @@ def _build_filter_clause(
 
 
 def paper_ids_for_tags(db_path: Path, tags: list[str]) -> set[str]:
-    """返回同时拥有全部给定标签（AND 语义）的论文 UUID 集合。
+    """Return the set of paper UUIDs that carry all given tags (AND semantics).
 
     Args:
-        db_path: SQLite 索引数据库路径。
-        tags: 策展标签（canonical 名）列表。
+        db_path: SQLite index database path.
+        tags: List of curated tags (canonical names).
 
     Returns:
-        匹配的论文 UUID 集合；数据库或 ``paper_tags`` 表不存在时为空集。
+        Matching paper UUID set; empty if the database or ``paper_tags`` table does not exist.
     """
     if not tags or not db_path.exists():
         return set()
@@ -964,17 +968,17 @@ def _normalize_result_tags(results: list[dict]) -> list[dict]:
 
 
 def lookup_paper(db_path: Path, user_input: str) -> dict | None:
-    """查找论文：支持 UUID、dir_name、DOI、专利公开号。
+    """Look up a paper by UUID, dir_name, DOI, or patent publication number.
 
-    按以下顺序尝试匹配: UUID → dir_name → DOI → publication_number。
-    公开号查询会自动归一化为大写。
+    Tries matching in this order: UUID -> dir_name -> DOI -> publication_number.
+    Publication number lookups are normalized to uppercase automatically.
 
     Args:
-        db_path: SQLite 数据库路径。
-        user_input: UUID、目录名、DOI 或专利公开号。
+        db_path: SQLite database path.
+        user_input: UUID, directory name, DOI, or patent publication number.
 
     Returns:
-        ``papers_registry`` 行字典，找不到时返回 ``None``。
+        ``papers_registry`` row dict, or ``None`` if not found.
     """
     if not db_path.exists():
         return None
@@ -1034,16 +1038,16 @@ def get_references(
     *,
     paper_ids: set[str] | None = None,
 ) -> list[dict]:
-    """查询论文的参考文献列表。
+    """Query the reference list of a paper.
 
     Args:
-        paper_id: 论文 UUID。
-        db_path: SQLite 数据库路径。
-        paper_ids: 论文 UUID 白名单（仅过滤库内结果）。
+        paper_id: Paper UUID.
+        db_path: SQLite database path.
+        paper_ids: Paper UUID whitelist (filters only in-library results).
 
     Returns:
-        参考文献列表，每项含 ``target_doi``、``target_id``，
-        库内论文另含 ``title``、``dir_name``、``year``、``first_author``。
+        List of references, each with ``target_doi`` and ``target_id``;
+        in-library papers also include ``title``, ``dir_name``, ``year``, ``first_author``.
     """
     if not db_path.exists():
         return []
@@ -1073,15 +1077,15 @@ def get_citing_papers(
     *,
     paper_ids: set[str] | None = None,
 ) -> list[dict]:
-    """查询哪些本地论文引用了指定论文（库内反向查找）。
+    """Query which local papers cite the given paper (reverse lookup within the library).
 
     Args:
-        paper_id: 被引论文的 UUID。
-        db_path: SQLite 数据库路径。
-        paper_ids: 论文 UUID 白名单。
+        paper_id: UUID of the cited paper.
+        db_path: SQLite database path.
+        paper_ids: Paper UUID whitelist.
 
     Returns:
-        引用方论文列表，每项含 ``source_id``、``dir_name``、``title``、``year``。
+        List of citing papers, each with ``source_id``, ``dir_name``, ``title``, ``year``.
     """
     if not db_path.exists():
         return []
@@ -1123,17 +1127,17 @@ def get_shared_references(
     *,
     paper_ids: set[str] | None = None,
 ) -> list[dict]:
-    """查询多篇论文的共同参考文献。
+    """Query shared references across multiple papers.
 
     Args:
-        paper_id_list: 论文 UUID 列表。
-        db_path: SQLite 数据库路径。
-        min_shared: 最少被几篇论文共同引用才纳入结果。
-        paper_ids: 论文 UUID 白名单（仅过滤库内结果）。
+        paper_id_list: List of paper UUIDs.
+        db_path: SQLite database path.
+        min_shared: Minimum number of papers that must share a reference for it to be included.
+        paper_ids: Paper UUID whitelist (filters only in-library results).
 
     Returns:
-        共同引用列表，每项含 ``target_doi``、``shared_count``、``target_id``，
-        库内论文另含 ``title``、``dir_name``。
+        List of shared references, each with ``target_doi``, ``shared_count``,
+        and ``target_id``; in-library papers also include ``title`` and ``dir_name``.
     """
     if not db_path.exists() or not paper_id_list:
         return []

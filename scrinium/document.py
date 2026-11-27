@@ -1,4 +1,4 @@
-"""Office 文档检查工具（DOCX / PPTX / XLSX）。
+"""Office document inspection tools (DOCX / PPTX / XLSX).
 
 Provides structured text summaries of Office documents for AI agents
 to verify layout, content, and detect common issues (overflow, missing
@@ -37,9 +37,9 @@ def inspect(path: Path, fmt: str | None = None) -> str:
         FileNotFoundError: If *path* does not exist.
     """
     if not path.exists():
-        raise FileNotFoundError(f"文件不存在: {path}")
+        raise FileNotFoundError(f"File not found: {path}")
     if not path.is_file():
-        raise ValueError(f"路径不是文件: {path}")
+        raise ValueError(f"Path is not a file: {path}")
 
     if fmt is None:
         fmt = path.suffix.lstrip(".").lower()
@@ -51,7 +51,7 @@ def inspect(path: Path, fmt: str | None = None) -> str:
     }
     func = dispatch.get(fmt)
     if func is None:
-        raise ValueError(f"不支持的文件格式: .{fmt}（支持 docx / pptx / xlsx）")
+        raise ValueError(f"Unsupported file format: .{fmt} (supported: docx / pptx / xlsx)")
     return func(path)
 
 
@@ -79,7 +79,7 @@ def inspect_pptx(path: Path) -> str:
         from pptx import Presentation
         from pptx.enum.shapes import MSO_SHAPE_TYPE
     except ImportError:
-        raise ImportError("python-pptx 未安装，请运行: pip install scrinium[office]")
+        raise ImportError("python-pptx is not installed; run: pip install scrinium[office]")
 
     from scrinium.presentation.text_metrics import ParagraphSpec, measure_paragraphs
 
@@ -117,7 +117,7 @@ def inspect_pptx(path: Path) -> str:
 
     lines: list[str] = []
     lines.append(f"=== PPTX: {path.name} ===")
-    lines.append(f'幻灯片尺寸: {sw:.1f}" x {sh:.1f}" ({total} 页)')
+    lines.append(f'Slide size: {sw:.1f}" x {sh:.1f}" ({total} slides)')
     lines.append("")
     total_warnings = 0
 
@@ -144,9 +144,13 @@ def inspect_pptx(path: Path) -> str:
             bottom = top + h
 
             if right > sw + 0.05:
-                warnings.append(f'  \u26a0 溢出: shape 右边界 {right:.2f}" > 幻灯片宽度 {sw:.1f}" ({pos_text(shape)})')
+                warnings.append(
+                    f'  \u26a0 Overflow: shape right edge {right:.2f}" > slide width {sw:.1f}" ({pos_text(shape)})'
+                )
             if bottom > sh + 0.05:
-                warnings.append(f'  \u26a0 溢出: shape 下边界 {bottom:.2f}" > 幻灯片高度 {sh:.1f}" ({pos_text(shape)})')
+                warnings.append(
+                    f'  \u26a0 Overflow: shape bottom edge {bottom:.2f}" > slide height {sh:.1f}" ({pos_text(shape)})'
+                )
 
             pos = f'({left:.2f}",{top:.2f}") {w:.2f}"x{h:.2f}"'
 
@@ -168,7 +172,7 @@ def inspect_pptx(path: Path) -> str:
                 if nc > 5:
                     hdr_str += " | ..."
                 lines.append(f"  [Table {nr}x{nc}] {pos}")
-                lines.append(f"    表头: {hdr_str}")
+                lines.append(f"    Header: {hdr_str}")
                 required_h = 0.0
                 for r_idx, row in enumerate(tbl.rows):
                     row_h = (row.height or 0) / _EMU_PER_INCH
@@ -183,14 +187,14 @@ def inspect_pptx(path: Path) -> str:
                         row_need = max(row_need, c_fit.needed_height_in)
                         if c_fit.overflows:
                             warnings.append(
-                                f"  \u26a0 表格单元格 ({r_idx + 1},{c_idx + 1}) 文字可能溢出: "
-                                f'需 {c_fit.needed_height_in:.2f}" > 行高 {row_h:.2f}" ("{cell.text[:24]}")'
+                                f"  \u26a0 Table cell ({r_idx + 1},{c_idx + 1}) text may overflow: "
+                                f'needs {c_fit.needed_height_in:.2f}" > row height {row_h:.2f}" ("{cell.text[:24]}")'
                             )
                     required_h += max(row_h, row_need)
                 if required_h > h + 0.06:
                     warnings.append(
-                        f'  \u26a0 表格实际渲染高度约 {required_h:.2f}" > 设定高度 {h:.2f}"，'
-                        f'底边将延伸至 {top + required_h:.2f}"'
+                        f'  \u26a0 Table rendered height ~{required_h:.2f}" > declared height {h:.2f}"; '
+                        f'bottom edge will extend to {top + required_h:.2f}"'
                     )
                 continue
 
@@ -239,8 +243,8 @@ def inspect_pptx(path: Path) -> str:
 
                 if fit.overflows:
                     warnings.append(
-                        f"  \u26a0 文字可能溢出 {pos}: 换行后 {fit.total_lines} 行需 "
-                        f'{fit.needed_height_in:.2f}" > 文本框高度 {h:.2f}" ("{paras[0][:28]}")'
+                        f"  \u26a0 Text may overflow {pos}: {fit.total_lines} wrapped line(s) need "
+                        f'{fit.needed_height_in:.2f}" > box height {h:.2f}" ("{paras[0][:28]}")'
                     )
 
                 for bx, by, bw, bh in bg_rects:
@@ -250,8 +254,8 @@ def inspect_pptx(path: Path) -> str:
                         card_bottom = by + bh
                         if est_bottom > card_bottom + 0.02:
                             warnings.append(
-                                f'  \u26a0 文字超出所在卡片底边: 估算文字底边 {est_bottom:.2f}" > '
-                                f'卡片底边 {card_bottom:.2f}" ("{paras[0][:28]}")'
+                                f'  \u26a0 Text extends past enclosing card bottom: estimated text bottom {est_bottom:.2f}" > '
+                                f'card bottom {card_bottom:.2f}" ("{paras[0][:28]}")'
                             )
                         break
 
@@ -263,8 +267,8 @@ def inspect_pptx(path: Path) -> str:
 
     img_count = sum(1 for slide in prs.slides for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE)
     tbl_count = sum(1 for slide in prs.slides for s in slide.shapes if s.has_table)
-    lines.append("--- 总结 ---")
-    lines.append(f"页数: {total} | 图片: {img_count} | 表格: {tbl_count} | 布局警告: {total_warnings}")
+    lines.append("--- Summary ---")
+    lines.append(f"slides: {total} | images: {img_count} | tables: {tbl_count} | layout warnings: {total_warnings}")
 
     return "\n".join(lines)
 
@@ -290,7 +294,7 @@ def inspect_docx(path: Path) -> str:
         from docx.table import Table
         from docx.text.paragraph import Paragraph
     except ImportError:
-        raise ImportError("python-docx 未安装，请运行: pip install scrinium[office]")
+        raise ImportError("python-docx is not installed; run: pip install scrinium[office]")
 
     doc = Document(str(path))
 
@@ -301,7 +305,7 @@ def inspect_docx(path: Path) -> str:
     for si, section in enumerate(doc.sections):
         pw = section.page_width.inches if section.page_width else 0
         ph = section.page_height.inches if section.page_height else 0
-        orient = "横向" if pw > ph else "纵向"
+        orient = "landscape" if pw > ph else "portrait"
         lines.append(f'  Section {si + 1}: {pw:.1f}" x {ph:.1f}" ({orient})')
 
     # Count elements and collect styles
@@ -312,7 +316,7 @@ def inspect_docx(path: Path) -> str:
     image_count = 0
 
     lines.append("")
-    lines.append("--- 文档结构 ---")
+    lines.append("--- Document structure ---")
 
     # Walk document body in order (block-level) to avoid paragraph/table desync.
     body = doc.element.body
@@ -329,7 +333,7 @@ def inspect_docx(path: Path) -> str:
             if drawings:
                 image_count += len(drawings)
                 for _ in drawings:
-                    lines.append("  [Image] (嵌入图片)")
+                    lines.append("  [Image] (embedded image)")
 
             if style_name.startswith("Heading"):
                 level = style_name.replace("Heading ", "H")
@@ -342,7 +346,7 @@ def inspect_docx(path: Path) -> str:
                 para_count += 1
             elif "toc" in style_name.lower():
                 if para_count == 0 or not lines[-1].startswith("  [TOC"):
-                    lines.append("  [TOC] (目录字段)")
+                    lines.append("  [TOC] (TOC field)")
                 para_count += 1
             elif text:
                 para_count += 1
@@ -380,20 +384,20 @@ def inspect_docx(path: Path) -> str:
                 hdr_str = " | ".join(headers)
                 if nc > 5:
                     hdr_str += " | ..."
-                lines.append(f"    表头: {hdr_str}")
-                lines.append(f"    ({nr - 1} 数据行)")
+                lines.append(f"    Header: {hdr_str}")
+                lines.append(f"    ({nr - 1} data rows)")
 
         elif child.tag == qn("w:sectPr"):
             pass  # section properties, already handled
 
     # Summary
     lines.append("")
-    lines.append("--- 总结 ---")
+    lines.append("--- Summary ---")
     h_str = ", ".join(f"{k}:{v}" for k, v in sorted(h_counts.items()))
     lines.append(
-        f"段落: {para_count} | 表格: {table_count} | 图片: {image_count} | 标题: {sum(h_counts.values())} ({h_str})"
+        f"paragraphs: {para_count} | tables: {table_count} | images: {image_count} | headings: {sum(h_counts.values())} ({h_str})"
     )
-    lines.append(f"样式: {', '.join(sorted(styles_used))}")
+    lines.append(f"styles: {', '.join(sorted(styles_used))}")
 
     return "\n".join(lines)
 
@@ -416,13 +420,13 @@ def inspect_xlsx(path: Path) -> str:
     try:
         import openpyxl
     except ImportError:
-        raise ImportError("openpyxl 未安装，请运行: pip install scrinium[office]")
+        raise ImportError("openpyxl is not installed; run: pip install scrinium[office]")
 
     wb = openpyxl.load_workbook(str(path), read_only=False, data_only=True)
     try:
         lines: list[str] = []
         lines.append(f"=== XLSX: {path.name} ===")
-        lines.append(f"工作表: {len(wb.sheetnames)} ({', '.join(wb.sheetnames)})")
+        lines.append(f"sheets: {len(wb.sheetnames)} ({', '.join(wb.sheetnames)})")
         lines.append("")
 
         total_rows = 0
@@ -436,15 +440,15 @@ def inspect_xlsx(path: Path) -> str:
             mr = ws.max_row or 0
             mc = ws.max_column or 0
             total_rows += mr
-            lines.append(f"  范围: {dims} ({mr} 行 x {mc} 列)")
+            lines.append(f"  range: {dims} ({mr} rows x {mc} cols)")
 
             # Frozen panes
             if ws.freeze_panes:
-                lines.append(f"  冻结窗格: {ws.freeze_panes}")
+                lines.append(f"  freeze panes: {ws.freeze_panes}")
 
             # Auto-filter
             if ws.auto_filter and ws.auto_filter.ref:
-                lines.append(f"  自动筛选: {ws.auto_filter.ref}")
+                lines.append(f"  auto filter: {ws.auto_filter.ref}")
 
             # Merged cells
             if ws.merged_cells.ranges:
@@ -452,7 +456,7 @@ def inspect_xlsx(path: Path) -> str:
                 merge_str = ", ".join(merges)
                 if len(ws.merged_cells.ranges) > 5:
                     merge_str += f" ... (+{len(ws.merged_cells.ranges) - 5})"
-                lines.append(f"  合并单元格: {merge_str}")
+                lines.append(f"  merged cells: {merge_str}")
 
             # Header row (row 1)
             if mr > 0 and mc > 0:
@@ -463,12 +467,12 @@ def inspect_xlsx(path: Path) -> str:
                 hdr_str = " | ".join(headers)
                 if mc > 7:
                     hdr_str += " | ..."
-                lines.append(f"  表头 (row 1): {hdr_str}")
+                lines.append(f"  header (row 1): {hdr_str}")
 
             # Data preview (rows 2-4)
             preview_rows = min(mr, 4) - 1
             if preview_rows > 0:
-                lines.append("  数据预览:")
+                lines.append("  data preview:")
                 for r in range(2, 2 + preview_rows):
                     vals = []
                     for c in range(1, min(mc + 1, 8)):
@@ -479,11 +483,11 @@ def inspect_xlsx(path: Path) -> str:
 
             # Charts
             if ws._charts:
-                lines.append(f"  图表: {len(ws._charts)}")
+                lines.append(f"  charts: {len(ws._charts)}")
                 for ci, chart in enumerate(ws._charts, 1):
                     chart_type = type(chart).__name__
                     # Extract title string from openpyxl chart title object
-                    title_str = "(无标题)"
+                    title_str = "(untitled)"
                     if chart.title:
                         if isinstance(chart.title, str):
                             title_str = chart.title
@@ -495,7 +499,7 @@ def inspect_xlsx(path: Path) -> str:
                                         if run.t:
                                             title_str = run.t
                                             break
-                                    if title_str != "(无标题)":
+                                    if title_str != "(untitled)":
                                         break
                             except (AttributeError, TypeError):
                                 title_str = str(chart.title)[:40]
@@ -505,8 +509,8 @@ def inspect_xlsx(path: Path) -> str:
 
         # Summary
         chart_total = sum(len(wb[s]._charts) for s in wb.sheetnames)
-        lines.append("--- 总结 ---")
-        lines.append(f"工作表: {len(wb.sheetnames)} | 总行数: ~{total_rows} | 图表: {chart_total}")
+        lines.append("--- Summary ---")
+        lines.append(f"sheets: {len(wb.sheetnames)} | total rows: ~{total_rows} | charts: {chart_total}")
 
         return "\n".join(lines)
     finally:

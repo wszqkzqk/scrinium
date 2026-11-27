@@ -130,13 +130,13 @@ def _query_arxiv_api(params: dict[str, str | int]) -> list[dict]:
         resp = _SESSION.get(_ARXIV_API_URL, params=params, timeout=15)
         resp.raise_for_status()
     except Exception as e:
-        _log.warning("arXiv API 不可用: %s", e)
+        _log.warning("arXiv API unavailable: %s", e)
         return []
 
     try:
         root = ET.fromstring(resp.text)
     except Exception as e:
-        _log.warning("arXiv XML 解析失败: %s", e)
+        _log.warning("Failed to parse arXiv XML: %s", e)
         return []
 
     return [_parse_entry(entry) for entry in root.findall("atom:entry", _NS)]
@@ -163,7 +163,7 @@ def _load_beautiful_soup():
     try:
         from bs4 import BeautifulSoup
     except ModuleNotFoundError as e:
-        _log.warning("缺少 beautifulsoup4，无法解析 arXiv recent 页面: %s", e)
+        _log.warning("beautifulsoup4 is missing; cannot parse arXiv recent page: %s", e)
         return None
     return BeautifulSoup
 
@@ -175,7 +175,7 @@ def _search_arxiv_recent_page(query: str, category: str, top_k: int) -> list[dic
         resp = _SESSION.get(_ARXIV_LIST_RECENT_URL.format(category=category), timeout=15)
         resp.raise_for_status()
     except Exception as e:
-        _log.warning("arXiv recent 页面不可用: %s", e)
+        _log.warning("arXiv recent page unavailable: %s", e)
         return []
 
     beautiful_soup = _load_beautiful_soup()
@@ -228,7 +228,7 @@ def _fetch_arxiv_abs_page(arxiv_id: str) -> dict:
         resp = _SESSION.get(url, timeout=15)
         resp.raise_for_status()
     except Exception as e:
-        _log.warning("arXiv abs 页面不可用: %s", e)
+        _log.warning("arXiv abs page unavailable: %s", e)
         return {}
 
     html = resp.text
@@ -311,14 +311,14 @@ def download_arxiv_pdf(arxiv_ref: str, dest_dir: str | Path, *, overwrite: bool 
     """Download an arXiv PDF to *dest_dir* and return the local file path."""
     canonical_id = normalize_arxiv_ref(arxiv_ref)
     if not canonical_id:
-        raise ValueError(f"无效的 arXiv 标识: {arxiv_ref}")
+        raise ValueError(f"Invalid arXiv identifier: {arxiv_ref}")
 
     dest_root = Path(dest_dir)
     dest_root.mkdir(parents=True, exist_ok=True)
     out_path = dest_root / _pdf_filename_for_arxiv_id(canonical_id)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if out_path.exists() and not overwrite:
-        raise FileExistsError(f"文件已存在: {out_path}")
+        raise FileExistsError(f"File already exists: {out_path}")
     tmp_path = out_path.with_name(out_path.name + ".part")
     tmp_path.unlink(missing_ok=True)
 

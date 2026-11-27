@@ -1,48 +1,48 @@
-# Scrinium configuration 配置文件
+# Scrinium configuration
 #
-# 全局配置位置 Global config: ~/.scrinium/config.yaml
-#   （旧目录 ~/.scholaraio/config.yaml 仍兼容读取，会提示迁移）
-# 所有 SCRINIUM_* 环境变量的旧名 SCHOLARAIO_* 仍兼容（deprecated，命中时告警）。
+# Global config location: ~/.scrinium/config.yaml
+#   (legacy ~/.scholaraio/config.yaml is still read with a migration notice)
+# Legacy SCHOLARAIO_* names for SCRINIUM_* environment variables remain supported (deprecated; warns on use).
 
 paths:
-  papers_dir: data/papers # Ingested papers directory 已入库论文目录
-  index_db: data/index.db # SQLite index file SQLite 索引文件
+  papers_dir: data/papers # Ingested papers directory
+  index_db: data/index.db # SQLite index file
 
-# Ingest pipeline 数据入库管道
+# Ingest pipeline
 ingest:
-  mineru_endpoint: http://localhost:8000 # Local MinerU API 本地 MinerU API
-  mineru_cloud_url: https://mineru.net/api/v4 # `mineru-open-api --base-url` override 私有部署覆盖地址
+  mineru_endpoint: http://localhost:8000 # Local MinerU API
+  mineru_cloud_url: https://mineru.net/api/v4 # `mineru-open-api --base-url` override for private deployments
   mineru_api_key: null # → config.local.yaml or env MINERU_TOKEN / MINERU_API_KEY
-  mineru_backend_local: pipeline # local-only backend; keep default unless you self-host MinerU 本地专用，非本地部署一般不要改
-  mineru_model_version_cloud: pipeline # `mineru-open-api extract --model`: pipeline | vlm（PDF 默认用 pipeline；只在你明确需要时改成 vlm）
-  mineru_lang: ch # 中文或中英混排文档保持 ch；纯英文再改 en
-  mineru_parse_method: auto # auto | txt | ocr；`mineru-open-api` 只有 ocr 会映射为 --ocr
-  mineru_enable_formula: true # Enable formula parsing; only effective for pipeline/vlm models 仅对 pipeline/vlm 有效
-  mineru_enable_table: true # Enable table parsing; only effective for pipeline/vlm models 仅对 pipeline/vlm 有效
+  mineru_backend_local: pipeline # local-only backend; keep default unless you self-host MinerU
+  mineru_model_version_cloud: pipeline # `mineru-open-api extract --model`: pipeline | vlm (default pipeline; switch to vlm only when needed)
+  mineru_lang: ch # keep ch for Chinese/mixed PDFs; switch to en for English-only PDFs
+  mineru_parse_method: auto # auto | txt | ocr; `mineru-open-api` only maps ocr -> --ocr
+  mineru_enable_formula: true # Enable formula parsing; only effective for pipeline/vlm models
+  mineru_enable_table: true # Enable table parsing; only effective for pipeline/vlm models
   contact_email: null # Crossref polite pool email → config.local.yaml
   s2_api_key: null # Semantic Scholar API key → config.local.yaml or env S2_API_KEY
   openalex_api_key: null # OpenAlex API key → config.local.yaml or env OPENALEX_API_KEY
-  mineru_batch_size: 20 # Cloud batch size per request (1-200, official limit) 云端每批文件数上限
-  mineru_upload_workers: 4 # Concurrent cloud conversion tasks 云端转换并发任务数
-  mineru_upload_retries: 3 # Cloud upload retries per file (incl. first attempt) 单文件上传重试次数（含首轮）
-  mineru_download_retries: 3 # Cloud result download retries (legacy, kept for compat) 云端结果下载重试次数（旧接口兼容保留）
-  mineru_poll_timeout: 900 # Single cloud conversion timeout (sec) 单次云端转换超时（秒）
-  chunk_page_limit: 100 # Auto-split PDFs exceeding this page count 超长 PDF 自动切分页数阈值
-  pdf_preferred_parser: mineru # Preferred PDF parser: mineru | docling | pymupdf；默认优先 MinerU
-  pdf_fallback_order: [auto] # 完全自定义降级链；可写 [pymupdf] 或 [docling,pymupdf]，auto=自动检测本机可用解析器
-  pdf_fallback_auto_detect: true # 是否启用自动检测（建议开启）
+  mineru_batch_size: 20 # Cloud batch size per request (1-200, official limit)
+  mineru_upload_workers: 4 # Concurrent cloud conversion tasks
+  mineru_upload_retries: 3 # Cloud upload retries per file (including first attempt)
+  mineru_download_retries: 3 # Cloud result download retries (legacy, kept for compatibility)
+  mineru_poll_timeout: 900 # Single cloud conversion timeout (seconds)
+  chunk_page_limit: 100 # Auto-split PDFs exceeding this page count
+  pdf_preferred_parser: mineru # Preferred PDF parser: mineru | docling | pymupdf (MinerU by default)
+  pdf_fallback_order: [auto] # Custom fallback chain, e.g. [pymupdf] or [docling,pymupdf]; auto detects installed parsers
+  pdf_fallback_auto_detect: true # Enable automatic fallback detection (recommended)
 
 search:
-  top_k: 20 # FTS5 search default results 关键词搜索默认返回条数
+  top_k: 20 # FTS5 search default result count
 
-# Logging & metrics 日志与指标
+# Logging & metrics
 logging:
   level: INFO
   file: data/scrinium.log
-  max_bytes: 10000000 # 10 MB, rotate on overflow 超出轮转
+  max_bytes: 10000000 # 10 MB, rotate on overflow
   backup_count: 3
   metrics_db: data/metrics.db
 
-# Zotero integration Zotero 集成
+# Zotero integration
 zotero:
   library_type: user # user | group

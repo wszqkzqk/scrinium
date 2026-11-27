@@ -1,11 +1,13 @@
 """
-snowball.py — 库内引用图滚雪球发现
-==================================
+snowball.py — Citation-graph snowball discovery within the library
+==================================================================
 
-从一篇或多篇种子论文出发，沿本地引用图做一层扩张（向后参考文献 / 向前被引 /
-共享参考文献），按简单透明的规则打分排序，用于快速定位一个领域的核心文献。
-打分与组装逻辑集中在此模块，CLI 层（cli/misc.py 的 cmd_snowball）只负责
-种子解析与输出；查询原语复用 index.py 的三个引用图函数。
+Expand one hop from one or more seed papers along the local citation graph
+(backward references / forward citations / shared references) and rank
+candidates with simple, transparent scoring rules to surface core papers in a
+field. Scoring and assembly live in this module; the CLI layer (cmd_snowball
+in cli/misc.py) only resolves seeds and formats output, reusing the three
+citation-graph query primitives from index.py.
 """
 
 from __future__ import annotations

@@ -49,10 +49,10 @@ class TestBuildFilter:
 
 class TestFetchExploreLimit:
     def test_limit_must_be_positive(self):
-        with pytest.raises(ValueError, match="limit 必须为正整数"):
+        with pytest.raises(ValueError, match="limit must be a positive integer"):
             fetch_explore("tmp-limit-check", issn="0022-1120", limit=0)
 
-        with pytest.raises(ValueError, match="limit 必须为正整数"):
+        with pytest.raises(ValueError, match="limit must be a positive integer"):
             fetch_explore("tmp-limit-check", issn="0022-1120", limit=-1)
 
 

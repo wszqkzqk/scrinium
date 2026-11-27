@@ -14,31 +14,31 @@ import requests
 
 @dataclass
 class PaperMetadata:
-    """一篇学术论文的完整元数据。
+    """Complete metadata for an academic paper.
 
     Attributes:
-        id: UUID，入库时生成，永不改变。
-        title: 论文标题。
-        authors: 作者列表。
-        first_author: 第一作者全名。
-        first_author_lastname: 第一作者姓氏（用于生成文件名）。
-        year: 发表年份。
-        doi: DOI 标识符（不含 ``https://doi.org/`` 前缀）。
-        journal: 期刊或会议名称。
-        abstract: 摘要文本。
-        paper_type: 论文类型（article, review, conference-paper 等）。
-        citation_count_s2: Semantic Scholar 引用数。
-        citation_count_openalex: OpenAlex 引用数。
-        citation_count_crossref: Crossref 引用数。
-        s2_paper_id: Semantic Scholar 论文 ID。
-        openalex_id: OpenAlex 论文 ID。
-        crossref_doi: Crossref 返回的 DOI。
-        api_sources: 成功返回数据的 API 列表。
-        references: 参考文献 DOI 列表（从 Semantic Scholar 获取）。
-        source_file: 原始文件名。
-        arxiv_id: arXiv 标识符（如 ``2401.12345`` 或 ``hep-th/9901001``，不含版本后缀）。
-        extraction_method: 提取方式（``doi_lookup`` | ``arxiv_lookup`` | ``title_search`` |
-            ``title_search_relaxed`` | ``title_search_s2`` | ``local_only``）。
+        id: UUID generated at ingest time; never changes.
+        title: Paper title.
+        authors: List of author names.
+        first_author: Full name of the first author.
+        first_author_lastname: First author's surname (used to generate filenames).
+        year: Publication year.
+        doi: DOI identifier (without the ``https://doi.org/`` prefix).
+        journal: Journal or conference name.
+        abstract: Abstract text.
+        paper_type: Paper type (article, review, conference-paper, etc.).
+        citation_count_s2: Semantic Scholar citation count.
+        citation_count_openalex: OpenAlex citation count.
+        citation_count_crossref: Crossref citation count.
+        s2_paper_id: Semantic Scholar paper ID.
+        openalex_id: OpenAlex paper ID.
+        crossref_doi: DOI returned by Crossref.
+        api_sources: APIs that returned data successfully.
+        references: List of reference DOIs (from Semantic Scholar).
+        source_file: Original filename.
+        arxiv_id: arXiv identifier (e.g. ``2401.12345`` or ``hep-th/9901001``, without version suffix).
+        extraction_method: Extraction method (``doi_lookup`` | ``arxiv_lookup`` | ``title_search`` |
+            ``title_search_relaxed`` | ``title_search_s2`` | ``local_only``).
     """
 
     id: str = ""  # UUID, assigned at ingest time

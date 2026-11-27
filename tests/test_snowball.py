@@ -210,9 +210,9 @@ class TestSnowballCli:
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_snowball(_args(), _cfg(papers_dir, db_path, tmp_path))
 
-        assert "滚雪球候选共 6 篇" in caplog.text
+        assert "Found 6 snowball candidates" in caplog.text
         assert "[score 4] D-2024-Paper" in caplog.text
-        assert "关系 citing+shared" in caplog.text
+        assert "relations citing+shared" in caplog.text
 
     def test_empty_candidates_hint(self, tmp_path, caplog):
         papers_dir, db_path = _build_library(tmp_path)
@@ -220,13 +220,13 @@ class TestSnowballCli:
         with caplog.at_level(logging.INFO, logger="scrinium.ui"):
             cli.cmd_snowball(_args(paper_ids=["ISO-2025-Alone"]), _cfg(papers_dir, db_path, tmp_path))
 
-        assert "引用图数据不足" in caplog.text
+        assert "insufficient citation graph data" in caplog.text
         assert "refetch" in caplog.text
 
     def test_unresolvable_seed_raises(self, tmp_path):
         papers_dir, db_path = _build_library(tmp_path)
 
-        with pytest.raises(ValueError, match="无法解析种子论文"):
+        with pytest.raises(ValueError, match="Unable to resolve seed paper"):
             cli.cmd_snowball(_args(paper_ids=["No-Such-Paper"]), _cfg(papers_dir, db_path, tmp_path))
 
     def test_depth_beyond_one_rejected(self, tmp_path):

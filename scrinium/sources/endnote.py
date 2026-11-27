@@ -1,4 +1,4 @@
-"""sources/endnote.py — 解析 Endnote XML 和 RIS 文件，转换为 PaperMetadata"""
+"""sources/endnote.py — Parse Endnote XML and RIS files into PaperMetadata"""
 
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ def _record_to_meta(record: dict, source_file: str) -> PaperMetadata:
         try:
             year = int(year_str)
         except ValueError:
-            _log.debug("无法解析年份: %r", year_str)
+            _log.debug("Cannot parse year: %r", year_str)
 
     ref_type = record.get("ref_type", "")
     paper_type = _normalise_paper_type(ref_type)
@@ -163,16 +163,16 @@ def _record_to_meta(record: dict, source_file: str) -> PaperMetadata:
 
 
 def parse_endnote(paths: list[Path]) -> list[PaperMetadata]:
-    """解析 Endnote 导出文件（XML 或 RIS），返回 PaperMetadata 列表。
+    """Parse Endnote export files (XML or RIS) and return a list of PaperMetadata.
 
-    根据文件扩展名自动选择解析器：``.xml`` 使用 XML 解析，
-    ``.ris`` 使用 RIS 解析。其他扩展名会被跳过并记录警告。
+    Selects the parser by file extension: XML for ``.xml``, RIS for ``.ris``.
+    Other extensions are skipped with a warning.
 
     Args:
-        paths: Endnote 导出文件路径列表（支持 ``.xml`` 和 ``.ris``）。
+        paths: Endnote export file paths (supports ``.xml`` and ``.ris``).
 
     Returns:
-        所有文件中解析出的 ``PaperMetadata`` 列表。
+        List of ``PaperMetadata`` parsed from all files.
     """
     results: list[PaperMetadata] = []
     core = _load_endnote_core()
@@ -182,38 +182,39 @@ def parse_endnote(paths: list[Path]) -> list[PaperMetadata]:
         source_file = path.name
 
         if suffix == ".xml":
-            _log.info("解析 Endnote XML: %s", path)
+            _log.info("Parsing Endnote XML: %s", path)
             for elem in core.iter_records_xml(path):
                 rec = core.process_record_xml(elem, "endnote")
                 results.append(_record_to_meta(rec, source_file))
 
         elif suffix == ".ris":
-            _log.info("解析 Endnote RIS: %s", path)
+            _log.info("Parsing Endnote RIS: %s", path)
             for rec in core.iter_records_ris(path):
                 results.append(_record_to_meta(rec, source_file))
 
         else:
-            _log.warning("不支持的文件格式，跳过: %s", path)
+            _log.warning("Unsupported file format, skipping: %s", path)
 
-    _log.info("共解析 %d 条记录", len(results))
+    _log.info("Parsed %d records", len(results))
     return results
 
 
 def parse_endnote_full(
     paths: list[Path],
 ) -> tuple[list[PaperMetadata], list[Path | None]]:
-    """解析 Endnote 文件，同时提取 PDF 路径（与记录一一对齐）。
+    """Parse Endnote files and also extract PDF paths (aligned one-to-one with records).
 
-    对 XML 文件：解析元数据 + 从 ``<pdf-urls>`` 提取 ``internal-pdf://``
-    链接并解析为实际文件路径。多个 PDF 时自动排除 SI/补充材料，选主文件。
+    For XML files: parses metadata and resolves ``internal-pdf://`` links from
+    ``<pdf-urls>`` to actual file paths. When multiple PDFs exist, filters out
+    SI/supplements and picks the main file.
 
-    对 RIS 文件：仅解析元数据，PDF 路径为 ``None``。
+    For RIS files: parses metadata only; PDF paths are ``None``.
 
     Args:
-        paths: Endnote 导出文件路径列表。
+        paths: Endnote export file paths.
 
     Returns:
-        ``(records, pdf_paths)``，两个列表长度相同、索引对齐。
+        ``(records, pdf_paths)`` — two lists of equal length, aligned by index.
     """
     records: list[PaperMetadata] = []
     pdf_paths: list[Path | None] = []
@@ -224,11 +225,11 @@ def parse_endnote_full(
         source_file = path.name
 
         if suffix == ".xml":
-            _log.info("解析 Endnote XML: %s", path)
+            _log.info("Parsing Endnote XML: %s", path)
             data_dir = path.parent / f"{path.stem}.Data" / "PDF"
             has_data_dir = data_dir.exists()
             if not has_data_dir:
-                _log.debug("Endnote Data 目录不存在: %s", data_dir)
+                _log.debug("Endnote Data directory does not exist: %s", data_dir)
 
             for elem in core.iter_records_xml(path):
                 rec = core.process_record_xml(elem, "endnote")
@@ -242,27 +243,27 @@ def parse_endnote_full(
                     pdf_paths.append(None)
 
         elif suffix == ".ris":
-            _log.info("解析 Endnote RIS: %s", path)
+            _log.info("Parsing Endnote RIS: %s", path)
             for rec in core.iter_records_ris(path):
                 records.append(_record_to_meta(rec, source_file))
                 pdf_paths.append(None)
 
         else:
-            _log.warning("不支持的文件格式，跳过: %s", path)
+            _log.warning("Unsupported file format, skipping: %s", path)
 
     n_pdfs = sum(1 for p in pdf_paths if p is not None)
-    _log.info("共解析 %d 条记录，%d 个可匹配 PDF", len(records), n_pdfs)
+    _log.info("Parsed %d records, %d matched PDFs", len(records), n_pdfs)
     return records, pdf_paths
 
 
 def extract_pdf_map(xml_paths: list[Path]) -> dict[str, Path]:
-    """从 Endnote XML 中提取 DOI → PDF 路径映射（便捷接口）。
+    """Extract a DOI -> PDF path map from Endnote XML (convenience helper).
 
     Args:
-        xml_paths: Endnote XML 文件路径列表。
+        xml_paths: Endnote XML file paths.
 
     Returns:
-        ``{doi: pdf_path}`` 映射，仅包含 DOI 和 PDF 均存在的记录。
+        ``{doi: pdf_path}`` map containing only records that have both a DOI and a PDF.
     """
     records, pdf_paths = parse_endnote_full(xml_paths)
     return {r.doi: p for r, p in zip(records, pdf_paths) if r.doi and p is not None}

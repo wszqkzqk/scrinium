@@ -1,8 +1,8 @@
 """
-cli/ — scrinium 命令行入口（按域拆分的包）
-=============================================
+cli/ — Scrinium command-line entry point (package split by domain)
+==================================================================
 
-命令：
+Commands:
     scrinium index [--rebuild]
     scrinium search <query> [--top N] [--year Y] [--journal J] [--type T] [--tag T]
     scrinium search <query> --scope main,proceedings,explore:*,arxiv [--top N]
@@ -18,16 +18,16 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium refresh [<paper-id> | --all] [--force]
     scrinium rename [<paper-id> | --all] [--dry-run]
     scrinium audit [--severity error|warning|info]
-    scrinium tag <paper-id> [<标签> ...] [--remove] [--json]
+    scrinium tag <paper-id> [<tag> ...] [--remove] [--json]
     scrinium tags [--json]
-    scrinium topics [<标签>] [--json]
+    scrinium topics [<tag>] [--json]
     scrinium pending
-    scrinium repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]   （库内论文原地改名；data/pending 待确认项查重后入库）
-    scrinium ingest [--dry-run] [--no-api] [--force] ...   (= pipeline 的 ingest 预设)
+    scrinium repair <paper-id> --title "..." [--doi DOI] [--author NAME] [--year Y] [--no-api] [--dry-run]   (rename library papers in place; dedup-check and ingest data/pending items)
+    scrinium ingest [--dry-run] [--no-api] [--force] ...   (= the ingest preset of pipeline)
     scrinium pipeline <preset> | --steps <s1,s2,...> [--list] [--dry-run] ...
     scrinium metrics [--last N] [--category CAT] [--since DATE]
     scrinium insights [--days N]
-    scrinium setup [check] [--lang en|zh]
+    scrinium setup [check]
     scrinium explore fetch [--issn X] [--concept C] [--topic-id T] [--author A] [--institution I]
                               [--keyword K] [--source-type T] [--oa-type T] [--min-citations N]
                               [--name NAME] [--year-range Y] [--incremental] [--limit N]
@@ -66,7 +66,7 @@ cli/ — scrinium 命令行入口（按域拆分的包）
     scrinium workspace rename <old-name> <new-name>
     scrinium workspace export <name> [-o FILE]
 
-Legacy aliases（仍然可用，但从 --help 顶层列表隐藏；新代码请用上方主名）：
+Legacy aliases (still available, but hidden from the top-level --help listing; use the primary names above in new code):
     fsearch            -> search --scope ...
     enrich-toc         -> enrich toc
     backfill-abstract  -> enrich abstract
@@ -257,7 +257,7 @@ __all__ = [
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scrinium",
-        description="面向 AI coding agent 的研究终端",
+        description="Research terminal for AI coding agents",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     # Explicit metavar keeps hidden legacy aliases out of the usage line.
@@ -307,7 +307,7 @@ def main() -> None:
         except Exception as exc:
             if not is_setup_cmd:
                 raise
-            ui(f"警告：metrics 初始化失败，已跳过，不影响 setup: {exc}")
+            ui(f"Warning: metrics initialization failed, skipped (does not affect setup): {exc}")
         configure_session(cfg.ingest.contact_email)
         configure_s2_session(cfg.resolved_s2_api_key())
         configure_openalex_api_key(cfg.resolved_openalex_api_key())
@@ -318,7 +318,7 @@ def main() -> None:
             # CLI boundary: argument-level ValueError (e.g. bad --year) and fatal
             # pipeline errors (e.g. MinerU unreachable) get a one-line message
             # instead of a traceback; the message is still shown.
-            ui(f"错误: {exc}")
+            ui(f"Error: {exc}")
             sys.exit(1)
         # Surface a buffered broken pipe here instead of at interpreter shutdown.
         sys.stdout.flush()

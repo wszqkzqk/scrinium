@@ -1,20 +1,20 @@
 """
-audit.py — 已入库论文数据质量审计
-====================================
+audit.py — Data quality audit for ingested papers
+=================================================
 
-扫描 data/papers/ 中的所有论文，检查元数据完整性、数据质量
-和内容一致性问题。返回结构化的问题报告供用户审阅。
+Scan all papers in data/papers/ for metadata completeness, data quality,
+and content consistency issues, and return a structured issue report.
 
-规则化检查（无需 LLM）：
-  - 关键字段缺失（doi, abstract, year, authors, journal）
-  - 配对完整性（目录内 meta.json / paper.md 是否齐全）
-  - 文件名规范性（目录名不符合 Author-Year-Title 格式）
-  - DOI 重复检测
-  - arXiv DOI 与 arxiv_id 配对（缺失时预印本去重会漏）
-  - MD 内容过短（可能转换失败）
-  - JSON title 与 MD 首个 H1 不一致
-  - 策展标签缺失（untagged，所有 paper_type 均提示）
-  - SI 检查（疑似 SI 污染条目；正文引用 SI 但未挂接）
+Rule-based checks (no LLM required):
+  - Missing critical fields (doi, abstract, year, authors, journal)
+  - File pairing (meta.json / paper.md present in each paper directory)
+  - Directory naming compliance (Author-Year-Title format)
+  - Duplicate DOI detection
+  - arXiv DOI / arxiv_id pairing (missing arxiv_id breaks preprint dedup)
+  - Overly short paper.md (possible conversion failure)
+  - Mismatch between JSON title and first Markdown H1
+  - Missing curated tags (untagged, reported for all paper_types)
+  - SI checks (suspected standalone SI entries; SI cited in text but unattached)
 """
 
 from __future__ import annotations
@@ -31,13 +31,13 @@ _log = logging.getLogger(__name__)
 
 @dataclass
 class Issue:
-    """单个审计问题。
+    """A single audit issue.
 
     Attributes:
-        paper_id: 论文 ID（目录名）。
-        severity: 严重程度，``"error"`` | ``"warning"`` | ``"info"``。
-        rule: 检查规则名称。
-        message: 问题描述。
+        paper_id: Paper ID (directory name).
+        severity: Severity level: ``"error"`` | ``"warning"`` | ``"info"``.
+        rule: Audit rule name.
+        message: Human-readable description of the issue.
     """
 
     paper_id: str
@@ -47,13 +47,13 @@ class Issue:
 
 
 def audit_papers(papers_dir: Path) -> list[Issue]:
-    """对论文目录执行全量数据质量审计。
+    """Run a full data quality audit over a papers directory.
 
     Args:
-        papers_dir: 已入库论文目录（每篇一目录结构）。
+        papers_dir: Ingested papers directory (one subdirectory per paper).
 
     Returns:
-        按严重程度排序的问题列表（error 在前）。
+        Issues sorted by severity (errors first).
     """
     issues: list[Issue] = []
 
@@ -70,7 +70,7 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
 
             data = read_meta(pdir)
         except Exception as e:
-            issues.append(Issue(pid, "error", "invalid_json", f"JSON 解析失败: {e}"))
+            issues.append(Issue(pid, "error", "invalid_json", f"Failed to parse JSON: {e}"))
             continue
 
         # -- Missing fields --
@@ -78,13 +78,13 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
 
         # -- File pairing --
         if not md_file.exists():
-            issues.append(Issue(pid, "error", "missing_md", "缺少 paper.md 文件"))
+            issues.append(Issue(pid, "error", "missing_md", "Missing paper.md file"))
         else:
             try:
                 md_text = md_file.read_text(encoding="utf-8", errors="replace")
             except Exception as e:
                 _log.debug("failed to read paper.md for %s: %s", pid, e)
-                issues.append(Issue(pid, "error", "unreadable_md", "无法读取 paper.md 文件"))
+                issues.append(Issue(pid, "error", "unreadable_md", "Unable to read paper.md file"))
                 md_text = None
             if md_text is not None:
                 _check_content_consistency(issues, pid, data, md_text)
@@ -100,14 +100,23 @@ def audit_papers(papers_dir: Path) -> list[Issue]:
 
         # -- arXiv id backfill check (preprint dedup relies on it) --
         if "10.48550/arxiv." in doi and not (data.get("arxiv_id") or (data.get("ids") or {}).get("arxiv")):
-            issues.append(Issue(pid, "warning", "arxiv_id_missing", "有 arXiv DOI 但缺 arxiv_id，预印本去重不会命中"))
+            issues.append(
+                Issue(
+                    pid,
+                    "warning",
+                    "arxiv_id_missing",
+                    "Has arXiv DOI but missing arxiv_id; preprint dedup will miss it",
+                )
+            )
 
     # DOI duplicates
     for doi, pids in doi_map.items():
         if len(pids) > 1:
             for pid in pids:
                 others = [p for p in pids if p != pid]
-                issues.append(Issue(pid, "error", "duplicate_doi", f"DOI 重复: {doi} (同: {', '.join(others)})"))
+                issues.append(
+                    Issue(pid, "error", "duplicate_doi", f"Duplicate DOI: {doi} (also in: {', '.join(others)})")
+                )
 
     # Sort: error > warning > info
     severity_order = {"error": 0, "warning": 1, "info": 2}
@@ -121,19 +130,19 @@ def _check_missing(issues: list[Issue], pid: str, data: dict) -> None:
 
     paper_type = data.get("paper_type", "")
     if not data.get("doi") and paper_type not in DOCUMENT_TYPES:
-        issues.append(Issue(pid, "warning", "missing_doi", "缺少 DOI"))
+        issues.append(Issue(pid, "warning", "missing_doi", "Missing DOI"))
     if not data.get("abstract"):
-        issues.append(Issue(pid, "warning", "missing_abstract", "缺少摘要"))
+        issues.append(Issue(pid, "warning", "missing_abstract", "Missing abstract"))
     if not data.get("year"):
-        issues.append(Issue(pid, "warning", "missing_year", "缺少年份"))
+        issues.append(Issue(pid, "warning", "missing_year", "Missing year"))
     if not data.get("authors"):
-        issues.append(Issue(pid, "warning", "missing_authors", "缺少作者"))
+        issues.append(Issue(pid, "warning", "missing_authors", "Missing authors"))
     if not data.get("journal"):
-        issues.append(Issue(pid, "warning", "missing_journal", "缺少期刊名"))
+        issues.append(Issue(pid, "warning", "missing_journal", "Missing journal name"))
     if not data.get("title"):
-        issues.append(Issue(pid, "error", "missing_title", "缺少标题"))
+        issues.append(Issue(pid, "error", "missing_title", "Missing title"))
     if not data.get("tags"):
-        issues.append(Issue(pid, "info", "untagged", "未打策展标签"))
+        issues.append(Issue(pid, "info", "untagged", "No curated tags"))
 
 
 def _check_content_consistency(
@@ -146,7 +155,12 @@ def _check_content_consistency(
     # MD too short (likely conversion failure)
     if len(md_text.strip()) < 200:
         issues.append(
-            Issue(pid, "warning", "short_md", f"paper.md 文件过短 ({len(md_text.strip())} 字符)，可能转换失败")
+            Issue(
+                pid,
+                "warning",
+                "short_md",
+                f"paper.md is too short ({len(md_text.strip())} chars); conversion may have failed",
+            )
         )
 
     # Title vs first H1 mismatch
@@ -166,7 +180,7 @@ def _check_content_consistency(
                             pid,
                             "warning",
                             "title_mismatch",
-                            f"JSON 标题与 MD H1 不一致\n"
+                            f"JSON title does not match Markdown H1\n"
                             f"  JSON: {data['title'][:80]}\n"
                             f"  MD H1: {h1_match.group(1).strip()[:80]}",
                         )
@@ -174,20 +188,25 @@ def _check_content_consistency(
 
 
 def _check_si(issues: list[Issue], pid: str, data: dict, md_text: str) -> None:
-    """SI 相关检查：疑似 SI 污染条目；正文引用 SI 但未挂接。"""
+    """Check for standalone SI entries and unattached SI cited in the text."""
     from scrinium.si import SUSPECTED_SI_TITLE_RE, TERMINAL_STATUSES, si_mentioned_in_text
 
     title = (data.get("title") or "").strip()
     if SUSPECTED_SI_TITLE_RE.match(title):
         issues.append(
-            Issue(pid, "warning", "suspected_si", "标题疑似 Supporting Information，可能应挂接到主文 si/ 而非独立入库")
+            Issue(
+                pid,
+                "warning",
+                "suspected_si",
+                "Title looks like Supporting Information; should be attached to the main paper's si/ rather than ingested standalone",
+            )
         )
-        return  # 污染条目自身不再报 missing_si
+        return  # Do not also report missing_si for a suspected SI entry
     si = data.get("si") or {}
     if si.get("files") or si.get("fetch_status") in TERMINAL_STATUSES:
         return
     if si_mentioned_in_text(md_text):
-        issues.append(Issue(pid, "info", "missing_si", "正文引用了 SI 但未挂接（si/ 为空）"))
+        issues.append(Issue(pid, "info", "missing_si", "Text mentions SI but none is attached (si/ is empty)"))
 
 
 def _check_filename(issues: list[Issue], pid: str, data: dict) -> None:
@@ -195,7 +214,9 @@ def _check_filename(issues: list[Issue], pid: str, data: dict) -> None:
     # Expected: Author-Year-Title
     m = re.match(r"^(.+?)-(\d{4})-(.+)$", pid)
     if not m:
-        issues.append(Issue(pid, "info", "nonstandard_filename", "目录名不符合 Author-Year-Title 格式"))
+        issues.append(
+            Issue(pid, "info", "nonstandard_filename", "Directory name does not follow Author-Year-Title format")
+        )
         return
 
     file_year = int(m.group(2))
@@ -203,35 +224,39 @@ def _check_filename(issues: list[Issue], pid: str, data: dict) -> None:
     if json_year and file_year != json_year:
         issues.append(
             Issue(
-                pid, "warning", "filename_year_mismatch", f"目录名年份 ({file_year}) 与 JSON 年份 ({json_year}) 不一致"
+                pid,
+                "warning",
+                "filename_year_mismatch",
+                f"Directory year ({file_year}) does not match JSON year ({json_year})",
             )
         )
 
 
 def format_report(issues: list[Issue]) -> str:
-    """将审计结果格式化为可读报告。
+    """Format audit results as a readable report.
 
-    问题条目附修复建议（handoff hint），指向 agent 修复工作流：
-    框架只诊断，修复由 agent/subagent 读原文核对后直改 meta.json 完成。
+    Each issue includes a repair suggestion (handoff hint) pointing to the
+    agent repair workflow: the framework only diagnoses; an agent/subagent
+    verifies against the original text and edits meta.json directly.
 
     Args:
-        issues: :func:`audit_papers` 返回的问题列表。
+        issues: Issue list returned by :func:`audit_papers`.
 
     Returns:
-        格式化的文本报告。
+        Formatted text report.
     """
     if not issues:
-        return "审计通过，未发现问题。"
+        return "Audit passed: no issues found."
 
     errors = [i for i in issues if i.severity == "error"]
     warnings = [i for i in issues if i.severity == "warning"]
     infos = [i for i in issues if i.severity == "info"]
 
-    lines = [f"审计完成: {len(errors)} 个错误, {len(warnings)} 个警告, {len(infos)} 个提示\n"]
+    lines = [f"Audit complete: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info(s)\n"]
 
     if errors:
         lines.append("=" * 60)
-        lines.append("错误 (需要修复)")
+        lines.append("Errors (require fixes)")
         lines.append("=" * 60)
         for i in errors:
             lines.append(f"  [{i.rule}] {i.paper_id}")
@@ -243,7 +268,7 @@ def format_report(issues: list[Issue]) -> str:
     if warnings:
         lines.append("")
         lines.append("-" * 60)
-        lines.append("警告 (建议关注)")
+        lines.append("Warnings (review recommended)")
         lines.append("-" * 60)
         for i in warnings:
             lines.append(f"  [{i.rule}] {i.paper_id}")
@@ -255,7 +280,7 @@ def format_report(issues: list[Issue]) -> str:
     if infos:
         lines.append("")
         lines.append("· " * 30)
-        lines.append("提示 (参考信息)")
+        lines.append("Info (for reference)")
         lines.append("· " * 30)
         for i in infos:
             lines.append(f"  [{i.rule}] {i.paper_id}")
@@ -266,29 +291,30 @@ def format_report(issues: list[Issue]) -> str:
 
     lines.append("")
     lines.append(
-        "hint: 以上问题建议派 subagent 读原文核对后直接修改 meta.json（audit 修复工作流），必要时运行 scrinium repair / scrinium rename"
+        "hint: Dispatch a subagent to verify against the original text and edit meta.json directly "
+        "(audit repair workflow); run scrinium repair / scrinium rename if needed"
     )
     return "\n".join(lines)
 
 
 # Recommended fix per audit rule (handoff hints for agents)
 _RULE_HINTS = {
-    "invalid_json": "派 subagent 检查该 meta.json 语法并直接修复",
-    "missing_md": "派 subagent 确认 PDF 来源后用 scrinium attach-pdf 补全 paper.md",
-    "missing_title": "派 subagent 读原文确认标题后直写 meta.json title，或 scrinium repair",
-    "missing_doi": "派 subagent 读原文找到 DOI 后直写 meta.json doi，并 scrinium refresh 补全元数据",
-    "missing_abstract": "运行 scrinium enrich abstract，仍缺则由 agent 读原文直写 meta.json abstract",
-    "missing_year": "派 subagent 读原文确认年份后直写 meta.json year",
-    "missing_authors": "派 subagent 读原文确认作者后直写 meta.json authors",
-    "missing_journal": "运行 scrinium refresh 补全期刊信息，或 agent 直写 meta.json journal",
-    "duplicate_doi": "派 subagent 对比重复条目后决定去留（保留一篇，删除多余目录）",
-    "title_mismatch": "派 subagent 读原文核对正确标题后直写 meta.json title",
-    "short_md": "检查 PDF 转换是否失败；必要时重新转换或 scrinium attach-pdf",
-    "unreadable_md": "检查 paper.md 文件编码/权限",
-    "nonstandard_filename": "运行 scrinium rename 规范目录名",
-    "filename_year_mismatch": "确认正确年份后直写 meta.json year 并 scrinium rename",
-    "arxiv_id_missing": "从 arXiv DOI 派生 arxiv_id 直写 meta.json ids.arxiv（如 10.48550/arxiv.2510.16510 → 2510.16510），纯机械操作无需读原文",
-    "untagged": "运行 curate 工作流或 scrinium tag 补充策展标签",
-    "suspected_si": "派 subagent 确认主文后将该条目内容迁移到主文 si/（scrinium attach-si），并删除此污染条目",
-    "missing_si": "运行 scrinium si fetch <paper-id> 自动获取；失败则派 subagent 人工搜索后 scrinium attach-si 挂接",
+    "invalid_json": "Dispatch a subagent to check the meta.json syntax and fix it directly",
+    "missing_md": "Dispatch a subagent to locate the source PDF and run scrinium attach-pdf to regenerate paper.md",
+    "missing_title": "Dispatch a subagent to read the paper, confirm the title, and write meta.json title (or run scrinium repair)",
+    "missing_doi": "Dispatch a subagent to find the DOI in the paper, write meta.json doi, and run scrinium refresh",
+    "missing_abstract": "Run scrinium enrich abstract; if still missing, have the agent read the paper and write meta.json abstract",
+    "missing_year": "Dispatch a subagent to confirm the publication year from the paper and write meta.json year",
+    "missing_authors": "Dispatch a subagent to confirm the authors from the paper and write meta.json authors",
+    "missing_journal": "Run scrinium refresh to backfill the journal, or have the agent write meta.json journal directly",
+    "duplicate_doi": "Dispatch a subagent to compare the duplicate entries and keep one, removing the redundant directory",
+    "title_mismatch": "Dispatch a subagent to verify the correct title against the paper and write meta.json title",
+    "short_md": "Check whether PDF conversion failed; re-convert or run scrinium attach-pdf if needed",
+    "unreadable_md": "Check paper.md file encoding and permissions",
+    "nonstandard_filename": "Run scrinium rename to normalize the directory name",
+    "filename_year_mismatch": "Confirm the correct year, write meta.json year, and run scrinium rename",
+    "arxiv_id_missing": "Derive arxiv_id from the arXiv DOI and write meta.json ids.arxiv (e.g. 10.48550/arxiv.2510.16510 → 2510.16510); no paper reading needed",
+    "untagged": "Run the curate workflow or scrinium tag to add curated tags",
+    "suspected_si": "Dispatch a subagent to locate the main paper, migrate this entry into its si/ via scrinium attach-si, and delete the standalone entry",
+    "missing_si": "Run scrinium si fetch <paper-id>; if it fails, dispatch a subagent to find the SI manually and attach it via scrinium attach-si",
 }

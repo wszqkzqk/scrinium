@@ -1,21 +1,20 @@
 """
-config.py — Scrinium 配置加载
-================================
+config.py -- Scrinium configuration loading.
 
-优先级（从高到低）：
-  1. config.local.yaml（不进 git，存 API key 等敏感信息）
-  2. config.yaml（主配置）
-  3. 代码默认值
+Precedence (highest to lowest):
+  1. config.local.yaml (git-ignored; API keys and sensitive values)
+  2. config.yaml (primary configuration)
+  3. Built-in defaults
 
-查找 config.yaml 的路径顺序：
-  1. 显式传入的 config_path
-  2. 环境变量 SCRINIUM_CONFIG（旧名 SCHOLARAIO_CONFIG 仍兼容，命中时告警）
-  3. 当前工作目录逐级向上查找
-  4. ~/.scrinium/config.yaml（全局配置，插件模式使用；不存在时兼容读取
-     旧的 ~/.scholaraio/config.yaml 并提示迁移）
+Search order for config.yaml:
+  1. Explicit ``config_path`` argument
+  2. SCRINIUM_CONFIG environment variable (legacy SCHOLARAIO_CONFIG warns on use)
+  3. Upward directory walk from the current working directory
+  4. ~/.scrinium/config.yaml (global config for plugin mode; falls back to
+     legacy ~/.scholaraio/config.yaml with a migration notice)
 
-已移除的配置段（llm/translate/embed/topics）在加载时触发一次性
-deprecation warning 并被忽略——框架内不再调用任何 LLM/embedding。
+Removed sections (llm/translate/embed/topics) emit a one-time deprecation
+warning on load and are ignored; the framework never calls LLMs/embeddings.
 """
 
 from __future__ import annotations
@@ -73,11 +72,11 @@ VALID_PDF_PREFERRED_PARSERS = {"mineru", "docling", "pymupdf"}
 
 @dataclass
 class PathsConfig:
-    """文件路径配置。
+    """File path configuration.
 
     Attributes:
-        papers_dir: 已入库论文目录（相对于项目根目录）。
-        index_db: SQLite 索引数据库路径（相对于项目根目录）。
+        papers_dir: Ingested papers directory (relative to project root).
+        index_db: SQLite index database path (relative to project root).
     """
 
     papers_dir: str = "data/papers"
@@ -86,10 +85,10 @@ class PathsConfig:
 
 @dataclass
 class SearchConfig:
-    """FTS5 全文检索配置。
+    """FTS5 full-text search configuration.
 
     Attributes:
-        top_k: ``scrinium search`` 默认返回条数。
+        top_k: Default result count for ``scrinium search``.
     """
 
     top_k: int = 20
@@ -97,14 +96,14 @@ class SearchConfig:
 
 @dataclass
 class LogConfig:
-    """日志与指标配置。
+    """Logging and metrics configuration.
 
     Attributes:
-        level: 根日志级别，``"DEBUG"`` | ``"INFO"`` | ``"WARNING"``。
-        file: 日志文件路径（相对于项目根目录）。
-        max_bytes: 单个日志文件最大字节数，超出则轮转。
-        backup_count: 轮转保留的旧日志文件数。
-        metrics_db: 指标数据库路径（相对于项目根目录）。
+        level: Root console log level (``"DEBUG"`` | ``"INFO"`` | ``"WARNING"``).
+        file: Log file path (relative to project root).
+        max_bytes: Maximum bytes per log file before rotation.
+        backup_count: Number of rotated log files to keep.
+        metrics_db: Metrics database path (relative to project root).
     """
 
     level: str = "INFO"
@@ -116,47 +115,46 @@ class LogConfig:
 
 @dataclass
 class IngestConfig:
-    """数据入库管道配置。
+    """Ingestion pipeline configuration.
 
     Attributes:
-        mineru_endpoint: MinerU 本地 API 地址。
-        mineru_cloud_url: `mineru-open-api` 的 ``--base-url`` 覆盖值。
-            默认值保留官方公网地址，私有部署时可改成自建服务。
-        mineru_api_key: MinerU token，建议放 config.local.yaml 或环境变量。
-            兼容旧字段名；运行时会映射给 ``mineru-open-api`` 的 ``MINERU_TOKEN``。
-        mineru_backend_local: 本地 MinerU backend（``pipeline`` | ``vlm-auto-engine`` |
-            ``vlm-http-client`` | ``hybrid-auto-engine`` | ``hybrid-http-client``）。
-        mineru_model_version_cloud: 云端 PDF 解析 model_version（``pipeline`` | ``vlm``）。
-        mineru_lang: MinerU OCR 语言（``ch`` | ``en`` | ``latin`` 等）。
-        mineru_parse_method: 解析方式（``auto`` | ``txt`` | ``ocr``）。云端经
-            `mineru-open-api` 解析时仅 ``ocr`` 会映射为 ``--ocr`` flag（``txt``
-            无对应模式，按默认处理并告警）。
-        mineru_enable_formula: 是否启用公式解析。仅对云端 ``pipeline``/``vlm`` 生效。
-        mineru_enable_table: 是否启用表格解析。仅对云端 ``pipeline``/``vlm`` 生效。
-        contact_email: Crossref polite pool 联系邮箱，建议放 config.local.yaml。
-        s2_api_key: Semantic Scholar API 密钥，有 key 可大幅提升限速（1 req/s vs 100 req/5min）。
-            建议放 config.local.yaml 或环境变量 ``S2_API_KEY``。
-        openalex_api_key: OpenAlex API 密钥，可提升每日 API 调用额度。
-            建议放 config.local.yaml 或环境变量 ``OPENALEX_API_KEY``。
-        chunk_page_limit: 本地 MinerU 对超长 PDF 的自动切分页数阈值。超过此值
-            的 PDF 在转换前自动拆分为多个短 PDF，转换后合并为单个 Markdown。
-            云端 MinerU 另外还会遵循 600 页 / 200MB 的官方单文件限制。
-        mineru_batch_size: `mineru-open-api` 兼容层的分块大小，默认 20。
-        mineru_upload_workers: 云端 CLI / `mineru-open-api` 兼容层的并发配置。
-            对分块后的云端转换仍生效，用于限制同时进行的转换任务数。
-        mineru_upload_retries: 云端 `mineru-open-api` 单文件重试次数（含首轮），
-            默认 3。当前用于 MinerU cloud CLI 的指数退避重试。
-        mineru_download_retries: 旧云 API 下载重试配置；为兼容保留。
-        mineru_poll_timeout: `mineru-open-api` 单次转换超时（秒），默认 900。
-        enrich_timeout: 元数据 API enrich 单篇硬超时（秒），默认 180。
-            超时后保留本地元数据继续（extraction_method 标记 ``local_timeout``）。
-        pdf_preferred_parser: 首选 PDF 解析器。默认优先 ``mineru``，也可显式设为
-            ``docling`` 或 ``pymupdf`` 跳过 MinerU。
-        pdf_fallback_order: MinerU 不可用或解析失败时的替代解析器顺序。
-            支持 ``docling`` / ``pymupdf`` / ``auto``。
-        pdf_fallback_auto_detect: 是否启用自动检测本机已安装的 fallback 解析器。
-        si_fetch_on_ingest: 新论文入库后是否自动获取 SI（规则链 → 下载 →
-            验证 → 挂接）。失败不阻断入库，只记录 fetch_status 供 agent 接管。
+        mineru_endpoint: Local MinerU API endpoint.
+        mineru_cloud_url: ``--base-url`` override for `mineru-open-api`
+            (defaults to the official public endpoint; override for private deployments).
+        mineru_api_key: MinerU token (prefer config.local.yaml or environment variable;
+            mapped to ``MINERU_TOKEN`` for `mineru-open-api`).
+        mineru_backend_local: Local MinerU backend (``pipeline`` | ``vlm-auto-engine`` |
+            ``vlm-http-client`` | ``hybrid-auto-engine`` | ``hybrid-http-client``).
+        mineru_model_version_cloud: Cloud PDF model version (``pipeline`` | ``vlm``).
+        mineru_lang: MinerU OCR language (``ch`` | ``en`` | ``latin``, etc.).
+        mineru_parse_method: Parse method (``auto`` | ``txt`` | ``ocr``); `mineru-open-api`
+            only maps ``ocr`` to ``--ocr`` (``txt`` falls back to default with a warning).
+        mineru_enable_formula: Enable formula parsing (cloud ``pipeline``/``vlm`` only).
+        mineru_enable_table: Enable table parsing (cloud ``pipeline``/``vlm`` only).
+        contact_email: Crossref polite pool contact email (prefer config.local.yaml).
+        s2_api_key: Semantic Scholar API key for higher rate limits
+            (1 req/s vs 100 req/5min; prefer config.local.yaml or ``S2_API_KEY``).
+        openalex_api_key: OpenAlex API key for higher daily quota
+            (prefer config.local.yaml or ``OPENALEX_API_KEY``).
+        chunk_page_limit: Page threshold above which local MinerU splits large PDFs
+            before conversion and merges the resulting Markdown. Cloud MinerU also
+            enforces its official 600-page / 200MB per-file limit.
+        mineru_batch_size: Batch size for the `mineru-open-api` compat layer (default 20).
+        mineru_upload_workers: Concurrency limit for cloud CLI / compat-layer uploads.
+        mineru_upload_retries: Retries per file for `mineru-open-api` uploads
+            (including the first attempt, default 3; exponential backoff).
+        mineru_download_retries: Legacy cloud download retry setting (kept for compatibility).
+        mineru_poll_timeout: Timeout in seconds for one `mineru-open-api` conversion (default 900).
+        enrich_timeout: Hard timeout in seconds per paper for metadata API enrichment
+            (default 180; on timeout keeps local metadata with ``local_timeout``).
+        pdf_preferred_parser: Preferred PDF parser (``mineru`` default; ``docling`` or
+            ``pymupdf`` skips MinerU).
+        pdf_fallback_order: Fallback parser order when MinerU is unavailable or fails
+            (``docling`` / ``pymupdf`` / ``auto``).
+        pdf_fallback_auto_detect: Auto-detect locally installed fallback parsers.
+        si_fetch_on_ingest: Automatically fetch SI after ingesting new papers
+            (rule chain -> download -> verify -> attach; failures never block ingest
+            and record ``fetch_status`` for agent takeover).
     """
 
     mineru_endpoint: str = "http://localhost:8000"
@@ -186,12 +184,12 @@ class IngestConfig:
 
 @dataclass
 class ZoteroConfig:
-    """Zotero 集成配置。
+    """Zotero integration configuration.
 
     Attributes:
-        api_key: Zotero Web API 密钥。
-        library_id: Zotero 用户/群组 library ID。
-        library_type: Library 类型，``"user"`` 或 ``"group"``。
+        api_key: Zotero Web API key.
+        library_id: Zotero user or group library ID.
+        library_type: Library type (``"user"`` or ``"group"``).
     """
 
     api_key: str = ""
@@ -201,14 +199,14 @@ class ZoteroConfig:
 
 @dataclass
 class Config:
-    """Scrinium 全局配置，由 :func:`load_config` 构建。
+    """Scrinium global configuration built by :func:`load_config`.
 
     Attributes:
-        paths: 文件路径配置。
-        ingest: 数据入库配置。
-        search: 全文检索配置。
-        log: 日志与指标配置。
-        zotero: Zotero 集成配置。
+        paths: File path configuration.
+        ingest: Ingestion pipeline configuration.
+        search: Full-text search configuration.
+        log: Logging and metrics configuration.
+        zotero: Zotero integration configuration.
     """
 
     paths: PathsConfig = field(default_factory=PathsConfig)
@@ -222,31 +220,31 @@ class Config:
 
     @property
     def papers_dir(self) -> Path:
-        """已入库论文目录的绝对路径。"""
+        """Absolute path to the ingested papers directory."""
         return (self._root / self.paths.papers_dir).resolve()
 
     @property
     def index_db(self) -> Path:
-        """SQLite 索引数据库的绝对路径。"""
+        """Absolute path to the SQLite index database."""
         return (self._root / self.paths.index_db).resolve()
 
     @property
     def log_file(self) -> Path:
-        """日志文件的绝对路径。"""
+        """Absolute path to the log file."""
         return (self._root / self.log.file).resolve()
 
     @property
     def metrics_db_path(self) -> Path:
-        """指标数据库的绝对路径。"""
+        """Absolute path to the metrics database."""
         return (self._root / self.log.metrics_db).resolve()
 
     @property
     def workspace_dir(self) -> Path:
-        """工作区根目录的绝对路径。"""
+        """Absolute path to the workspace root directory."""
         return (self._root / "workspace").resolve()
 
     def ensure_dirs(self) -> None:
-        """创建运行所需的目录（data/papers, data/inbox, data/pending, workspace 等）。"""
+        """Create runtime directories (data/papers, data/inbox, data/pending, workspace, etc.)."""
         for d in (
             self.papers_dir,
             self._root / "data" / "inbox",
@@ -263,62 +261,61 @@ class Config:
             d.mkdir(parents=True, exist_ok=True)
 
     def resolved_zotero_api_key(self) -> str:
-        """按优先级查找 Zotero API key。
+        """Resolve the Zotero API key.
 
-        查找顺序: config ``zotero.api_key`` → 环境变量 ``ZOTERO_API_KEY``。
+        Order: config ``zotero.api_key`` -> ``ZOTERO_API_KEY`` environment variable.
 
         Returns:
-            API key 字符串，未找到则返回空字符串。
+            API key string, or empty string if unset.
         """
         if self.zotero.api_key:
             return self.zotero.api_key
         return os.environ.get("ZOTERO_API_KEY", "")
 
     def resolved_zotero_library_id(self) -> str:
-        """按优先级查找 Zotero library ID。
+        """Resolve the Zotero library ID.
 
-        查找顺序: config ``zotero.library_id`` → 环境变量 ``ZOTERO_LIBRARY_ID``。
+        Order: config ``zotero.library_id`` -> ``ZOTERO_LIBRARY_ID`` environment variable.
 
         Returns:
-            Library ID 字符串，未找到则返回空字符串。
+            Library ID string, or empty string if unset.
         """
         if self.zotero.library_id:
             return self.zotero.library_id
         return os.environ.get("ZOTERO_LIBRARY_ID", "")
 
     def resolved_mineru_api_key(self) -> str:
-        """按优先级查找 MinerU token。
+        """Resolve the MinerU API token.
 
-        查找顺序:
-        config ``ingest.mineru_api_key`` → 环境变量 ``MINERU_TOKEN`` →
-        环境变量 ``MINERU_API_KEY``（旧兼容名）。
+        Order: config ``ingest.mineru_api_key`` -> ``MINERU_TOKEN`` ->
+        legacy ``MINERU_API_KEY`` environment variable.
 
         Returns:
-            token 字符串，未找到则返回空字符串。
+            Token string, or empty string if unset.
         """
         if self.ingest.mineru_api_key:
             return self.ingest.mineru_api_key
         return os.environ.get("MINERU_TOKEN", "") or os.environ.get("MINERU_API_KEY", "")
 
     def resolved_s2_api_key(self) -> str:
-        """按优先级查找 Semantic Scholar API key。
+        """Resolve the Semantic Scholar API key.
 
-        查找顺序: config ``ingest.s2_api_key`` → 环境变量 ``S2_API_KEY``。
+        Order: config ``ingest.s2_api_key`` -> ``S2_API_KEY`` environment variable.
 
         Returns:
-            API key 字符串，未找到则返回空字符串。
+            API key string, or empty string if unset.
         """
         if self.ingest.s2_api_key:
             return self.ingest.s2_api_key
         return os.environ.get("S2_API_KEY", "")
 
     def resolved_openalex_api_key(self) -> str:
-        """按优先级查找 OpenAlex API key。
+        """Resolve the OpenAlex API key.
 
-        查找顺序: config ``ingest.openalex_api_key`` → 环境变量 ``OPENALEX_API_KEY``。
+        Order: config ``ingest.openalex_api_key`` -> ``OPENALEX_API_KEY`` environment variable.
 
         Returns:
-            API key 字符串，未找到则返回空字符串。
+            API key string, or empty string if unset.
         """
         if self.ingest.openalex_api_key:
             return self.ingest.openalex_api_key
@@ -331,17 +328,17 @@ class Config:
 
 
 def load_config(config_path: Path | None = None) -> Config:
-    """加载并合并 YAML 配置文件。
+    """Load and merge YAML configuration files.
 
-    合并策略: ``config.yaml`` 为基础，``config.local.yaml`` 覆盖同名字段。
+    ``config.yaml`` provides the base; ``config.local.yaml`` overrides matching keys.
 
     Args:
-        config_path: 配置文件路径。为 ``None`` 时依次查找环境变量
-            ``SCRINIUM_CONFIG``（旧名 ``SCHOLARAIO_CONFIG`` 兼容）、
-            当前目录向上最多 6 级的 ``config.yaml``。
+        config_path: Optional config file path. When ``None``, checks
+            ``SCRINIUM_CONFIG`` (legacy ``SCHOLARAIO_CONFIG``), walks up to 6
+            directories from cwd, then checks the global config directory.
 
     Returns:
-        合并后的 :class:`Config` 实例。
+        Merged :class:`Config` instance.
     """
     if config_path is None:
         env_path = _env_with_fallback("SCRINIUM_CONFIG")

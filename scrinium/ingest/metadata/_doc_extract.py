@@ -1,11 +1,12 @@
 """
-_doc_extract.py — 非论文文档的元数据提取
-==========================================
+_doc_extract.py — Metadata extraction for non-paper documents
+=============================================================
 
-对于缺少标题/摘要的普通文档（技术报告、课程讲义、标准文档等），
-以首标题/文件名 + 前 500 词最小元数据入库（纯规则，零模型调用）。
-提取结果不理想时由 pipeline 输出 handoff hint，agent 后处理直写
-正式标题/摘要。
+For general documents lacking a title or abstract (technical reports,
+lecture notes, standards, etc.), ingests minimal metadata built from the
+first heading/filename plus the first 500 words (rule-based, zero model calls).
+When extraction is poor, the pipeline emits a handoff hint so an agent can
+write the proper title and abstract directly afterwards.
 """
 
 from __future__ import annotations

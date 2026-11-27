@@ -1,79 +1,81 @@
 """
-ingest/mineru.py — MinerU PDF → Markdown helpers
-===============================================
+ingest/mineru.py — MinerU PDF -> Markdown helpers
+================================================
 
-本模块提供两层能力：
+This module provides two capabilities:
 
-1. 本地 MinerU API 转换（默认 ``http://localhost:8000``），支持单文件转换和目录批量转换
-2. `mineru-open-api` 云端 CLI 辅助函数，供 ingest pipeline / attach-pdf 等主流程调用
+1. Local MinerU API conversion (default ``http://localhost:8000``), supporting
+   single-file and batch directory conversion
+2. `mineru-open-api` cloud CLI helpers used by main flows such as the ingest
+   pipeline and attach-pdf
 
-前置条件
+Prerequisites
+-------------
+    Start the MinerU API server first (default: http://localhost:8000).
+    Check that it is online with ``python -m scrinium.ingest.mineru status``.
+
+Workflow
 --------
-    需要先启动 MinerU API 服务，默认监听 http://localhost:8000。
-    可用 ``python -m scrinium.ingest.mineru status`` 检查服务是否在线。
+1. Scan for PDF files (single file or directory batch)
+2. Skip PDFs that already have a sibling .md output (--force reconverts)
+3. Upload the PDF via MinerU POST /file_parse and retrieve Markdown
+4. Write Markdown to the target directory (default: PDF directory) as <pdf_stem>.md
+5. Optionally save content_list JSON (--save-content-list)
 
-工作流程
---------
-1. 扫描 PDF 文件 (单个或目录批量)
-2. 检查是否已有同名 .md 输出 — 有则跳过 (--force 可强制重新转换)
-3. 调用 MinerU POST /file_parse 接口上传 PDF 并获取 Markdown
-4. 将 Markdown 写入指定目录 (默认与 PDF 同目录), 文件名 = PDF名.md
-5. 可选同时保存 content_list JSON (--save-content-list)
+Output files
+------------
+    <pdf_stem>.md                 Main output: MinerU-converted Markdown
+    <pdf_stem>_content_list.json  (Optional) MinerU structured content list
 
-输出文件
---------
-    <pdf_stem>.md               主输出, MinerU 转换后的 Markdown
-    <pdf_stem>_content_list.json  (可选) MinerU 结构化内容列表
+    Output location: defaults to the PDF directory; override with -o/--output-dir.
 
-    输出位置: 默认与 PDF 同目录, 可通过 -o/--output-dir 指定统一输出目录。
-
-命令行用法
-----------
-    # 检查 MinerU 服务状态
+CLI usage
+---------
+    # Check MinerU server status
     python -m scrinium.ingest.mineru status
     python -m scrinium.ingest.mineru status --api-url http://host:port
 
-    # 单文件转换
+    # Single-file conversion
     python -m scrinium.ingest.mineru convert paper.pdf
-    python -m scrinium.ingest.mineru convert paper.pdf -o ./output/       # 指定输出目录
+    python -m scrinium.ingest.mineru convert paper.pdf -o ./output/       # Custom output dir
     python -m scrinium.ingest.mineru convert paper.pdf --start-page 0 --end-page 10
     python -m scrinium.ingest.mineru convert paper.pdf --backend vlm-auto-engine
-    python -m scrinium.ingest.mineru convert paper.pdf --lang en          # 英文 PDF
-    python -m scrinium.ingest.mineru convert paper.pdf --parse-method ocr # 强制 OCR
+    python -m scrinium.ingest.mineru convert paper.pdf --lang en          # English PDF
+    python -m scrinium.ingest.mineru convert paper.pdf --parse-method ocr # Force OCR
     python -m scrinium.ingest.mineru convert paper.pdf --no-formula --no-table
     python -m scrinium.ingest.mineru convert paper.pdf --save-content-list
-    python -m scrinium.ingest.mineru convert paper.pdf --dry-run          # 预览, 不写文件
+    python -m scrinium.ingest.mineru convert paper.pdf --dry-run          # Preview only
 
-    # 批量处理
-    python -m scrinium.ingest.mineru batch ./papers/                      # 目录下所有 PDF
-    python -m scrinium.ingest.mineru batch ./papers/ -r                   # 递归子目录
-    python -m scrinium.ingest.mineru batch ./papers/ -o ./md_output/      # 指定输出目录
-    python -m scrinium.ingest.mineru batch ./papers/ --force              # 重新转换已有 .md 的
-    python -m scrinium.ingest.mineru batch ./papers/ --dry-run            # 干跑预览
+    # Batch processing
+    python -m scrinium.ingest.mineru batch ./papers/                      # All PDFs in dir
+    python -m scrinium.ingest.mineru batch ./papers/ -r                   # Recursive
+    python -m scrinium.ingest.mineru batch ./papers/ -o ./md_output/      # Custom output dir
+    python -m scrinium.ingest.mineru batch ./papers/ --force              # Reconvert existing
+    python -m scrinium.ingest.mineru batch ./papers/ --dry-run            # Dry-run preview
     python -m scrinium.ingest.mineru batch ./papers/ --backend pipeline --lang ch
 
-公共选项 (convert / batch 共用)
--------------------------------
-    -o, --output-dir DIR    输出目录 (默认: 与 PDF 同目录)
-    --api-url URL           MinerU 服务地址 (默认: http://localhost:8000)
-    --backend BACKEND       解析后端 (见下方, 默认: pipeline)
-    --lang LANG             OCR 语言: ch(中英), en, latin 等 (默认: ch)
-    --parse-method METHOD   PDF 解析方式: auto / txt / ocr (默认: auto)
-    --no-formula            禁用公式解析
-    --no-table              禁用表格解析
-    --save-content-list     同时保存 content_list JSON
-    --dry-run               预览操作, 不实际写文件
+Common options (shared by convert / batch)
+------------------------------------------
+    -o, --output-dir DIR    Output directory (default: same as PDF)
+    --api-url URL           MinerU server URL (default: http://localhost:8000)
+    --backend BACKEND       Parsing backend (see below; default: pipeline)
+    --lang LANG             OCR language: ch (Chinese/English), en, latin, etc. (default: ch)
+    --parse-method METHOD   PDF parse method: auto / txt / ocr (default: auto)
+    --no-formula            Disable formula parsing
+    --no-table              Disable table parsing
+    --save-content-list     Also save content_list JSON
+    --dry-run               Preview actions without writing files
 
-MinerU 后端选项 (--backend)
----------------------------
-    pipeline            通用, 支持多语言, 无幻觉 (默认, 推荐)
-    vlm-auto-engine     本地算力高精度, 仅中英文
-    vlm-http-client     远程算力高精度 (OpenAI 兼容), 仅中英文
-    hybrid-auto-engine  新一代本地高精度, 支持多语言
-    hybrid-http-client  远程+少量本地算力, 支持多语言
+MinerU backend options (--backend)
+----------------------------------
+    pipeline            General-purpose, multilingual, hallucination-free (default, recommended)
+    vlm-auto-engine     High-accuracy local compute, Chinese/English only
+    vlm-http-client     High-accuracy remote compute (OpenAI-compatible), Chinese/English only
+    hybrid-auto-engine  Next-gen high-accuracy local compute, multilingual
+    hybrid-http-client  Remote + light local compute, multilingual
 
-依赖
-----
+Dependencies
+------------
     Python 3.10+, requests
 """
 
@@ -130,16 +132,16 @@ DEFAULT_POLL_TIMEOUT = 900
 
 @dataclass
 class ConvertResult:
-    """单次 PDF → Markdown 转换的结果。
+    """Result of a single PDF -> Markdown conversion.
 
     Attributes:
-        pdf_path: 原始 PDF 文件路径。
-        md_path: 输出的 Markdown 文件路径，转换失败时为 ``None``。
-        success: 转换是否成功。
-        pages_parsed: 解析的页数。
-        elapsed_seconds: 转换耗时（秒）。
-        error: 失败时的错误信息，成功时为 ``None``。
-        md_size: 输出 Markdown 的字节数。
+        pdf_path: Original PDF file path.
+        md_path: Output Markdown file path, or ``None`` if conversion failed.
+        success: Whether the conversion succeeded.
+        pages_parsed: Number of pages parsed.
+        elapsed_seconds: Conversion time in seconds.
+        error: Error message on failure, or ``None`` on success.
+        md_size: Size of the output Markdown in bytes.
     """
 
     pdf_path: Path
@@ -153,23 +155,23 @@ class ConvertResult:
 
 @dataclass
 class ConvertOptions:
-    """PDF 转换选项。
+    """PDF conversion options.
 
     Attributes:
-        api_url: MinerU 服务地址。
-        output_dir: 输出目录，为 ``None`` 时与 PDF 同目录。
-        backend: MinerU 解析后端（``pipeline`` | ``vlm-auto-engine`` 等）。
-        cloud_model_version: `mineru-open-api extract --model` 对应模型（``pipeline`` | ``vlm`` | ``MinerU-HTML``）。
-            留空时根据 ``backend`` 做兼容映射。
-        lang: OCR 语言（``ch`` | ``en`` | ``latin`` 等）。
-        parse_method: 解析方式（``auto`` | ``txt`` | ``ocr``）。
-        formula_enable: 是否启用公式解析。
-        table_enable: 是否启用表格解析。
-        start_page: 起始页（0-indexed）。
-        end_page: 结束页（0-indexed）。
-        save_content_list: 是否同时保存 content_list JSON。
-        force: 是否强制重新转换已有 ``.md`` 的文件。
-        dry_run: 预览模式，不写文件。
+        api_url: MinerU server URL.
+        output_dir: Output directory; uses the PDF directory when ``None``.
+        backend: MinerU parsing backend (``pipeline`` | ``vlm-auto-engine`` | ...).
+        cloud_model_version: Model for `mineru-open-api extract --model` (``pipeline`` | ``vlm`` | ``MinerU-HTML``).
+            Mapped from ``backend`` for compatibility when left empty.
+        lang: OCR language (``ch`` | ``en`` | ``latin`` | ...).
+        parse_method: Parse method (``auto`` | ``txt`` | ``ocr``).
+        formula_enable: Enable formula parsing.
+        table_enable: Enable table parsing.
+        start_page: Start page (0-indexed).
+        end_page: End page (0-indexed).
+        save_content_list: Also save content_list JSON.
+        force: Reconvert files that already have ``.md`` output.
+        dry_run: Preview mode without writing files.
     """
 
     api_url: str = DEFAULT_API_URL
@@ -197,13 +199,13 @@ class ConvertOptions:
 
 
 def check_server(api_url: str = DEFAULT_API_URL) -> bool:
-    """检查 MinerU 服务是否可达。
+    """Check whether the MinerU server is reachable.
 
     Args:
-        api_url: MinerU 服务地址，默认 ``http://localhost:8000``。
+        api_url: MinerU server URL (default: ``http://localhost:8000``).
 
     Returns:
-        可达返回 ``True``，不可达返回 ``False``。
+        ``True`` if reachable, ``False`` otherwise.
     """
     try:
         resp = requests.get(f"{api_url}/docs", timeout=5)
@@ -213,16 +215,16 @@ def check_server(api_url: str = DEFAULT_API_URL) -> bool:
 
 
 def convert_pdf(pdf_path: Path, opts: ConvertOptions) -> ConvertResult:
-    """通过 MinerU API 将单个 PDF 转换为 Markdown。
+    """Convert a single PDF to Markdown via the MinerU API.
 
-    将 PDF 上传到本地 MinerU 服务，接收 Markdown 内容并写入磁盘。
+    Uploads the PDF to the local MinerU server, receives Markdown, and writes it to disk.
 
     Args:
-        pdf_path: PDF 文件路径。
-        opts: 转换选项（API 地址、后端、输出目录等）。
+        pdf_path: PDF file path.
+        opts: Conversion options (API URL, backend, output directory, etc.).
 
     Returns:
-        :class:`ConvertResult` 实例，包含转换结果和状态。
+        :class:`ConvertResult` instance with the conversion outcome and status.
     """
     result = ConvertResult(pdf_path=pdf_path)
     t0 = time.time()
@@ -394,7 +396,7 @@ def convert_pdf_cloud(
     api_key: str,
     cloud_url: str = CLOUD_API_URL,
 ) -> ConvertResult:
-    """通过 `mineru-open-api extract` 将单个 PDF 转换为 Markdown。"""
+    """Convert a single PDF to Markdown via `mineru-open-api extract`."""
     result = ConvertResult(pdf_path=pdf_path)
     t0 = time.time()
 
@@ -419,8 +421,8 @@ def convert_pdf_cloud(
     cli_path = shutil.which(MINERU_OPEN_API_BIN)
     if not cli_path:
         result.error = (
-            "未找到 mineru-open-api CLI，请先安装：`pip install mineru-open-api`，"
-            "或参考 ModelScope skill / npm / go 安装方式。"
+            "mineru-open-api CLI not found. Install it first with `pip install mineru-open-api`, "
+            "or see the ModelScope skill / npm / go install options."
         )
         result.elapsed_seconds = time.time() - t0
         return result
@@ -443,9 +445,9 @@ def convert_pdf_cloud(
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:
-            result.error = f"mineru-open-api 执行超时: {exc}"
+            result.error = f"mineru-open-api timed out: {exc}"
         except OSError as exc:
-            result.error = f"无法启动 mineru-open-api: {exc}"
+            result.error = f"Failed to launch mineru-open-api: {exc}"
             result.elapsed_seconds = time.time() - t0
             return result
         else:
@@ -456,7 +458,7 @@ def convert_pdf_cloud(
                 actual_md_path = _locate_cloud_markdown_output(out_dir, pdf_path.stem)
                 if actual_md_path is None:
                     detail = (proc.stderr or proc.stdout or "").strip()
-                    result.error = f"mineru-open-api 未生成 Markdown 输出: {detail or 'missing .md file'}"
+                    result.error = f"mineru-open-api produced no Markdown output: {detail or 'missing .md file'}"
                 else:
                     result.md_path = actual_md_path
                     result.success = True
@@ -500,7 +502,7 @@ def convert_pdfs_cloud_batch(
     cloud_url: str = CLOUD_API_URL,
     batch_size: int = _DEFAULT_CLOUD_BATCH_SIZE,
 ) -> list[ConvertResult]:
-    """通过 `mineru-open-api` 批量转换 PDF 为 Markdown。"""
+    """Batch-convert PDFs to Markdown via `mineru-open-api`."""
     if not pdf_paths:
         return []
 

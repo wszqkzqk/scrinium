@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Initialize and diagnose the Scrinium environment. Run interactive setup wizard (bilingual EN/ZH) to install dependencies, create config files, and configure API keys. Run status check to see what's installed and what's missing. Use when the user wants to set up, install, configure, or troubleshoot Scrinium.
+description: Initialize and diagnose the Scrinium environment. Run interactive setup wizard to install dependencies, create config files, and configure API keys. Run status check to see what's installed and what's missing. Use when the user wants to set up, install, configure, or troubleshoot Scrinium.
 version: 1.0.0
 author: wszqkzqk/scrinium
 license: GPL-3.0-or-later
@@ -13,12 +13,12 @@ tags: ["setup", "configuration", "installation"]
 ## 1. 诊断当前状态
 
 ```bash
-scrinium setup check --lang zh
+scrinium setup check
 ```
 
 阅读输出，了解哪些组件已就绪、哪些缺失。
 如果用户明确是在让 agent 代为配置，而不是自己逐步操作：
-- 默认先跑 `scrinium setup check --lang zh`
+- 默认先跑 `scrinium setup check`
 - 优先利用检查输出中的错误说明和建议链接，直接继续下一步配置
 - 只有在会影响后续决策时，才回头问用户一个关键问题
 - 对失败项要用“现状 + 原因 + 建议动作”的方式转述，不要只说“没装”或“不可达”
@@ -174,6 +174,6 @@ setup 过程中，agent 不要只说“需要 key”，必须同时说明：
 
 ## 注意
 
-- 用户也可以直接运行 `scrinium setup` 进入交互式向导（bilingual EN/ZH）
+- 用户也可以直接运行 `scrinium setup` 进入交互式向导
 - `config.local.yaml` 存放敏感信息（API key），不进 git
 - 框架内无任何 LLM / embedding 调用，setup 不涉及模型 key；智能职能（结论提取、翻译、主题组织等）由 agent skill 接管

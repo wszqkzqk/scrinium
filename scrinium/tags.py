@@ -1,15 +1,17 @@
 """
-tags.py — Agent 策展标签系统
-=============================
+tags.py — Agent-curated tag system
+==================================
 
-标签是 agent 策展的受控词表（controlled vocabulary），用于补偿纯关键词
-检索的词汇鸿沟。标签即主题：不做第二个主题系统。
+Tags form an agent-curated controlled vocabulary that bridges the lexical gap
+of pure keyword search. Tags are topics: there is no separate topic system.
 
-- 受控词表存 ``<root>/data/tags.yaml``（canonical 名 + 别名 + 描述）；
-- 论文标签存各自 ``meta.json`` 的 ``"tags"`` 字段（canonical 名列表）；
-- 标签随 ``build_index`` 进入 FTS5（``tags`` 列）与 ``paper_tags`` 过滤表。
+- The controlled vocabulary lives in ``<root>/data/tags.yaml`` (canonical name
+  + aliases + description);
+- Paper tags live in each paper's ``meta.json`` under ``"tags"`` (canonical names);
+- ``build_index`` indexes tags into FTS5 (``tags`` column) and the ``paper_tags``
+  filter table.
 
-词表格式::
+Vocabulary format::
 
     tags:
       force-field:
@@ -17,12 +19,12 @@ tags.py — Agent 策展标签系统
         description: 分子力场相关
         added_by: agent
 
-用法::
+Usage::
 
     from scrinium.tags import paper_tags, register_tag, resolve_tag, set_paper_tags
 
     canonical = resolve_tag(cfg, "FF")          # -> "force-field"
-    register_tag(cfg, "enhanced-sampling")      # -> True（新增）
+    register_tag(cfg, "enhanced-sampling")      # -> True (newly added)
     set_paper_tags(paper_dir, ["force-field"])
 """
 
@@ -46,13 +48,13 @@ def _taxonomy_path(cfg: Config) -> Path:
 
 
 def load_taxonomy(cfg: Config) -> dict:
-    """加载受控词表；文件不存在或为空时返回空词表。
+    """Load the controlled vocabulary; return an empty taxonomy if missing or empty.
 
     Args:
-        cfg: 全局配置（词表路径为 ``<root>/data/tags.yaml``）。
+        cfg: Global configuration (vocabulary path is ``<root>/data/tags.yaml``).
 
     Returns:
-        ``{"tags": {canonical: {"aliases": [...], "description": str, ...}}}``。
+        ``{"tags": {canonical: {"aliases": [...], "description": str, ...}}}``.
     """
     path = _taxonomy_path(cfg)
     if not path.exists():
@@ -63,7 +65,7 @@ def load_taxonomy(cfg: Config) -> dict:
 
 
 def save_taxonomy(cfg: Config, tax: dict) -> None:
-    """将受控词表写回 tags.yaml（canonical 名按字母序）。"""
+    """Write the controlled vocabulary back to tags.yaml (sorted by canonical name)."""
     path = _taxonomy_path(cfg)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -73,13 +75,13 @@ def save_taxonomy(cfg: Config, tax: dict) -> None:
 
 
 def normalize_tag(name: str) -> str:
-    """规范化标签名为 canonical 形式：小写、空白/下划线转连字符。
+    """Normalize a tag name to canonical form: lowercase, whitespace/underscores to hyphens.
 
     Args:
-        name: 原始标签名（如 ``"Force Field"``）。
+        name: Raw tag name (e.g. ``"Force Field"``).
 
     Returns:
-        canonical 名（如 ``"force-field"``）；全空白输入返回空字符串。
+        Canonical name (e.g. ``"force-field"``); empty string for all-whitespace input.
     """
     text = name.strip().lower()
     text = re.sub(r"[\s_]+", "-", text)
@@ -103,16 +105,16 @@ def _alias_lookup(tax: dict) -> dict[str, str]:
 
 
 def resolve_tag(cfg: Config, name: str) -> str | None:
-    """将标签名（canonical 或别名）解析为 canonical 名。
+    """Resolve a tag name (canonical or alias) to its canonical name.
 
-    大小写不敏感，同时尝试原样小写与连字符规范化两种形式。
+    Case-insensitive; tries both verbatim lowercase and hyphen-normalized forms.
 
     Args:
-        cfg: 全局配置。
-        name: 用户输入的标签名。
+        cfg: Global configuration.
+        name: User-supplied tag name.
 
     Returns:
-        canonical 名；未知名返回 ``None``。
+        Canonical name, or ``None`` if unknown.
     """
     lookup = _alias_lookup(load_taxonomy(cfg))
     return lookup.get(name.strip().lower()) or lookup.get(normalize_tag(name))
@@ -121,8 +123,12 @@ def resolve_tag(cfg: Config, name: str) -> str | None:
 def unknown_tag_message(cfg: Config, tag: str) -> str:
     """Build the unknown-tag error message listing the current vocabulary."""
     known = sorted((load_taxonomy(cfg).get("tags") or {}).keys())
-    hint = f"；当前词表: {', '.join(known)}" if known else "（词表为空，可先用 scrinium tag 打标）"
-    return f"未知标签: {tag}{hint}"
+    hint = (
+        f"; current vocabulary: {', '.join(known)}"
+        if known
+        else " (vocabulary is empty; add tags first with scrinium tag)"
+    )
+    return f"Unknown tag: {tag}{hint}"
 
 
 def register_tag(
@@ -133,27 +139,28 @@ def register_tag(
     description: str = "",
     aliases: tuple[str, ...] | list[str] = (),
 ) -> bool:
-    """注册新标签到受控词表。
+    """Register a new tag in the controlled vocabulary.
 
-    canonical 名规范化为小写连字符式。名称命中既有 canonical 或别名时
-    视为已存在，不重复注册。
+    The canonical name is normalized to lowercase hyphenated form. If the name
+    matches an existing canonical name or alias, it is treated as already
+    registered.
 
     Args:
-        cfg: 全局配置。
-        name: 标签名。
-        added_by: 注册来源标记（默认 ``"agent"``）。
-        description: 标签描述。
-        aliases: 别名列表。
+        cfg: Global configuration.
+        name: Tag name.
+        added_by: Registration source marker (default ``"agent"``).
+        description: Tag description.
+        aliases: List of aliases.
 
     Returns:
-        新增返回 ``True``，已存在返回 ``False``。
+        ``True`` if newly registered, ``False`` if already present.
 
     Raises:
-        ValueError: 标签名规范化后为空。
+        ValueError: Tag name is empty after normalization.
     """
     canonical = normalize_tag(name)
     if not canonical:
-        raise ValueError(f"非法标签名: {name!r}")
+        raise ValueError(f"Invalid tag name: {name!r}")
     tax = load_taxonomy(cfg)
     if resolve_tag(cfg, name) is not None:
         return False
@@ -167,23 +174,23 @@ def register_tag(
 
 
 def paper_tags(paper_dir: Path) -> list[str]:
-    """读取论文标签（``meta.json["tags"]``）；无字段时返回 ``[]``。"""
+    """Read paper tags (``meta.json["tags"]``); return ``[]`` if the field is absent."""
     meta = read_meta(paper_dir)
     return [t for t in (meta.get("tags") or []) if isinstance(t, str)]
 
 
 def set_paper_tags(paper_dir: Path, tags: list[str]) -> None:
-    """写入论文标签（去重保序），经原子写更新 meta.json。"""
+    """Write paper tags (deduplicated, order-preserving) to meta.json atomically."""
     meta = read_meta(paper_dir)
     meta["tags"] = list(dict.fromkeys(tags))
     write_meta(paper_dir, meta)
 
 
 def all_tags_with_counts(cfg: Config) -> dict[str, int]:
-    """扫描全库 meta.json，统计每个标签标注了多少篇论文。
+    """Scan all meta.json files in the library and count papers per tag.
 
     Returns:
-        ``{tag: 论文数}`` 字典（未排序）。
+        Unsorted ``{tag: paper_count}`` dict.
     """
     counts: dict[str, int] = {}
     for pdir in iter_paper_dirs(cfg.papers_dir):
@@ -197,17 +204,18 @@ def all_tags_with_counts(cfg: Config) -> dict[str, int]:
 
 
 def papers_with_tag(cfg: Config, tag: str) -> list[tuple[Path, dict]]:
-    """返回带有指定标签的论文目录与 meta（别名自动归一）。
+    """Return ``(paper_dir, meta)`` pairs carrying the given tag (aliases resolved).
 
-    标签先经 :func:`resolve_tag` 解析为 canonical 名；词表中不存在时
-    回退到 :func:`normalize_tag`（论文可能带有未注册进词表的标签）。
+    The tag is first resolved to its canonical name via :func:`resolve_tag`;
+    when absent from the vocabulary it falls back to :func:`normalize_tag`
+    (papers may carry tags not yet registered in the vocabulary).
 
     Args:
-        cfg: 全局配置。
-        tag: 标签名（canonical 或别名）。
+        cfg: Global configuration.
+        tag: Tag name (canonical or alias).
 
     Returns:
-        ``[(paper_dir, meta), ...]``，按目录名排序。
+        ``[(paper_dir, meta), ...]`` sorted by directory name.
     """
     canonical = resolve_tag(cfg, tag) or normalize_tag(tag)
     if not canonical:
@@ -224,15 +232,16 @@ def papers_with_tag(cfg: Config, tag: str) -> list[tuple[Path, dict]]:
 
 
 def topic_overview(cfg: Config) -> dict:
-    """聚合标签主题总览：词表 + 计数 + 占比 + 未打标论文数。
+    """Aggregate the tag-based topic overview: vocabulary + counts + shares + untagged count.
 
-    标签即主题——不做第二个主题系统。词表 canonical 名与论文实际使用
-    的标签取并集。
+    Tags are topics — there is no second topic system. Canonical names in the
+    vocabulary and tags actually used on papers are combined as a union.
 
     Returns:
-        ``{"total_papers": int, "untagged_papers": int, "topics": [...]}``；
-        每个主题含 ``tag`` / ``description`` / ``aliases`` / ``count`` /
-        ``share``（占全库论文比例），按 ``count`` 降序、同名按字典序。
+        ``{"total_papers": int, "untagged_papers": int, "topics": [...]}``;
+        each topic has ``tag`` / ``description`` / ``aliases`` / ``count`` /
+        ``share`` (fraction of all library papers), sorted by ``count`` desc
+        then ``tag`` alphabetically.
     """
     tax = load_taxonomy(cfg).get("tags") or {}
     counts = all_tags_with_counts(cfg)

@@ -90,7 +90,8 @@ def _set_current(tool: str, version: str, cfg: Config | None = None) -> None:
         # (WinError 1314); fall back to a plain text marker file.
         link.write_text(version, encoding="utf-8")
         logging.getLogger(__name__).warning(
-            "无法创建符号链接（Windows 需要管理员权限或开发者模式），已改用文本文件记录当前版本"
+            "Cannot create symlink (Windows requires admin rights or Developer Mode); "
+            "using a text file to record the current version"
         )
 
 
@@ -117,17 +118,17 @@ def toolref_use(tool: str, version: str, *, cfg: Config | None = None) -> None:
     from scrinium.log import ui
 
     if not validate_tool_name(tool):
-        raise ValueError(f"未知工具：{tool}")
+        raise ValueError(f"Unknown tool: {tool}")
     if not _validate_version(version):
-        raise ValueError(f"非法版本号：{version}")
+        raise ValueError(f"Invalid version: {version}")
     vdir = _version_dir(tool, version, cfg)
     if not vdir.exists():
         raise FileNotFoundError(
-            f"{tool} 版本 {version} 未找到。请先运行 `scrinium toolref fetch {tool} --version {version}`"
+            f"{tool} version {version} not found. Run `scrinium toolref fetch {tool} --version {version}` first"
         )
     _set_current(tool, version, cfg)
     display_name = TOOL_REGISTRY.get(tool, {}).get("display_name", tool)
-    ui(f"[toolref] {display_name} 当前版本已切换为 {version}")
+    ui(f"[toolref] {display_name} current version switched to {version}")
 
 
 def toolref_list(tool: str | None = None, *, cfg: Config | None = None) -> list[dict]:

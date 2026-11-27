@@ -1,8 +1,9 @@
 """
-citation_check.py — 引用验证
-=============================
+citation_check.py — Citation verification
+=========================================
 
-从文本中提取学术引用，与本地知识库交叉核验。
+Extract academic citations from text and cross-check them against the local
+knowledge base.
 """
 
 from __future__ import annotations

@@ -12,29 +12,29 @@ from typing import Any
 def _require_pptx(path: str | Path, label: str) -> Path:
     file_path = Path(path)
     if not file_path.exists():
-        raise FileNotFoundError(f"{label}不存在: {file_path}")
+        raise FileNotFoundError(f"{label} not found: {file_path}")
     if not file_path.is_file():
-        raise ValueError(f"{label}不是文件: {file_path}")
+        raise ValueError(f"{label} is not a file: {file_path}")
     if file_path.suffix.lower() != ".pptx":
-        raise ValueError(f"{label}不是 PPTX 文件: {file_path}")
+        raise ValueError(f"{label} is not a PPTX file: {file_path}")
     return file_path
 
 
 def prepare_editable(source: str | Path, target: str | Path, force: bool = False) -> Path:
     """Copy a PPTX for manual editing without implicitly overwriting the target."""
-    source_path = _require_pptx(source, "源文件")
+    source_path = _require_pptx(source, "Source file")
     target_path = Path(target)
     if target_path.suffix.lower() != ".pptx":
-        raise ValueError(f"输出路径不是 PPTX 文件: {target_path}")
+        raise ValueError(f"Output path is not a PPTX file: {target_path}")
     if source_path.resolve() == target_path.resolve():
-        raise ValueError("可编辑副本不能覆盖源文件")
+        raise ValueError("Editable copy must not overwrite the source file")
     if target_path.exists():
         if target_path.is_dir():
-            raise ValueError(f"输出路径不是文件: {target_path}")
+            raise ValueError(f"Output path is not a file: {target_path}")
         if not force:
-            raise FileExistsError(f"可编辑副本已存在: {target_path}（如需覆盖请使用 force=True）")
+            raise FileExistsError(f"Editable copy already exists: {target_path} (use force=True to overwrite)")
     if not target_path.parent.is_dir():
-        raise FileNotFoundError(f"输出目录不存在: {target_path.parent}")
+        raise FileNotFoundError(f"Output directory not found: {target_path.parent}")
     shutil.copy2(source_path, target_path)
     return target_path
 
@@ -402,12 +402,12 @@ def _package_change_count(changes):
 
 def compare_pptx(baseline: str | Path, edited: str | Path) -> dict[str, Any]:
     """Return a JSON-serializable semantic diff with an OPC package-level fallback."""
-    baseline_path = _require_pptx(baseline, "基准文件")
-    edited_path = _require_pptx(edited, "编辑文件")
+    baseline_path = _require_pptx(baseline, "Baseline file")
+    edited_path = _require_pptx(edited, "Edited file")
     try:
         from pptx import Presentation
     except ImportError:
-        raise ImportError("python-pptx 未安装，请运行: pip install scrinium[office]") from None
+        raise ImportError("python-pptx is not installed; run: pip install scrinium[office]") from None
 
     baseline_prs = Presentation(str(baseline_path))
     edited_prs = Presentation(str(edited_path))

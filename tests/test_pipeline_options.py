@@ -45,7 +45,7 @@ class TestPipelineOptions:
 class TestPipelineErrorBoundary:
     def test_run_pipeline_unknown_step_raises_instead_of_exit(self, tmp_path):
         cfg = SimpleNamespace(_root=tmp_path)
-        with pytest.raises(PipelineError, match="未知步骤"):
+        with pytest.raises(PipelineError, match="Unknown step"):
             run_pipeline(["no_such_step"], cfg, {})
 
     def test_process_inbox_mineru_unreachable_raises_instead_of_exit(self, tmp_path, monkeypatch):
@@ -61,7 +61,7 @@ class TestPipelineErrorBoundary:
 
         monkeypatch.setattr(mineru, "check_server", lambda *_: False)
 
-        with pytest.raises(PipelineError, match="MinerU 不可达"):
+        with pytest.raises(PipelineError, match="MinerU is unreachable"):
             _process_inbox(
                 inbox_dir,
                 tmp_path / "papers",
@@ -113,7 +113,7 @@ class TestCollectExistingIdsFailures:
 
         run_pipeline(["extract"], cfg, {})
 
-        assert any("去重可能不完整" in m for m in messages)
+        assert any("dedup may be incomplete" in m for m in messages)
 
     def test_run_pipeline_no_warning_when_all_readable(self, tmp_path, monkeypatch):
         cfg = SimpleNamespace(
@@ -126,7 +126,7 @@ class TestCollectExistingIdsFailures:
 
         run_pipeline(["extract"], cfg, {})
 
-        assert not any("去重可能不完整" in m for m in messages)
+        assert not any("dedup may be incomplete" in m for m in messages)
 
 
 class TestInboxCtxOptsCoercion:

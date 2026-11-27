@@ -178,7 +178,7 @@ class TestRenameWorkspace:
         ws_root = tmp_path / "workspace"
         ws_root.mkdir(parents=True, exist_ok=True)
 
-        with pytest.raises(FileNotFoundError, match="工作区不存在"):
+        with pytest.raises(FileNotFoundError, match="Workspace not found"):
             rename(ws_root, "missing", "new")
 
     def test_rename_target_exists_raises(self, tmp_path):
@@ -186,7 +186,7 @@ class TestRenameWorkspace:
         create(ws_root / "old")
         create(ws_root / "new")
 
-        with pytest.raises(FileExistsError, match="目标工作区已存在"):
+        with pytest.raises(FileExistsError, match="Target workspace already exists"):
             rename(ws_root, "old", "new")
 
     def test_rename_source_is_not_directory_raises(self, tmp_path):
@@ -194,28 +194,28 @@ class TestRenameWorkspace:
         ws_root.mkdir(parents=True, exist_ok=True)
         (ws_root / "old").write_text("not a directory", encoding="utf-8")
 
-        with pytest.raises(ValueError, match="不是有效工作区目录"):
+        with pytest.raises(ValueError, match="Not a valid workspace directory"):
             rename(ws_root, "old", "new")
 
     def test_rename_source_without_papers_json_raises(self, tmp_path):
         ws_root = tmp_path / "workspace"
         (ws_root / "old").mkdir(parents=True, exist_ok=True)
 
-        with pytest.raises(ValueError, match=r"缺少 papers\.json"):
+        with pytest.raises(ValueError, match=r"Missing papers\.json"):
             rename(ws_root, "old", "new")
 
     def test_rename_rejects_invalid_old_name(self, tmp_path):
         ws_root = tmp_path / "workspace"
         create(ws_root / "old")
 
-        with pytest.raises(ValueError, match="非法工作区名称"):
+        with pytest.raises(ValueError, match="Invalid workspace name"):
             rename(ws_root, "../old", "new")
 
     def test_rename_rejects_invalid_new_name(self, tmp_path):
         ws_root = tmp_path / "workspace"
         create(ws_root / "old")
 
-        with pytest.raises(ValueError, match="非法工作区名称"):
+        with pytest.raises(ValueError, match="Invalid workspace name"):
             rename(ws_root, "old", "../new")
 
 
@@ -252,7 +252,7 @@ class TestCmdWsMissingWorkspace:
         ws_root = tmp_path / "workspace"
         create(ws_root / "alpha")
 
-        with pytest.raises(ValueError, match="工作区不存在: typo-ws") as exc_info:
+        with pytest.raises(ValueError, match="Workspace not found: typo-ws") as exc_info:
             cli.cmd_ws(_ws_args(name="typo-ws", paper_refs=["some-ref"]), _ws_cfg(tmp_path))
 
         msg = str(exc_info.value)
@@ -261,7 +261,7 @@ class TestCmdWsMissingWorkspace:
         assert not (ws_root / "typo-ws").exists()
 
     def test_add_missing_workspace_without_any_workspace(self, tmp_path):
-        with pytest.raises(ValueError, match="工作区不存在: ws") as exc_info:
+        with pytest.raises(ValueError, match="Workspace not found: ws") as exc_info:
             cli.cmd_ws(_ws_args(paper_refs=["some-ref"]), _ws_cfg(tmp_path))
 
         assert "scrinium ws init ws" in str(exc_info.value)
@@ -269,7 +269,7 @@ class TestCmdWsMissingWorkspace:
     def test_show_missing_workspace_raises(self, tmp_path):
         create(tmp_path / "workspace" / "alpha")
 
-        with pytest.raises(ValueError, match="工作区不存在: ghost") as exc_info:
+        with pytest.raises(ValueError, match="Workspace not found: ghost") as exc_info:
             cli.cmd_ws(_ws_args(ws_action="show", name="ghost"), _ws_cfg(tmp_path))
 
         assert "alpha" in str(exc_info.value)
@@ -281,7 +281,7 @@ class TestCmdWsMissingWorkspace:
 
         cli.cmd_ws(_ws_args(ws_action="show"), _ws_cfg(tmp_path))
 
-        assert any("0 篇论文" in m for m in messages)
+        assert any("0 papers" in m for m in messages)
 
 
 class TestCmdWsAddUnresolvedRefs:
@@ -299,15 +299,15 @@ class TestCmdWsAddUnresolvedRefs:
 
         messages = self._run_add(tmp_path, tmp_db, ["Smith-2023-Turbulence", "bogus-ref"], monkeypatch)
 
-        assert any("已添加 1 篇论文" in m for m in messages)
-        assert "无法解析: bogus-ref" in messages
+        assert any("Added 1 papers" in m for m in messages)
+        assert "Could not resolve: bogus-ref" in messages
 
     def test_all_unresolved_raises(self, tmp_papers, tmp_db, tmp_path, monkeypatch):
         build_index(tmp_papers, tmp_db)
         create(tmp_path / "workspace" / "ws")
         monkeypatch.setattr(cli_ws, "ui", lambda msg="": None)
 
-        with pytest.raises(ValueError, match="无法解析"):
+        with pytest.raises(ValueError, match="Could not resolve"):
             cli.cmd_ws(_ws_args(paper_refs=["bogus-1", "bogus-2"]), _ws_cfg(tmp_path, db=tmp_db))
 
     def test_add_collects_unresolved_via_out_param(self, tmp_path, monkeypatch):

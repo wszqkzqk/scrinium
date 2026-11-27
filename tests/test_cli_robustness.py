@@ -55,7 +55,7 @@ class TestMainValueError:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         combined = captured.out + captured.err
-        assert "无法解析年份" in combined
+        assert "Invalid year" in combined
         assert "Traceback" not in combined
 
 
@@ -71,7 +71,7 @@ class TestMainPipelineError:
         monkeypatch.setattr("scrinium.ingest.metadata._models.configure_s2_session", lambda *_: None)
 
         def fake_run_pipeline(*_args, **_kwargs):
-            raise PipelineError("MinerU 不可达且未配置 MinerU token")
+            raise PipelineError("MinerU unreachable and no MinerU token configured")
 
         monkeypatch.setattr("scrinium.ingest.pipeline.run_pipeline", fake_run_pipeline)
         monkeypatch.setattr(sys, "argv", ["scrinium", "pipeline", "full", "--dry-run"])
@@ -85,7 +85,7 @@ class TestMainPipelineError:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         combined = captured.out + captured.err
-        assert "错误: MinerU 不可达且未配置 MinerU token" in combined
+        assert "Error: MinerU unreachable and no MinerU token configured" in combined
         assert "Traceback" not in combined
 
 

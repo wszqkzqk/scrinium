@@ -31,17 +31,17 @@ def cmd_refs(args: argparse.Namespace, cfg) -> None:
     pids = _resolve_ws_paper_ids(args, cfg)
     refs = get_references(paper_uuid, cfg.index_db, paper_ids=pids)
     if not refs:
-        ui("该论文没有参考文献数据。请先运行 refetch 拉取 references。")
+        ui("This paper has no reference data. Run refetch first to pull references.")
         return
 
     in_lib = [r for r in refs if r.get("target_id")]
     out_lib = [r for r in refs if not r.get("target_id")]
 
-    scope = f"工作区 {args.ws}" if getattr(args, "ws", None) else "库内"
-    ui(f"参考文献共 {len(refs)} 篇（{scope} {len(in_lib)} 篇，库外 {len(out_lib)} 篇）\n")
+    scope = f"workspace {args.ws}" if getattr(args, "ws", None) else "library"
+    ui(f"References: {len(refs)} total ({len(in_lib)} in {scope}, {len(out_lib)} outside library)\n")
 
     if in_lib:
-        ui("── 库内 ──")
+        ui("── In Library ──")
         for i, r in enumerate(in_lib, 1):
             display = r.get("dir_name") or r["target_id"]
             year = r.get("year") or "?"
@@ -52,7 +52,7 @@ def cmd_refs(args: argparse.Namespace, cfg) -> None:
             ui()
 
     if out_lib:
-        ui("── 库外 ──")
+        ui("── Outside Library ──")
         for i, r in enumerate(out_lib, 1):
             ui(f"[{i}] DOI: {r['target_doi']}")
         ui()
@@ -69,12 +69,12 @@ def cmd_citing(args: argparse.Namespace, cfg) -> None:
     pids = _resolve_ws_paper_ids(args, cfg)
     results = get_citing_papers(paper_uuid, cfg.index_db, paper_ids=pids)
     if not results:
-        scope = f"工作区 {args.ws} 中" if getattr(args, "ws", None) else "本地"
-        ui(f"没有找到引用该论文的{scope}论文。")
+        scope = f"in workspace {args.ws}" if getattr(args, "ws", None) else "local"
+        ui(f"No {scope} papers found citing this paper.")
         return
 
-    scope = f"工作区 {args.ws}" if getattr(args, "ws", None) else "本地"
-    ui(f"共 {len(results)} 篇{scope}论文引用了此论文：\n")
+    scope = f"workspace {args.ws}" if getattr(args, "ws", None) else "local"
+    ui(f"{len(results)} {scope} papers cite this paper:\n")
     for i, r in enumerate(results, 1):
         display = r.get("dir_name") or r["source_id"]
         year = r.get("year") or "?"
@@ -98,10 +98,10 @@ def cmd_shared_refs(args: argparse.Namespace, cfg) -> None:
     pids = _resolve_ws_paper_ids(args, cfg)
     results = get_shared_references(paper_uuids, cfg.index_db, min_shared=min_shared, paper_ids=pids)
     if not results:
-        ui(f"没有找到被 ≥{min_shared} 篇论文共同引用的参考文献。")
+        ui(f"No references shared by >={min_shared} papers found.")
         return
 
-    ui(f"共同参考文献（被 ≥{min_shared} 篇共引）：共 {len(results)} 篇\n")
+    ui(f"Shared references (co-cited by >={min_shared} papers): {len(results)} total\n")
     for i, r in enumerate(results, 1):
         count = r["shared_count"]
         if r.get("target_id"):
@@ -121,7 +121,7 @@ def cmd_snowball(args: argparse.Namespace, cfg) -> None:
 
     depth = getattr(args, "depth", 1) or 1
     if depth != 1:
-        raise ValueError(f"snowball 当前仅支持 --depth 1（收到 {depth}）")
+        raise ValueError(f"snowball currently only supports --depth 1 (got {depth})")
 
     # Resolve seeds (dir_name / UUID / DOI). Any unresolvable ref is fatal:
     # seeds are the basis of the whole expansion.
@@ -139,13 +139,13 @@ def cmd_snowball(args: argparse.Namespace, cfg) -> None:
             seed_uuids.append(uuid)
             seed_labels.append(paper_d.name)
     if unresolved:
-        raise ValueError(f"无法解析种子论文: {', '.join(unresolved)}")
+        raise ValueError(f"Unable to resolve seed papers: {', '.join(unresolved)}")
 
     ws_ids = _resolve_ws_paper_ids(args, cfg)
     ranked = snowball_candidates(seed_uuids, cfg.index_db, ws_ids=ws_ids)
     if not ranked:
-        ui("没有发现任何候选论文：引用图数据不足。")
-        ui("可对种子运行 scrinium refetch <paper-id> 拉取 references，然后 scrinium index 重建索引。")
+        ui("No candidate papers found: insufficient citation graph data.")
+        ui("Run scrinium refetch <paper-id> on the seeds to pull references, then scrinium index to rebuild the index.")
         return
 
     top = args.top if args.top is not None else 20
@@ -172,14 +172,17 @@ def cmd_snowball(args: argparse.Namespace, cfg) -> None:
         )
         return
 
-    scope = f"工作区 {args.ws} 内" if getattr(args, "ws", None) else "库内"
-    ui(f"种子论文：{', '.join(seed_labels)}")
-    ui(f"{scope}滚雪球候选共 {len(ranked)} 篇（score = 2×共享引用 + 1×引用种子 + 1×被种子引用）\n")
+    scope = f"in workspace {args.ws}" if getattr(args, "ws", None) else "in library"
+    ui(f"Seed papers: {', '.join(seed_labels)}")
+    ui(f"Found {len(ranked)} snowball candidates {scope} (score = 2*shared refs + 1*cites seeds + 1*cited by seeds)\n")
     for i, c in enumerate(show, 1):
         rel = "+".join(c["relations"])
         ui(f"[{i}] [score {c['score']}] {c['dir_name'] or c['id']}")
-        ui(f"     {c.get('title') or '?'} | {c.get('year') or '?'} | 被引 {c['citation_count']}")
-        ui(f"     关系 {rel} | 共享引用 {c['shared']} | 引用种子 {c['cites_seeds']} | 被种子引用 {c['cited_by_seeds']}")
+        ui(f"     {c.get('title') or '?'} | {c.get('year') or '?'} | Citations {c['citation_count']}")
+        ui(
+            f"     relations {rel} | shared refs {c['shared']} | "
+            f"cites seeds {c['cites_seeds']} | cited by seeds {c['cited_by_seeds']}"
+        )
         ui()
 
 
@@ -199,23 +202,23 @@ def cmd_toolref(args: argparse.Namespace, cfg) -> None:
         if action == "fetch":
             count = toolref_fetch(args.tool, version=args.version, force=args.force, cfg=cfg)
             if count == 0:
-                ui("未索引任何页面。请检查版本号或文档源。")
+                ui("No pages indexed. Check the version number or documentation source.")
 
         elif action == "show":
             results = toolref_show(args.tool, *args.path, cfg=cfg)
             if not results:
-                ui(f"未找到匹配：{args.tool} {' '.join(args.path)}")
-                ui(f"尝试搜索：scrinium toolref search {args.tool} {' '.join(args.path)}")
+                ui(f"No match found: {args.tool} {' '.join(args.path)}")
+                ui(f"Try searching: scrinium toolref search {args.tool} {' '.join(args.path)}")
                 return
             for r in results:
                 ui(f"\n{'=' * 60}")
                 ui(r["page_name"])
                 if r.get("section"):
-                    ui(f"   段落：{r['section']}  |  程序：{r.get('program', '')}")
+                    ui(f"   Section: {r['section']}  |  Program: {r.get('program', '')}")
                 if r.get("synopsis"):
                     ui(f"   {r['synopsis']}")
                 ui(f"{'─' * 60}")
-                ui(r.get("content", "(无内容)"))
+                ui(r.get("content", "(no content)"))
 
         elif action == "search":
             query = " ".join(args.query)
@@ -228,9 +231,9 @@ def cmd_toolref(args: argparse.Namespace, cfg) -> None:
                 cfg=cfg,
             )
             if not results:
-                ui(f"无结果：{query}")
+                ui(f"No results: {query}")
                 return
-            ui(f"找到 {len(results)} 条结果：\n")
+            ui(f"Found {len(results)} results:\n")
             for i, r in enumerate(results, 1):
                 synopsis = r.get("synopsis", "")[:80]
                 ui(f"  {i:2d}. [{r['page_name']}] {synopsis}")
@@ -239,8 +242,8 @@ def cmd_toolref(args: argparse.Namespace, cfg) -> None:
             entries = toolref_list(args.tool, cfg=cfg)
             if not entries:
                 tools = ", ".join(TOOL_REGISTRY.keys())
-                ui(f"无已拉取文档。支持的工具：{tools}")
-                ui("使用 `scrinium toolref fetch <tool> --version <ver>` 拉取")
+                ui(f"No documentation fetched yet. Supported tools: {tools}")
+                ui("Fetch with `scrinium toolref fetch <tool> --version <ver>`")
                 return
             current_tool = ""
             for e in entries:
@@ -249,12 +252,12 @@ def cmd_toolref(args: argparse.Namespace, cfg) -> None:
                     ui(f"\n{e['display_name']}:")
                 marker = " (current)" if e["is_current"] else ""
                 completeness = ""
-                unit = "页" if e.get("source_type") == "manifest" else "条"
+                unit = "pages" if e.get("source_type") == "manifest" else "entries"
                 if e.get("source_type") == "manifest" and e.get("expected_pages"):
-                    completeness = f" [{e['page_count']}/{e['expected_pages']} 已索引"
+                    completeness = f" [{e['page_count']}/{e['expected_pages']} indexed"
                     failed_pages = e.get("failed_pages")
                     if failed_pages:
-                        completeness += f", {failed_pages} 失败"
+                        completeness += f", {failed_pages} failed"
                     completeness += "]"
                 ui(f"  {e['version']}{marker} — {e['page_count']} {unit}{completeness}")
 
@@ -274,7 +277,7 @@ def cmd_document(args: argparse.Namespace, cfg) -> None:
     elif action == "diff":
         _cmd_document_diff(args, cfg)
     else:
-        _log.error("请指定 document 子命令: inspect / editable / diff")
+        _log.error("Specify a document subcommand: inspect / editable / diff")
         sys.exit(1)
 
 
@@ -283,7 +286,7 @@ def _cmd_document_inspect(args: argparse.Namespace, cfg) -> None:
 
     file_path = Path(args.file)
     if not file_path.exists():
-        _log.error("文件不存在: %s", file_path)
+        _log.error("File does not exist: %s", file_path)
         sys.exit(1)
     fmt = getattr(args, "format", None)
     try:
@@ -309,12 +312,12 @@ def _cmd_document_editable(args: argparse.Namespace, cfg) -> None:
     except (OSError, ValueError, ImportError) as e:
         _log.error("%s", e)
         sys.exit(1)
-    ui(f"已创建可编辑副本: {result}")
+    ui(f"Created editable copy: {result}")
 
 
 def _text_preview(value, limit=70):
     if value is None:
-        return "(无)"
+        return "(none)"
     preview = str(value).replace("\n", "\\n")
     return preview if len(preview) <= limit else f"{preview[:limit]}…"
 
@@ -334,86 +337,92 @@ def _print_part_changes(label, changes, limit=12):
     total = added + removed + modified
     if not total:
         return
-    ui(f"{label}: 新增 {added} | 删除 {removed} | 修改 {modified}")
+    ui(f"{label}: added {added} | removed {removed} | modified {modified}")
     shown = 0
     for action, caption in (("added", "+"), ("removed", "-"), ("modified", "~")):
         for change in changes[action]:
             if shown == limit:
-                ui(f"  其余 {total - shown} 个部件请使用 --json 查看")
+                ui(f"  ... and {total - shown} more parts (use --json to see all)")
                 return
             ui(f"  {caption} {change['part']} [{change['kind']}]")
             shown += 1
 
 
 def _print_pptx_diff(result) -> None:
-    ui(f"=== PPTX 差异: {Path(result['baseline']).name} → {Path(result['edited']).name} ===")
+    ui(f"=== PPTX diff: {Path(result['baseline']).name} -> {Path(result['edited']).name} ===")
     if not result["has_changes"]:
-        ui("未发现内容差异。")
-        _print_part_changes("元数据（不计入内容差异）", result["metadata_changes"])
+        ui("No content differences found.")
+        _print_part_changes("Metadata (not counted as content diff)", result["metadata_changes"])
         return
 
     for slide in result["slides_added"]:
-        ui(f"第 {slide['index']} 页: 新增幻灯片 (slide_id={slide['slide_id']})")
+        ui(f"Slide {slide['index']}: added slide (slide_id={slide['slide_id']})")
     for slide in result["slides_removed"]:
-        ui(f"原第 {slide['index']} 页: 删除幻灯片 (slide_id={slide['slide_id']})")
+        ui(f"Original slide {slide['index']}: removed slide (slide_id={slide['slide_id']})")
     if result["slide_order_change"] is not None:
         count = len(result["slide_order_change"]["before"])
-        ui(f"{count} 个共有页面的相对顺序已调整；使用 --json 可查看完整前后顺序")
+        ui(f"Relative order of {count} shared slides changed; use --json to see full before/after order")
 
     aspect_names = {
-        "font": "字体",
-        "paragraph": "段落",
-        "crop": "图片裁切",
-        "rotation": "旋转",
-        "shape": "形状属性",
-        "other": "其他属性",
+        "font": "font",
+        "paragraph": "paragraph",
+        "crop": "image crop",
+        "rotation": "rotation",
+        "shape": "shape properties",
+        "other": "other properties",
     }
     for slide in result["slides_modified"]:
-        ui(f"第 {slide['edited_slide']} 页（原第 {slide['baseline_slide']} 页）:")
+        ui(f"Slide {slide['edited_slide']} (was slide {slide['baseline_slide']}):")
         for shape in slide["shapes_added"]:
             ui(f"  + Shape [{shape['name']}] (shape_id={shape['shape_id']})")
         for shape in slide["shapes_removed"]:
             ui(f"  - Shape [{shape['name']}] (shape_id={shape['shape_id']})")
         for change in slide["text_changes"]:
-            ui(f"  文本 [{change['name']}]: '{_text_preview(change['before'])}' → '{_text_preview(change['after'])}'")
+            ui(f"  Text [{change['name']}]: '{_text_preview(change['before'])}' -> '{_text_preview(change['after'])}'")
         for change in slide["geometry_changes"]:
             ui(
-                f"  位置/尺寸 [{change['name']}]: "
-                f"{_geometry_preview(change['before'])} → {_geometry_preview(change['after'])}"
+                f"  Position/Size [{change['name']}]: "
+                f"{_geometry_preview(change['before'])} -> {_geometry_preview(change['after'])}"
             )
         for change in slide["image_changes"]:
-            before = (change["before"] or {}).get("sha256", "(无)")[:12]
-            after = (change["after"] or {}).get("sha256", "(无)")[:12]
-            ui(f"  图片 [{change['name']}]: {before} → {after}")
+            before = (change["before"] or {}).get("sha256", "(none)")[:12]
+            after = (change["after"] or {}).get("sha256", "(none)")[:12]
+            ui(f"  Image [{change['name']}]: {before} -> {after}")
         for change in slide["property_changes"]:
-            aspects = "、".join(aspect_names.get(aspect, aspect) for aspect in change["aspects"])
-            ui(f"  属性 [{change['name']}]: {aspects}")
+            aspects = ", ".join(aspect_names.get(aspect, aspect) for aspect in change["aspects"])
+            ui(f"  Properties [{change['name']}]: {aspects}")
         if slide["notes_change"] is not None:
             change = slide["notes_change"]
-            ui(f"  Notes: '{_text_preview(change['before'])}' → '{_text_preview(change['after'])}'")
+            ui(f"  Notes: '{_text_preview(change['before'])}' -> '{_text_preview(change['after'])}'")
 
     summary = result["summary"]
     ui(
-        "汇总: "
-        f"新增/删除/修改幻灯片 {summary['slides_added']}/{summary['slides_removed']}/{summary['slides_modified']} | "
-        f"页序 {summary['slide_order_changes']} | "
-        f"新增/删除 Shape {summary['shapes_added']}/{summary['shapes_removed']} | "
-        f"文本 {summary['text_changes']} | 位置/尺寸 {summary['geometry_changes']} | "
-        f"图片 {summary['image_changes']} | 属性 {summary['property_changes']} | Notes {summary['notes_changes']}"
+        "Summary: "
+        f"slides added/removed/modified {summary['slides_added']}/{summary['slides_removed']}/{summary['slides_modified']} | "
+        f"slide order {summary['slide_order_changes']} | "
+        f"shapes added/removed {summary['shapes_added']}/{summary['shapes_removed']} | "
+        f"text {summary['text_changes']} | position/size {summary['geometry_changes']} | "
+        f"images {summary['image_changes']} | properties {summary['property_changes']} | notes {summary['notes_changes']}"
     )
-    _print_part_changes("PPTX 包级完整性检查", result["package_changes"])
-    _print_part_changes("元数据（不计入内容差异）", result["metadata_changes"])
+    _print_part_changes("PPTX package integrity check", result["package_changes"])
+    _print_part_changes("Metadata (not counted as content diff)", result["metadata_changes"])
 
     if result["slides_added"] or result["slides_removed"] or result["slide_order_change"] is not None:
-        ui("处理提示：页面结构变化时，同步检查生成脚本中的页面顺序和 Notes 对应关系。")
+        ui("Tip: when slide structure changes, also check slide order and Notes mapping in the generation script.")
     package_changes = result["package_changes"]
     if any(
         change["part"].startswith("ppt/media/")
         for action in ("added", "removed", "modified")
         for change in package_changes[action]
     ):
-        ui("处理提示：媒体内容变化时，核对生成脚本引用的原始图片、音视频或嵌入资源。")
-    ui("处理提示：语义差异用于定位修改；主题、母版、关系和未解析 XML 等包级差异需人工复核。工具不执行自动合并。")
+        ui(
+            "Tip: when media content changes, verify original images, audio/video, "
+            "or embedded assets referenced by the generation script."
+        )
+    ui(
+        "Tip: semantic diffs locate edits; package-level diffs (theme, master, relationships, unparsed XML) "
+        "need manual review. No automatic merge is performed."
+    )
 
 
 def _cmd_document_diff(args: argparse.Namespace, cfg) -> None:
@@ -437,7 +446,7 @@ def cmd_style(args: argparse.Namespace, cfg) -> None:
     elif sub == "show":
         _cmd_style_show(args, cfg)
     else:
-        _log.error("请指定 style 子命令: list / show")
+        _log.error("Specify a style subcommand: list / show")
         sys.exit(1)
 
 
@@ -445,13 +454,13 @@ def _cmd_style_list(args: argparse.Namespace, cfg) -> None:
     from scrinium.citation_styles import list_styles
 
     styles = list_styles(cfg)
-    ui(f"可用引用格式（共 {len(styles)} 种）：")
+    ui(f"Available citation styles ({len(styles)} total):")
     for s in styles:
         tag = f"[{s['source']}]"
         desc = f" — {s['description']}" if s.get("description") else ""
         print(f"  {s['name']:<28} {tag:<10}{desc}")
     print()
-    ui("用法：scrinium export markdown --all --style <name>")
+    ui("Usage: scrinium export markdown --all --style <name>")
 
 
 def _cmd_style_show(args: argparse.Namespace, cfg) -> None:
@@ -471,12 +480,15 @@ def cmd_proceedings(args: argparse.Namespace, cfg) -> None:
 
         proceeding_dir = Path(args.proceeding_dir).expanduser()
         if not proceeding_dir.exists():
-            ui(f"proceedings 目录不存在: {proceeding_dir}")
+            ui(f"Proceedings directory does not exist: {proceeding_dir}")
             return
 
         candidates_path = build_proceedings_clean_candidates(proceeding_dir)
-        ui(f"已生成 proceedings clean candidates: {candidates_path}")
-        ui("等待 agent 审阅 clean_candidates.json 并生成 clean_plan.json，然后再执行后续清洗。")
+        ui(f"Generated proceedings clean candidates: {candidates_path}")
+        ui(
+            "Waiting for an agent to review clean_candidates.json and produce clean_plan.json "
+            "before running the cleanup."
+        )
         return
 
     if args.proceedings_action == "apply-split":
@@ -486,15 +498,15 @@ def cmd_proceedings(args: argparse.Namespace, cfg) -> None:
         split_plan = Path(args.split_plan).expanduser()
 
         if not proceeding_dir.exists():
-            ui(f"proceedings 目录不存在: {proceeding_dir}")
+            ui(f"Proceedings directory does not exist: {proceeding_dir}")
             return
         if not split_plan.exists():
-            ui(f"split plan 不存在: {split_plan}")
+            ui(f"Split plan does not exist: {split_plan}")
             return
 
         apply_proceedings_split_plan(proceeding_dir, split_plan)
         meta = json.loads((proceeding_dir / "meta.json").read_text(encoding="utf-8"))
-        ui(f"已应用 proceedings split plan: {proceeding_dir.name} ({meta.get('child_paper_count', 0)} 篇)")
+        ui(f"Applied proceedings split plan: {proceeding_dir.name} ({meta.get('child_paper_count', 0)} papers)")
         return
 
     if args.proceedings_action == "apply-clean":
@@ -504,18 +516,18 @@ def cmd_proceedings(args: argparse.Namespace, cfg) -> None:
         clean_plan = Path(args.clean_plan).expanduser()
 
         if not proceeding_dir.exists():
-            ui(f"proceedings 目录不存在: {proceeding_dir}")
+            ui(f"Proceedings directory does not exist: {proceeding_dir}")
             return
         if not clean_plan.exists():
-            ui(f"clean plan 不存在: {clean_plan}")
+            ui(f"Clean plan does not exist: {clean_plan}")
             return
 
         apply_proceedings_clean_plan(proceeding_dir, clean_plan)
         meta = json.loads((proceeding_dir / "meta.json").read_text(encoding="utf-8"))
-        ui(f"已应用 proceedings clean plan: {proceeding_dir.name} ({meta.get('child_paper_count', 0)} 篇)")
+        ui(f"Applied proceedings clean plan: {proceeding_dir.name} ({meta.get('child_paper_count', 0)} papers)")
         return
 
-    ui(f"未知 proceedings 子命令: {args.proceedings_action}")
+    ui(f"Unknown proceedings subcommand: {args.proceedings_action}")
 
 
 def cmd_insights(args: argparse.Namespace, cfg) -> None:
@@ -526,12 +538,12 @@ def cmd_insights(args: argparse.Namespace, cfg) -> None:
 
     store = get_store()
     if not store:
-        ui("暂无足够数据（metrics 未初始化）")
+        ui("Not enough data (metrics not initialized)")
         return
 
     days = args.days
     if days <= 0:
-        ui("--days 必须为正整数")
+        ui("--days must be a positive integer")
         return
     since_dt = datetime.now(timezone.utc) - timedelta(days=days)
     since_iso = since_dt.isoformat()
@@ -542,33 +554,33 @@ def cmd_insights(args: argparse.Namespace, cfg) -> None:
     read_events = store.query(category="read", since=since_iso, limit=10000)
 
     if not search_events and not read_events:
-        ui(f"暂无足够数据（过去 {days} 天内无搜索或阅读记录）")
+        ui(f"Not enough data (no search or read events in the past {days} days)")
         return
 
-    ui(f"=== 科研行为分析（过去 {days} 天）===\n")
+    ui(f"=== Research Activity Insights (past {days} days) ===\n")
 
-    ui("【搜索热词前 10】")
+    ui("[Top 10 Hot Search Keywords]")
     hot_keywords = insights.extract_hot_keywords(search_events, top_k=10)
     if hot_keywords:
         for word, cnt in hot_keywords:
             bar = "█" * min(cnt, 20)
             ui(f"  {word:<20s} {bar} ({cnt})")
     else:
-        ui("  暂无搜索记录")
+        ui("  No search events")
     ui()
 
-    ui("【最常阅读论文前 10】")
+    ui("[Top 10 Most-Read Papers]")
     most_read = insights.aggregate_most_read_titles(read_events, cfg.papers_dir, top_k=10)
     if most_read:
         for rank, (title_key, cnt) in enumerate(most_read, 1):
             label = title_key[:60]
-            ui(f"  {rank:2d}. [{cnt}次] {label}")
+            ui(f"  {rank:2d}. [{cnt}x] {label}")
     else:
-        ui("  暂无阅读记录")
+        ui("  No read events")
     ui()
 
     # 3. Weekly read-count trend (ASCII bar chart)
-    ui("【阅读量趋势（按周）】")
+    ui("[Weekly Read Trend]")
     if read_events:
         week_counts = insights.build_weekly_read_trend(read_events)
         if week_counts:
@@ -578,23 +590,23 @@ def cmd_insights(args: argparse.Namespace, cfg) -> None:
                 bar = "█" * bar_len
                 ui(f"  {week}  {bar} {cnt}")
         else:
-            ui("  暂无足够数据")
+            ui("  Not enough data")
     else:
-        ui("  暂无阅读记录")
+        ui("  No read events")
     ui()
 
     # 4. Active workspaces — list workspaces with paper counts
-    ui("【活跃工作区】")
+    ui("[Active Workspaces]")
     try:
         ws_root = cfg._root / "workspace"
         workspaces = insights.list_workspace_counts(ws_root)
         if workspaces:
             for ws_name, count in workspaces:
-                ui(f"  {ws_name:<30s} {count} 篇论文")
+                ui(f"  {ws_name:<30s} {count} papers")
         else:
-            ui("  暂无工作区")
+            ui("  No workspaces")
     except Exception:
-        ui("  工作区信息不可用")
+        ui("  Workspace info unavailable")
     ui()
 
 
@@ -603,7 +615,7 @@ def cmd_metrics(args: argparse.Namespace, cfg) -> None:
 
     store = get_store()
     if not store:
-        _log.error("Metrics 数据库尚未初始化。")
+        _log.error("Metrics database is not initialized yet.")
         return
 
     rows = store.query(
@@ -612,7 +624,7 @@ def cmd_metrics(args: argparse.Namespace, cfg) -> None:
         limit=args.last,
     )
     if not rows:
-        ui("没有记录。")
+        ui("No records.")
         return
 
     # Header
@@ -647,8 +659,7 @@ def cmd_setup(args: argparse.Namespace, cfg) -> None:
 
     action = getattr(args, "setup_action", None)
     if action == "check":
-        lang = getattr(args, "lang", "zh")
-        results = run_check(cfg, lang)
+        results = run_check(cfg)
         ui(format_check_results(results))
     else:
         run_wizard(cfg)
@@ -661,22 +672,22 @@ def cmd_citation_check(args: argparse.Namespace, cfg) -> None:
     if args.file:
         p = Path(args.file)
         if not p.exists():
-            _log.error("文件不存在：%s", p)
+            _log.error("File does not exist: %s", p)
             sys.exit(1)
         text = p.read_text(encoding="utf-8")
     else:
         text = sys.stdin.read()
 
     if not text.strip():
-        ui("输入文本为空。")
+        ui("Input text is empty.")
         return
 
     citations = extract_citations(text)
     if not citations:
-        ui("未在文本中发现引用。")
+        ui("No citations found in the text.")
         return
 
-    ui(f"提取到 {len(citations)} 条引用，正在验证…\n")
+    ui(f"Extracted {len(citations)} citations; verifying...\n")
 
     try:
         paper_ids = _resolve_ws_paper_ids(args, cfg)
@@ -696,26 +707,26 @@ def cmd_citation_check(args: argparse.Namespace, cfg) -> None:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
 
     status_labels = {
-        "VERIFIED": "已验证",
-        "NOT_IN_LIBRARY": "库中未找到",
-        "AMBIGUOUS": "候选不唯一",
+        "VERIFIED": "Verified",
+        "NOT_IN_LIBRARY": "Not in library",
+        "AMBIGUOUS": "Ambiguous",
     }
 
     for r in results:
         status_icon = {"VERIFIED": "✓", "NOT_IN_LIBRARY": "✗", "AMBIGUOUS": "?"}.get(r["status"], " ")
         status_text = status_labels.get(r["status"], r["status"])
-        ui(f"  [{status_icon}] {status_text:8s}  {r['raw']}  ({r['author']}, {r['year']})")
+        ui(f"  [{status_icon}] {status_text:<14s}  {r['raw']}  ({r['author']}, {r['year']})")
         if r["matches"]:
             for m in r["matches"][:3]:
                 display_id = m.get("dir_name") or m.get("paper_id", "?")
-                ui(f"       → {display_id}")
+                ui(f"       -> {display_id}")
                 ui(f"         {m.get('title', '?')}")
 
     ui()
     ui(
-        f"验证结果：已验证 {counts['VERIFIED']} / "
-        f"候选不唯一 {counts['AMBIGUOUS']} / "
-        f"库中未找到 {counts['NOT_IN_LIBRARY']}"
+        f"Verification summary: verified {counts['VERIFIED']} / "
+        f"ambiguous {counts['AMBIGUOUS']} / "
+        f"not in library {counts['NOT_IN_LIBRARY']}"
     )
 
 
@@ -727,23 +738,23 @@ def _add_parser_with_optional_help(sub, name: str, help_text: str | None):
 def _add_refs_parser(sub, name: str, help_text: str | None = None) -> None:
     p_refs = _add_parser_with_optional_help(sub, name, help_text)
     p_refs.set_defaults(func=cmd_refs)
-    p_refs.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
-    p_refs.add_argument("--ws", type=str, default=None, help="限定工作区范围")
+    p_refs.add_argument("paper_id", help="Paper ID (dir_name / UUID / DOI)")
+    p_refs.add_argument("--ws", type=str, default=None, help="Restrict to a workspace")
 
 
 def _add_citing_parser(sub, name: str, help_text: str | None = None) -> None:
     p_citing = _add_parser_with_optional_help(sub, name, help_text)
     p_citing.set_defaults(func=cmd_citing)
-    p_citing.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
-    p_citing.add_argument("--ws", type=str, default=None, help="限定工作区范围")
+    p_citing.add_argument("paper_id", help="Paper ID (dir_name / UUID / DOI)")
+    p_citing.add_argument("--ws", type=str, default=None, help="Restrict to a workspace")
 
 
 def _add_shared_refs_parser(sub, name: str, help_text: str | None = None) -> None:
     p_sr = _add_parser_with_optional_help(sub, name, help_text)
     p_sr.set_defaults(func=cmd_shared_refs)
-    p_sr.add_argument("paper_ids", nargs="+", help="论文 ID（至少 2 个）")
-    p_sr.add_argument("--min", type=int, default=None, help="最少共引次数（默认 2）")
-    p_sr.add_argument("--ws", type=str, default=None, help="限定工作区范围")
+    p_sr.add_argument("paper_ids", nargs="+", help="Paper IDs (at least 2)")
+    p_sr.add_argument("--min", type=int, default=None, help="Minimum co-citation count (default: 2)")
+    p_sr.add_argument("--ws", type=str, default=None, help="Restrict to a workspace")
 
 
 def _add_style_parser(sub, name: str, help_text: str | None = None) -> None:
@@ -752,135 +763,138 @@ def _add_style_parser(sub, name: str, help_text: str | None = None) -> None:
     p_style.set_defaults(func=cmd_style)
     p_style_sub = p_style.add_subparsers(dest="style_sub", required=True)
 
-    p_style_list = p_style_sub.add_parser("list", help="列出所有可用引用格式")
+    p_style_list = p_style_sub.add_parser("list", help="List all available citation styles")
     del p_style_list  # no extra args needed
 
-    p_style_show = p_style_sub.add_parser("show", help="查看引用格式的格式化函数代码")
-    p_style_show.add_argument("name", help="格式名称，如 jcp / apa / vancouver")
+    p_style_show = p_style_sub.add_parser("show", help="Show the formatting function code of a citation style")
+    p_style_show.add_argument("name", help="Style name, e.g. jcp / apa / vancouver")
 
 
 def register(sub) -> None:
     """Register misc-domain subcommands."""
     # --- references / cited-by / shared-references (legacy aliases hidden) ---
-    _add_refs_parser(sub, "references", "查看论文的参考文献列表")
+    _add_refs_parser(sub, "references", "Show a paper's reference list")
     _add_refs_parser(sub, "refs", None)
-    _add_citing_parser(sub, "cited-by", "查看哪些本地论文引用了此论文")
+    _add_citing_parser(sub, "cited-by", "Show which local papers cite this paper")
     _add_citing_parser(sub, "citing", None)
-    _add_shared_refs_parser(sub, "shared-references", "共同参考文献分析")
+    _add_shared_refs_parser(sub, "shared-references", "Shared-reference (co-citation) analysis")
     _add_shared_refs_parser(sub, "shared-refs", None)
 
     # --- snowball ---
-    p_sb = sub.add_parser("snowball", help="引用滚雪球：从种子论文沿引用扩张并排序")
+    p_sb = sub.add_parser(
+        "snowball", help="Citation snowballing: expand from seed papers along the citation graph and rank"
+    )
     p_sb.set_defaults(func=cmd_snowball)
-    p_sb.add_argument("paper_ids", nargs="+", help="种子论文 ID（目录名 / UUID / DOI，可多篇）")
-    p_sb.add_argument("--depth", type=int, default=1, help="扩张深度（当前仅支持 1）")
-    p_sb.add_argument("--top", type=int, default=None, help="返回条数（默认 20）")
-    p_sb.add_argument("--ws", type=str, default=None, help="限定工作区范围")
-    p_sb.add_argument("--json", action="store_true", help="以 JSON 输出")
+    p_sb.add_argument("paper_ids", nargs="+", help="Seed paper IDs (dir_name / UUID / DOI; multiple allowed)")
+    p_sb.add_argument("--depth", type=int, default=1, help="Expansion depth (currently only 1 is supported)")
+    p_sb.add_argument("--top", type=int, default=None, help="Number of results to return (default: 20)")
+    p_sb.add_argument("--ws", type=str, default=None, help="Restrict to a workspace")
+    p_sb.add_argument("--json", action="store_true", help="Output in JSON format")
 
     # --- citation-check ---
-    p_cc = sub.add_parser("citation-check", help="验证文本中的引用是否在本地知识库中")
+    p_cc = sub.add_parser("citation-check", help="Verify whether citations in text exist in the local knowledge base")
     p_cc.set_defaults(func=cmd_citation_check)
-    p_cc.add_argument("file", nargs="?", default=None, help="待检查的文件路径（省略则从 stdin 读取）")
-    p_cc.add_argument("--ws", type=str, default=None, help="在指定工作区范围内验证")
+    p_cc.add_argument("file", nargs="?", default=None, help="File path to check (reads from stdin if omitted)")
+    p_cc.add_argument("--ws", type=str, default=None, help="Verify within the specified workspace")
 
     # --- setup ---
     p_setup = sub.add_parser(
         "setup",
-        help="环境检测与安装向导",
-        description="默认进入交互式安装向导；使用 `check` 子命令仅做环境诊断。",
+        help="Environment check and setup wizard",
+        description="Start the interactive setup wizard by default; use the `check` subcommand to run environment diagnostics only.",
     )
     p_setup.set_defaults(func=cmd_setup)
     p_setup_sub = p_setup.add_subparsers(dest="setup_action")
-    p_setup_check = p_setup_sub.add_parser("check", help="检查环境状态")
-    p_setup_check.add_argument("--lang", choices=["en", "zh"], default="zh", help="输出语言（zh 或 en，默认 zh）")
+    p_setup_sub.add_parser("check", help="Check environment status")
 
     # --- proceedings ---
-    p_proc = sub.add_parser("proceedings", help="论文集辅助命令（apply-split 等）")
+    p_proc = sub.add_parser("proceedings", help="Proceedings helper commands (apply-split, etc.)")
     p_proc.set_defaults(func=cmd_proceedings)
     p_proc_sub = p_proc.add_subparsers(dest="proceedings_action", required=True)
 
-    p_proc_apply = p_proc_sub.add_parser("apply-split", help="对已准备好的 proceedings 应用 split_plan.json")
-    p_proc_apply.add_argument("proceeding_dir", help="proceedings 目录路径")
-    p_proc_apply.add_argument("split_plan", help="split_plan.json 路径")
+    p_proc_apply = p_proc_sub.add_parser("apply-split", help="Apply split_plan.json to prepared proceedings")
+    p_proc_apply.add_argument("proceeding_dir", help="Path to the proceedings directory")
+    p_proc_apply.add_argument("split_plan", help="Path to split_plan.json")
 
     p_proc_clean_candidates = p_proc_sub.add_parser(
-        "build-clean-candidates", help="为已拆分的 proceedings 生成 clean_candidates.json"
+        "build-clean-candidates", help="Generate clean_candidates.json for split proceedings"
     )
-    p_proc_clean_candidates.add_argument("proceeding_dir", help="proceedings 目录路径")
+    p_proc_clean_candidates.add_argument("proceeding_dir", help="Path to the proceedings directory")
 
-    p_proc_apply_clean = p_proc_sub.add_parser("apply-clean", help="对已拆分的 proceedings 应用 clean_plan.json")
-    p_proc_apply_clean.add_argument("proceeding_dir", help="proceedings 目录路径")
-    p_proc_apply_clean.add_argument("clean_plan", help="clean_plan.json 路径")
+    p_proc_apply_clean = p_proc_sub.add_parser("apply-clean", help="Apply clean_plan.json to split proceedings")
+    p_proc_apply_clean.add_argument("proceeding_dir", help="Path to the proceedings directory")
+    p_proc_apply_clean.add_argument("clean_plan", help="Path to clean_plan.json")
 
     # --- insights ---
-    p_insights = sub.add_parser("insights", help="研究行为分析：搜索热词、最常阅读论文等")
+    p_insights = sub.add_parser(
+        "insights", help="Research activity insights: hot search keywords, most-read papers, etc."
+    )
     p_insights.set_defaults(func=cmd_insights)
-    p_insights.add_argument("--days", type=int, default=30, help="分析最近 N 天的数据（默认 30）")
+    p_insights.add_argument("--days", type=int, default=30, help="Analyze data from the past N days (default: 30)")
 
     # --- metrics ---
-    p_metrics = sub.add_parser("metrics", help="查看运行指标（步骤/API 调用计时）")
+    p_metrics = sub.add_parser("metrics", help="View runtime metrics (step/API call timings)")
     p_metrics.set_defaults(func=cmd_metrics)
-    p_metrics.add_argument("--last", type=int, default=20, help="最近 N 条记录")
+    p_metrics.add_argument("--last", type=int, default=20, help="Show the last N records")
     p_metrics.add_argument(
         "--category",
         default="step",
-        help="事件类别（step/api/search/read/llm，默认 step；llm 仅用于查看历史存量事件）",
+        help="Event category (step/api/search/read/llm, default: step; llm is only for viewing historical events)",
     )
-    p_metrics.add_argument("--since", default=None, help="起始时间（ISO 格式，如 2026-03-01）")
+    p_metrics.add_argument("--since", default=None, help="Start time (ISO format, e.g. 2026-03-01)")
 
     # --- citation-styles (primary name; `style` kept as a hidden legacy alias) ---
-    _add_style_parser(sub, "citation-styles", "引用格式管理（列出 / 查看自定义格式）")
+    _add_style_parser(sub, "citation-styles", "Manage citation styles (list / view custom styles)")
     _add_style_parser(sub, "style", None)
 
     # --- document ---
-    p_doc = sub.add_parser("document", help="Office 文档工具（inspect / editable / diff）")
+    p_doc = sub.add_parser("document", help="Office document tools (inspect / editable / diff)")
     p_doc.set_defaults(func=cmd_document)
     p_doc_sub = p_doc.add_subparsers(dest="doc_action", required=True)
 
-    p_doc_inspect = p_doc_sub.add_parser("inspect", help="检查 Office 文档结构（DOCX / PPTX / XLSX）")
-    p_doc_inspect.add_argument("file", help="文件路径")
+    p_doc_inspect = p_doc_sub.add_parser("inspect", help="Inspect Office document structure (DOCX / PPTX / XLSX)")
+    p_doc_inspect.add_argument("file", help="File path")
     p_doc_inspect.add_argument(
         "--format",
         choices=["docx", "pptx", "xlsx"],
         default=None,
-        help="文件格式（默认从扩展名推断）",
+        help="File format (inferred from extension by default)",
     )
 
-    p_doc_editable = p_doc_sub.add_parser("editable", help="创建可供用户编辑的 PPTX 副本")
-    p_doc_editable.add_argument("source", help="源 PPTX 文件路径")
-    p_doc_editable.add_argument("--output", default=None, help="输出路径（默认 <源文件名>_editable.pptx）")
-    p_doc_editable.add_argument("--force", action="store_true", help="覆盖已存在的可编辑副本")
+    p_doc_editable = p_doc_sub.add_parser("editable", help="Create an editable PPTX copy for the user")
+    p_doc_editable.add_argument("source", help="Source PPTX file path")
+    p_doc_editable.add_argument("--output", default=None, help="Output path (default: <source_stem>_editable.pptx)")
+    p_doc_editable.add_argument("--force", action="store_true", help="Overwrite an existing editable copy")
 
-    p_doc_diff = p_doc_sub.add_parser("diff", help="比较基准 PPTX 与编辑后副本")
-    p_doc_diff.add_argument("baseline", help="基准 PPTX 文件路径")
-    p_doc_diff.add_argument("edited", help="编辑后的 PPTX 文件路径")
-    p_doc_diff.add_argument("--json", action="store_true", help="以 JSON 输出")
+    p_doc_diff = p_doc_sub.add_parser("diff", help="Compare a baseline PPTX with an edited copy")
+    p_doc_diff.add_argument("baseline", help="Baseline PPTX file path")
+    p_doc_diff.add_argument("edited", help="Edited PPTX file path")
+    p_doc_diff.add_argument("--json", action="store_true", help="Output in JSON format")
 
     # --- toolref ---
-    p_tr = sub.add_parser("toolref", help="科学计算工具文档查阅（fetch/show/search/list/use）")
+    p_tr = sub.add_parser("toolref", help="Scientific computing tool documentation lookup (fetch/show/search/list/use)")
     p_tr.set_defaults(func=cmd_toolref)
     p_tr_sub = p_tr.add_subparsers(dest="toolref_action", required=True)
 
-    p_trf = p_tr_sub.add_parser("fetch", help="拉取工具文档（git clone → 提取 → 索引）")
-    p_trf.add_argument("tool", help="工具名（qe/lammps/gromacs/openfoam/bioinformatics）")
-    p_trf.add_argument("--version", default=None, help="版本号（如 7.5, 22Jul2025_update3）")
-    p_trf.add_argument("--force", action="store_true", help="强制重新拉取并覆盖本地缓存")
+    p_trf = p_tr_sub.add_parser("fetch", help="Fetch tool documentation (git clone -> extract -> index)")
+    p_trf.add_argument("tool", help="Tool name (qe/lammps/gromacs/openfoam/bioinformatics)")
+    p_trf.add_argument("--version", default=None, help="Version number (e.g. 7.5, 22Jul2025_update3)")
+    p_trf.add_argument("--force", action="store_true", help="Force re-fetch and overwrite local cache")
 
-    p_trs = p_tr_sub.add_parser("show", help="查看指定命令/参数的文档")
-    p_trs.add_argument("tool", help="工具名")
-    p_trs.add_argument("path", nargs="+", help="查找路径（如 pw ecutwfc）")
+    p_trs = p_tr_sub.add_parser("show", help="Show documentation for a specific command/parameter")
+    p_trs.add_argument("tool", help="Tool name")
+    p_trs.add_argument("path", nargs="+", help="Lookup path (e.g. pw ecutwfc)")
 
-    p_trq = p_tr_sub.add_parser("search", help="全文搜索工具文档")
-    p_trq.add_argument("tool", help="工具名")
-    p_trq.add_argument("query", nargs="+", help="搜索关键词")
-    p_trq.add_argument("--top", type=int, default=20, help="返回条数（默认 20）")
-    p_trq.add_argument("--program", default=None, help="按程序过滤（如 pw.x）")
-    p_trq.add_argument("--section", default=None, help="按 namelist/section 过滤（如 SYSTEM）")
+    p_trq = p_tr_sub.add_parser("search", help="Full-text search in tool documentation")
+    p_trq.add_argument("tool", help="Tool name")
+    p_trq.add_argument("query", nargs="+", help="Search keywords")
+    p_trq.add_argument("--top", type=int, default=20, help="Number of results to return (default: 20)")
+    p_trq.add_argument("--program", default=None, help="Filter by program (e.g. pw.x)")
+    p_trq.add_argument("--section", default=None, help="Filter by namelist/section (e.g. SYSTEM)")
 
-    p_trl = p_tr_sub.add_parser("list", help="列出已有工具文档及版本")
-    p_trl.add_argument("tool", nargs="?", default=None, help="工具名（省略列出全部）")
+    p_trl = p_tr_sub.add_parser("list", help="List available tool documentation and versions")
+    p_trl.add_argument("tool", nargs="?", default=None, help="Tool name (list all if omitted)")
 
-    p_tru = p_tr_sub.add_parser("use", help="切换工具文档的当前活跃版本")
-    p_tru.add_argument("tool", help="工具名")
-    p_tru.add_argument("version", help="目标版本号")
+    p_tru = p_tr_sub.add_parser("use", help="Switch the active version of tool documentation")
+    p_tru.add_argument("tool", help="Tool name")
+    p_tru.add_argument("version", help="Target version number")

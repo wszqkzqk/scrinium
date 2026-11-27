@@ -246,11 +246,11 @@ def _build_toolref_search_sql(
 
 def toolref_show(tool: str, *args: str, cfg: Config | None = None) -> list[dict]:
     if not validate_tool_name(tool):
-        raise ValueError(f"未知工具：{tool}")
+        raise ValueError(f"Unknown tool: {tool}")
 
     db = _db_path(tool, cfg)
     if not db.exists():
-        raise FileNotFoundError(f"{tool} 文档未索引。请先运行 `scrinium toolref fetch {tool}`")
+        raise FileNotFoundError(f"{tool} documentation is not indexed. Run `scrinium toolref fetch {tool}` first")
 
     version = _get_current(tool, cfg)
 
@@ -370,11 +370,11 @@ def toolref_search(
 ) -> list[dict]:
     """Full-text search over tool documentation."""
     if not validate_tool_name(tool):
-        raise ValueError(f"未知工具：{tool}")
+        raise ValueError(f"Unknown tool: {tool}")
 
     db = _db_path(tool, cfg)
     if not db.exists():
-        raise FileNotFoundError(f"{tool} 文档未索引。请先运行 `scrinium toolref fetch {tool}`")
+        raise FileNotFoundError(f"{tool} documentation is not indexed. Run `scrinium toolref fetch {tool}` first")
 
     version = _get_current(tool, cfg)
 

@@ -145,7 +145,7 @@ class TestRepairPendingDedupGuard:
         cli_ingest.cmd_repair(_args("stuck-paper", dry_run=True), cfg)
 
         out = "\n".join(messages)
-        assert "查重" in out
+        assert "Dedup check" in out
         assert "dry-run" in out
         assert not (tmp_papers / "Doe-2021-A-Brand-New-Paper").exists()
         assert (pending_d / "paper.md").exists()

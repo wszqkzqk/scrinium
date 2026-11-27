@@ -67,7 +67,7 @@ def test_check_dep_group_suppresses_import_side_effect_output(monkeypatch, capsy
 def test_check_docling_uses_cli_presence(monkeypatch):
     monkeypatch.setattr("scrinium.setup.shutil.which", lambda name: "/usr/bin/docling" if name == "docling" else None)
 
-    ok, detail = _check_docling("zh")
+    ok, detail = _check_docling()
 
     assert ok is True
     assert detail == "/usr/bin/docling"
@@ -76,26 +76,26 @@ def test_check_docling_uses_cli_presence(monkeypatch):
 def test_check_docling_reports_actionable_install_guidance(monkeypatch):
     monkeypatch.setattr("scrinium.setup.shutil.which", lambda name: None)
 
-    ok, detail = _check_docling("zh")
+    ok, detail = _check_docling()
 
     assert ok is False
     assert "pip install docling" in detail
-    assert "安装文档" in detail
+    assert "install docs" in detail
 
 
 def test_check_huggingface_uses_reachability_probe(monkeypatch):
     monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: url == "https://huggingface.co")
 
-    ok, detail = _check_huggingface("zh")
+    ok, detail = _check_huggingface()
 
     assert ok is True
-    assert detail == "可达"
+    assert detail == "reachable"
 
 
 def test_check_huggingface_reports_actionable_failure(monkeypatch):
     monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: False)
 
-    ok, detail = _check_huggingface("zh")
+    ok, detail = _check_huggingface()
 
     assert ok is False
     assert "Docling" in detail
@@ -103,18 +103,18 @@ def test_check_huggingface_reports_actionable_failure(monkeypatch):
 
 
 def test_recommend_pdf_parser_prefers_mineru_when_both_reachable():
-    parser_name, reason = recommend_pdf_parser(True, True, "zh")
+    parser_name, reason = recommend_pdf_parser(True, True)
 
     assert parser_name == "MinerU"
-    assert "MinerU 可用" in reason
-    assert "Hugging Face 也可达" in reason
+    assert "MinerU is available" in reason
+    assert "Hugging Face is also reachable" in reason
 
 
 def test_recommend_pdf_parser_prefers_docling_when_only_huggingface_reachable():
-    parser_name, reason = recommend_pdf_parser(False, True, "zh")
+    parser_name, reason = recommend_pdf_parser(False, True)
 
     assert parser_name == "Docling"
-    assert "Hugging Face 可达而 MinerU 不可用" in reason
+    assert "Hugging Face is reachable while MinerU is not available" in reason
 
 
 def test_run_check_includes_parser_recommendation(monkeypatch):
@@ -123,12 +123,12 @@ def test_run_check_includes_parser_recommendation(monkeypatch):
     monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
     monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
 
-    results = run_check(cfg, "zh")
+    results = run_check(cfg)
 
     labels = [item.label for item in results]
     assert "Docling" in labels
     assert "Hugging Face" in labels
-    assert "PDF 解析器推荐" in labels
+    assert "PDF parser recommendation" in labels
 
 
 def test_run_check_includes_pdf_office_and_draw_dependency_groups(monkeypatch):
@@ -137,12 +137,12 @@ def test_run_check_includes_pdf_office_and_draw_dependency_groups(monkeypatch):
     monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (True, "hf ok"))
     monkeypatch.setattr("scrinium.setup.recommend_pdf_parser", lambda *args: ("MinerU", "both reachable"))
 
-    results = run_check(cfg, "zh")
+    results = run_check(cfg)
 
     labels = [item.label for item in results]
-    assert "PDF 依赖" in labels
-    assert "Office 依赖" in labels
-    assert "绘图依赖" in labels
+    assert "PDF deps" in labels
+    assert "Office deps" in labels
+    assert "Draw deps" in labels
 
 
 def test_run_check_includes_optional_api_configuration_statuses(monkeypatch):
@@ -154,7 +154,7 @@ def test_run_check_includes_optional_api_configuration_statuses(monkeypatch):
     monkeypatch.setattr(cfg, "resolved_openalex_api_key", lambda: "")
     monkeypatch.setattr(cfg, "resolved_zotero_api_key", lambda: "")
 
-    results = run_check(cfg, "zh")
+    results = run_check(cfg)
 
     result_map = {item.label: item for item in results}
     assert "Semantic Scholar API key" in result_map
@@ -163,9 +163,9 @@ def test_run_check_includes_optional_api_configuration_statuses(monkeypatch):
     assert result_map["Semantic Scholar API key"].ok is True
     assert result_map["OpenAlex API key"].ok is True
     assert result_map["Zotero API key"].ok is True
-    assert "可选" in result_map["Semantic Scholar API key"].detail
-    assert "可选" in result_map["OpenAlex API key"].detail
-    assert "可选" in result_map["Zotero API key"].detail
+    assert "optional" in result_map["Semantic Scholar API key"].detail.lower()
+    assert "optional" in result_map["OpenAlex API key"].detail.lower()
+    assert "optional" in result_map["Zotero API key"].detail.lower()
 
 
 def test_run_check_prefers_mineru_recommendation_when_cli_exists_without_token(monkeypatch):
@@ -188,10 +188,10 @@ def test_run_check_prefers_mineru_recommendation_when_cli_exists_without_token(m
     monkeypatch.setattr("scrinium.setup._check_docling", lambda *_: (True, "docling ok"))
     monkeypatch.setattr("scrinium.setup._check_huggingface", lambda *_: (False, "hf down"))
 
-    results = run_check(cfg, "zh")
+    results = run_check(cfg)
 
     result_map = {item.label: item for item in results}
-    assert result_map["PDF 解析器推荐"].detail.startswith("MinerU:")
+    assert result_map["PDF parser recommendation"].detail.startswith("MinerU:")
 
 
 def test_check_dep_group_supports_draw_extra(monkeypatch):
@@ -242,7 +242,7 @@ def test_detect_mineru_reports_actionable_failure(monkeypatch):
 
     monkeypatch.setitem(__import__("sys").modules, "requests", DummyRequests)
 
-    status = _detect_mineru(cfg, "zh")
+    status = _detect_mineru(cfg)
 
     assert status.ok is False
     assert "mineru-open-api" in status.detail
@@ -265,7 +265,7 @@ def test_detect_mineru_prefers_local_server_even_when_token_cli_missing(monkeypa
 
     monkeypatch.setitem(__import__("sys").modules, "requests", DummyRequests)
 
-    status = _detect_mineru(cfg, "en")
+    status = _detect_mineru(cfg)
 
     assert status.ok is True
     assert "local server" in status.detail
@@ -277,12 +277,12 @@ def test_wizard_parser_mineru_choice_skips_auto_probe(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
     monkeypatch.setattr("scrinium.setup._probe_url", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError()))
 
-    choice = _wizard_parser(cfg, "zh")
+    choice = _wizard_parser(cfg)
 
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is False
     out = capsys.readouterr().out
-    assert "已选择 MinerU" in out
+    assert "Selected MinerU" in out
 
 
 def test_wizard_parser_auto_choice_shows_advisory_not_override(monkeypatch, capsys):
@@ -295,17 +295,17 @@ def test_wizard_parser_auto_choice_shows_advisory_not_override(monkeypatch, caps
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
     monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: "mineru.net" in url)
 
-    choice = _wizard_parser(cfg, "zh")
+    choice = _wizard_parser(cfg)
 
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is True
     out = capsys.readouterr().out
-    assert "检测到现有 MinerU token" not in out
-    assert "尚未配置 MinerU API Token" in out
-    assert "建议优先使用 MinerU" in out
-    assert out.index("建议优先使用 MinerU") < out.index("如果你不打算本地部署")
-    assert out.index("如果你不打算本地部署") < out.index("MinerU 本地部署指引")
-    assert "如果你已经确定要用另一个" in out
+    assert "Existing MinerU token detected" not in out
+    assert "no MinerU API token is configured yet" in out
+    assert "Suggestion: prefer MinerU" in out
+    assert out.index("Suggestion: prefer MinerU") < out.index("If you do not plan local deployment")
+    assert out.index("If you do not plan local deployment") < out.index("MinerU local deployment guide")
+    assert "the other parser" in out
 
 
 def test_wizard_parser_auto_prefers_configured_mineru_before_probe(monkeypatch, capsys):
@@ -318,13 +318,13 @@ def test_wizard_parser_auto_prefers_configured_mineru_before_probe(monkeypatch, 
     )
     monkeypatch.setattr("scrinium.setup._probe_url", lambda *_args, **_kwargs: False)
 
-    choice = _wizard_parser(cfg, "zh")
+    choice = _wizard_parser(cfg)
 
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is True
     out = capsys.readouterr().out
-    assert "建议优先使用 MinerU" in out
-    assert out.index("建议优先使用 MinerU") < out.index("如果你不打算本地部署")
+    assert "Suggestion: prefer MinerU" in out
+    assert out.index("Suggestion: prefer MinerU") < out.index("If you do not plan local deployment")
 
 
 def test_wizard_parser_auto_detects_local_mineru_server(monkeypatch, capsys):
@@ -346,12 +346,12 @@ def test_wizard_parser_auto_detects_local_mineru_server(monkeypatch, capsys):
 
     monkeypatch.setitem(__import__("sys").modules, "requests", DummyRequests)
 
-    choice = _wizard_parser(cfg, "zh")
+    choice = _wizard_parser(cfg)
 
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is False
     out = capsys.readouterr().out
-    assert "建议优先使用 MinerU" in out
+    assert "Suggestion: prefer MinerU" in out
 
 
 def test_prompt_text_returns_empty_string_on_eof(monkeypatch):
@@ -377,11 +377,11 @@ def test_wizard_deps_does_not_auto_install_when_input_stream_hits_eof(monkeypatc
 
     monkeypatch.setattr("scrinium.setup.subprocess.run", fake_run)
 
-    _wizard_deps("zh")
+    _wizard_deps()
 
     out = capsys.readouterr().out
     assert called == []
-    assert "已跳过" in out
+    assert "Skipped" in out
 
 
 def test_wizard_parser_auto_prefers_mineru_when_cli_exists_even_without_token_probe(monkeypatch, capsys):
@@ -394,13 +394,13 @@ def test_wizard_parser_auto_prefers_mineru_when_cli_exists_even_without_token_pr
     monkeypatch.setattr(cfg, "resolved_mineru_api_key", lambda: "")
     monkeypatch.setattr("scrinium.setup._probe_url", lambda *_args, **_kwargs: False)
 
-    choice = _wizard_parser(cfg, "zh")
+    choice = _wizard_parser(cfg)
 
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is True
     out = capsys.readouterr().out
-    assert "建议优先使用 MinerU" in out
-    assert "免费" in out
+    assert "Suggestion: prefer MinerU" in out
+    assert "free" in out
     assert "Token" in out or "token" in out
 
 
@@ -413,7 +413,7 @@ def test_wizard_parser_auto_choice_defaults_to_cloud_key_on_eof(monkeypatch):
     )
     monkeypatch.setattr("scrinium.setup._probe_url", lambda url, timeout=2: "mineru.net" in url)
 
-    choice = _wizard_parser(cfg, "zh")
+    choice = _wizard_parser(cfg)
 
     assert choice.parser == "mineru"
     assert choice.needs_mineru_key is True
@@ -423,7 +423,7 @@ def test_wizard_keys_persists_docling_parser_preference(tmp_path, monkeypatch):
     answers = iter(["", ""])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
 
-    _wizard_keys(tmp_path, "zh", ParserChoice(parser="docling", needs_mineru_key=False))
+    _wizard_keys(tmp_path, ParserChoice(parser="docling", needs_mineru_key=False))
 
     local_cfg = (tmp_path / "config.local.yaml").read_text(encoding="utf-8")
     assert "pdf_preferred_parser: docling" in local_cfg
@@ -434,7 +434,7 @@ def test_wizard_keys_handles_null_ingest_section(tmp_path, monkeypatch):
     answers = iter(["", ""])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
 
-    _wizard_keys(tmp_path, "zh", ParserChoice(parser="docling", needs_mineru_key=False))
+    _wizard_keys(tmp_path, ParserChoice(parser="docling", needs_mineru_key=False))
 
     local_cfg = (tmp_path / "config.local.yaml").read_text(encoding="utf-8")
     assert "pdf_preferred_parser: docling" in local_cfg
@@ -445,7 +445,7 @@ def test_wizard_keys_handles_non_mapping_local_config(tmp_path, monkeypatch):
     answers = iter(["", ""])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
 
-    _wizard_keys(tmp_path, "zh", ParserChoice(parser="docling", needs_mineru_key=False))
+    _wizard_keys(tmp_path, ParserChoice(parser="docling", needs_mineru_key=False))
 
     local_cfg = (tmp_path / "config.local.yaml").read_text(encoding="utf-8")
     assert "pdf_preferred_parser: docling" in local_cfg
@@ -455,11 +455,11 @@ def test_wizard_keys_skips_creating_local_config_when_default_parser_and_no_new_
     answers = iter(["", "", ""])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
 
-    _wizard_keys(tmp_path, "zh", ParserChoice(parser="mineru", needs_mineru_key=True))
+    _wizard_keys(tmp_path, ParserChoice(parser="mineru", needs_mineru_key=True))
 
     out = capsys.readouterr().out
     assert not (tmp_path / "config.local.yaml").exists()
-    assert "未配置任何密钥" in out
+    assert "No keys configured" in out
 
 
 def test_wizard_keys_cleans_redundant_default_parser_override(tmp_path, monkeypatch, capsys):
@@ -470,10 +470,10 @@ def test_wizard_keys_cleans_redundant_default_parser_override(tmp_path, monkeypa
     answers = iter(["", "", ""])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(answers))
 
-    _wizard_keys(tmp_path, "zh", ParserChoice(parser="mineru", needs_mineru_key=True))
+    _wizard_keys(tmp_path, ParserChoice(parser="mineru", needs_mineru_key=True))
 
     out = capsys.readouterr().out
-    assert "已保存到 config.local.yaml" in out
+    assert "Saved to config.local.yaml" in out
     local_cfg = (tmp_path / "config.local.yaml").read_text(encoding="utf-8")
     assert "pdf_preferred_parser" not in local_cfg
     assert "existing-mineru-key" in local_cfg
@@ -552,7 +552,7 @@ def test_wizard_deps_uses_editable_install_for_local_checkout(tmp_path, monkeypa
 
     monkeypatch.setattr("scrinium.setup.subprocess.run", fake_run)
 
-    _wizard_deps("zh")
+    _wizard_deps()
 
     assert len(calls) == 1
     args, kwargs = calls[0]
@@ -583,7 +583,7 @@ def test_wizard_deps_uses_pypi_name_for_regular_install(monkeypatch, capsys):
 
     monkeypatch.setattr("scrinium.setup.subprocess.run", fake_run)
 
-    _wizard_deps("zh")
+    _wizard_deps()
 
     assert len(calls) == 1
     args, _ = calls[0]

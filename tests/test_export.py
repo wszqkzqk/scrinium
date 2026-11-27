@@ -154,10 +154,10 @@ class TestExportCliIdentifierResolution:
 
         out = capsys.readouterr().out
         assert "Turbulence" in out
-        assert "无法解析: bogus-ref" in messages
+        assert "Could not resolve: bogus-ref" in messages
 
     def test_all_unresolved_raises(self, tmp_papers, tmp_db):
         build_index(tmp_papers, tmp_db)
 
-        with pytest.raises(ValueError, match="无法解析"):
+        with pytest.raises(ValueError, match="Could not resolve"):
             cli.cmd_export(self._args("bibtex", ["bogus-1", "bogus-2"]), self._cfg(tmp_papers, tmp_db))

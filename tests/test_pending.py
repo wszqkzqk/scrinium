@@ -12,6 +12,7 @@ from scrinium.ingest.pipeline import (
     HINT_DUPLICATE,
     HINT_NO_DOI,
     HINT_NO_PUB_NUM,
+    HINT_PENDING_FALLBACK,
     InboxCtx,
     _move_to_pending,
 )
@@ -36,7 +37,7 @@ class TestCmdPending:
     def test_empty_outputs_no_pending(self, tmp_path, monkeypatch):
         messages = _run_pending(tmp_path, monkeypatch)
 
-        assert messages == ["无待确认项"]
+        assert messages == ["No pending items"]
 
     def test_groups_by_issue_with_counts_and_suggestions(self, tmp_path, monkeypatch):
         _write_pending(
@@ -60,17 +61,17 @@ class TestCmdPending:
 
         out = "\n".join(_run_pending(tmp_path, monkeypatch))
 
-        assert "[no_doi] 1 项" in out
-        assert "[duplicate] 2 项" in out
+        assert "[no_doi] 1 items" in out
+        assert "[duplicate] 2 items" in out
         assert "paper-a" in out
-        assert "标题: Paper A" in out
-        assert "重复于: Smith-2023-X" in out
+        assert "Title: Paper A" in out
+        assert "Duplicate of: Smith-2023-X" in out
         assert "Legacy Dup" in out
         # Handoff hints: each group carries the takeover suggestion for its issue.
         assert HINT_NO_DOI in out
         assert HINT_DUPLICATE in out
-        assert "共 3 项" in out
-        assert "hint: 以上条目建议派 subagent" in out
+        assert "3 total" in out
+        assert "hint: consider dispatching subagents" in out
 
     def test_no_pub_num_suggestion_points_to_patent_inbox(self, tmp_path, monkeypatch):
         _write_pending(
@@ -81,7 +82,7 @@ class TestCmdPending:
 
         out = "\n".join(_run_pending(tmp_path, monkeypatch))
 
-        assert "[no_pub_num] 1 项" in out
+        assert "[no_pub_num] 1 items" in out
         assert "data/inbox-patent/" in out
 
     def test_dir_without_marker_is_skipped(self, tmp_path, monkeypatch):
@@ -89,7 +90,7 @@ class TestCmdPending:
 
         messages = _run_pending(tmp_path, monkeypatch)
 
-        assert messages == ["无待确认项"]
+        assert messages == ["No pending items"]
 
 
 class TestPendingMarkerHint:
@@ -138,7 +139,7 @@ class TestPendingMarkerHint:
         ctx = self._make_ctx(tmp_path)
         _move_to_pending(ctx, issue="mystery")
         marker = json.loads((tmp_path / "pending" / "some-paper" / "pending.json").read_text(encoding="utf-8"))
-        assert marker["hint"] == "建议派 subagent 审查后处理"
+        assert marker["hint"] == HINT_PENDING_FALLBACK
 
 
 class TestCmdPendingHintOutput:

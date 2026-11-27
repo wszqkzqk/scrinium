@@ -1,10 +1,9 @@
 """
-setup.py — Scrinium 环境检测与交互式安装向导
-================================================
+setup.py - Scrinium environment checks and interactive setup wizard.
 
-两种模式：
-  scrinium setup          交互式向导（bilingual EN/ZH）
-  scrinium setup check    环境状态诊断
+Modes:
+  scrinium setup          Interactive setup wizard
+  scrinium setup check    Environment status diagnostics
 """
 
 from __future__ import annotations
@@ -29,220 +28,83 @@ from scrinium.config import Config, load_config
 #  Bilingual strings
 # ============================================================================
 
-Lang = str  # "en" | "zh"
-
-_S: dict[str, dict[Lang, str]] = {
-    # -- check labels --
-    "python_ver": {"en": "Python version", "zh": "Python 版本"},
-    "core_deps": {"en": "Core deps", "zh": "核心依赖"},
-    "import_deps": {"en": "Import deps", "zh": "导入依赖"},
-    "pdf_deps": {"en": "PDF deps", "zh": "PDF 依赖"},
-    "office_deps": {"en": "Office deps", "zh": "Office 依赖"},
-    "draw_deps": {"en": "Draw deps", "zh": "绘图依赖"},
-    "config_yaml": {"en": "config.yaml", "zh": "config.yaml"},
-    "mineru": {"en": "MinerU", "zh": "MinerU"},
-    "docling": {"en": "Docling", "zh": "Docling"},
-    "huggingface": {"en": "Hugging Face", "zh": "Hugging Face"},
-    "parser_recommendation": {"en": "PDF parser recommendation", "zh": "PDF 解析器推荐"},
-    "contact_email": {"en": "Contact email", "zh": "联系邮箱"},
-    "s2_key": {"en": "Semantic Scholar API key", "zh": "Semantic Scholar API key"},
-    "openalex_key": {"en": "OpenAlex API key", "zh": "OpenAlex API key"},
-    "zotero_key": {"en": "Zotero API key", "zh": "Zotero API key"},
-    "directories": {"en": "Directories", "zh": "目录结构"},
-    "papers_count": {"en": "Papers", "zh": "论文数量"},
-    "optional_s2_set": {
-        "en": "configured ({masked}) | optional: authenticated Semantic Scholar access; some endpoints require a key",
-        "zh": "已配置 ({masked}) | 可选：用于 Semantic Scholar 认证访问；部分端点需要 key",
-    },
-    "optional_s2_unset": {
-        "en": "not set | optional: most endpoints still work anonymously, but some Semantic Scholar endpoints require a key",
-        "zh": "未设置 | 可选：多数端点仍可匿名访问，但部分 Semantic Scholar 端点需要 key",
-    },
-    "optional_openalex_set": {
-        "en": "configured ({masked}) | optional: raises the OpenAlex daily API budget",
-        "zh": "已配置 ({masked}) | 可选：提升 OpenAlex 每日 API 额度",
-    },
-    "optional_openalex_unset": {
-        "en": "not set | optional: anonymous OpenAlex usage is metered; an API key raises the daily budget",
-        "zh": "未设置 | 可选：OpenAlex 匿名调用按量受限；配置 key 可提升每日额度",
-    },
-    "optional_zotero_set": {
-        "en": "configured ({masked}) | optional: used by Zotero Web API import",
-        "zh": "已配置 ({masked}) | 可选：用于 Zotero Web API 导入",
-    },
-    "optional_zotero_unset": {
-        "en": "not set | optional: our Zotero Web API path needs it; local zotero.sqlite import does not",
-        "zh": "未设置 | 可选：我们当前的 Zotero Web API 路径需要它；本地 zotero.sqlite 导入不需要",
-    },
-    # -- check status --
-    "installed": {"en": "installed", "zh": "已安装"},
-    "not_installed": {"en": "not installed", "zh": "未安装"},
-    "found": {"en": "found", "zh": "已找到"},
-    "not_found": {"en": "not found", "zh": "未找到"},
-    "configured": {"en": "configured", "zh": "已配置"},
-    "not_set": {"en": "not set", "zh": "未设置"},
-    "all_ok": {"en": "all exist", "zh": "全部存在"},
-    # -- wizard --
-    "lang_prompt": {
-        "en": "Language / 语言选择:\n  1. English\n  2. 中文",
-        "zh": "Language / 语言选择:\n  1. English\n  2. 中文",
-    },
-    "welcome": {"en": "\n=== Scrinium Setup Wizard ===\n", "zh": "\n=== Scrinium 安装向导 ===\n"},
-    "step_deps": {"en": "Step 1: Checking dependencies...", "zh": "步骤 1: 检查依赖..."},
-    "step_config": {"en": "Step 2: Configuration file", "zh": "步骤 2: 配置文件"},
-    "step_parser": {
-        "en": "Step 3: Choose a PDF parser",
-        "zh": "步骤 3: 选择 PDF 解析器",
-    },
-    "step_keys_followup": {
-        "en": "Step 4: API keys (stored in config.local.yaml, not tracked by git)",
-        "zh": "步骤 4: API 密钥（保存在 config.local.yaml，不进 git）",
-    },
-    "step_verify": {"en": "Step 5: Verification", "zh": "步骤 5: 验证"},
-    "install_prompt": {
-        "en": "  {group} deps missing: {pkgs}\n  Install? ({cmd})",
-        "zh": "  {group} 依赖缺失: {pkgs}\n  是否安装？({cmd})",
-    },
-    "yn": {"en": " [Y/n] ", "zh": " [Y/n] "},
-    "skip": {"en": "  Skipped.", "zh": "  已跳过。"},
-    "installing": {"en": "  Installing {group}...", "zh": "  正在安装 {group}..."},
-    "install_ok": {"en": "  Installed successfully.", "zh": "  安装成功。"},
-    "install_fail": {
-        "en": "  Installation failed. You can install later with: {cmd}",
-        "zh": "  安装失败。你可以稍后手动安装: {cmd}",
-    },
-    "config_exists": {"en": "  config.yaml already exists, skipping.", "zh": "  config.yaml 已存在，跳过。"},
-    "config_created": {
-        "en": "  Created config.yaml with default settings.",
-        "zh": "  已创建 config.yaml（默认配置）。",
-    },
-    "mineru_key_prompt": {
-        "en": "  MinerU token for `mineru-open-api extract` (free to apply at https://mineru.net/apiManage/token).\n"
-        "  Without it: Scrinium can still use local MinerU / Docling / PyMuPDF, but precise MinerU cloud parsing is unavailable.\n"
-        "  Press Enter to skip.",
-        "zh": "  MinerU token（用于 `mineru-open-api extract`，免费，只需去 https://mineru.net/apiManage/token 申请）。\n"
-        "  不配置：仍可使用本地 MinerU / Docling / PyMuPDF，但不能使用 MinerU 云端精准解析。\n"
-        "  按 Enter 跳过。",
-    },
-    "parser_choice_prompt": {
-        "en": "  Which PDF parser do you want to use?\n  1. MinerU\n  2. Docling\n  3. Not sure, test and recommend for me",
-        "zh": "  你想使用哪个 PDF 解析器？\n  1. MinerU\n  2. Docling\n  3. 不确定，请帮我测试并推荐",
-    },
-    "parser_choice_mineru": {"en": "  Selected MinerU.", "zh": "  已选择 MinerU。"},
-    "parser_choice_docling": {"en": "  Selected Docling.", "zh": "  已选择 Docling。"},
-    "parser_choice_auto": {
-        "en": "  Testing MinerU availability and Hugging Face reachability...",
-        "zh": "  正在测试 MinerU 可用性与 Hugging Face 连通性...",
-    },
-    "parser_choice_auto_configured_mineru": {
-        "en": "  Existing MinerU token detected; treat MinerU cloud path as available before network probing.",
-        "zh": "  检测到现有 MinerU token；在网络探测前先视为 MinerU 云路径可用。",
-    },
-    "parser_choice_auto_token_without_cli": {
-        "en": "  Existing MinerU token detected, but `mineru-open-api` is still missing; install it first (usually `pip install -e .` or `pip install mineru-open-api`), then continue with MinerU.",
-        "zh": "  检测到现有 MinerU token，但当前还缺少 `mineru-open-api`；请先安装它（通常直接 `pip install -e .` 或 `pip install mineru-open-api`），再继续走 MinerU。",
-    },
-    "parser_choice_auto_cli_without_token": {
-        "en": "  MinerU CLI is available, but no MinerU API token is configured yet; register the free token later if you want cloud mode.",
-        "zh": "  检测到 MinerU CLI 可用，但尚未配置 MinerU API Token；如需使用云端模式，请稍后注册免费 token 并填写。",
-    },
-    "reachability_yes": {"en": "reachable", "zh": "可达"},
-    "reachability_no": {"en": "unreachable", "zh": "不可达"},
-    "availability_yes": {"en": "available", "zh": "可用"},
-    "availability_no": {"en": "unavailable", "zh": "不可用"},
-    "parser_recommend_mineru": {
-        "en": "  Suggestion: prefer MinerU. Reason: {reason}",
-        "zh": "  建议优先使用 MinerU。原因：{reason}",
-    },
-    "parser_recommend_docling": {
-        "en": "  Suggestion: prefer Docling. Reason: {reason}",
-        "zh": "  建议优先使用 Docling。原因：{reason}",
-    },
-    "parser_recommend_override": {
-        "en": "  If you already know you want the other parser, keep your own choice.",
-        "zh": "  如果你已经确定要用另一个解析器，也可以直接按你的选择配置。",
-    },
-    "reason_mineru_only": {
-        "en": "MinerU is available while Hugging Face is not reachable.",
-        "zh": "MinerU 可用而 Hugging Face 不可达。",
-    },
-    "reason_hf_only": {
-        "en": "Hugging Face is reachable while MinerU is not available.",
-        "zh": "Hugging Face 可达而 MinerU 不可用。",
-    },
-    "reason_both": {
-        "en": "MinerU is available and Hugging Face is also reachable; prefer MinerU by default.",
-        "zh": "MinerU 可用，且 Hugging Face 也可达；默认优先推荐 MinerU。",
-    },
-    "reason_neither": {
-        "en": "MinerU is not available and Hugging Face is not reachable; prefer Docling local deployment because it does not depend on external MinerU service.",
-        "zh": "MinerU 当前不可用，且 Hugging Face 不可达；优先推荐 Docling 本地部署，因为它不依赖外部 MinerU 服务。",
-    },
-    "mineru_local_prompt": {
-        "en": "  Do you plan to deploy MinerU locally?",
-        "zh": "  你打算本地部署 MinerU 吗？",
-    },
-    "mineru_cloud_note": {
-        "en": "  If you do not plan local deployment, apply for a MinerU API key. It is free; you only need to register and apply.",
-        "zh": "  如果你不打算本地部署，请去申请 MinerU API key。它是免费的，只需要注册并申请即可。",
-    },
-    "docling_guide_title": {"en": "  Docling local deployment guide:", "zh": "  Docling 本地部署指引："},
-    "mineru_guide_title": {"en": "  MinerU local deployment guide:", "zh": "  MinerU 本地部署指引："},
-    "docling_guide_body": {
-        "en": "    1. Official install docs: https://docling-project.github.io/docling/getting_started/installation/\n"
-        "    2. Official CLI docs: https://docling-project.github.io/docling/reference/cli/\n"
-        "    3. GitHub: https://github.com/docling-project/docling\n"
-        "    4. Quick start: pip install docling\n"
-        "    5. CPU-only Linux example: pip install docling --extra-index-url https://download.pytorch.org/whl/cpu\n"
-        "    6. After install, verify with: docling --help",
-        "zh": "    1. 官方安装文档：https://docling-project.github.io/docling/getting_started/installation/\n"
-        "    2. 官方 CLI 文档：https://docling-project.github.io/docling/reference/cli/\n"
-        "    3. GitHub：https://github.com/docling-project/docling\n"
-        "    4. 快速开始：pip install docling\n"
-        "    5. Linux CPU-only 示例：pip install docling --extra-index-url https://download.pytorch.org/whl/cpu\n"
-        "    6. 安装后用 docling --help 验证",
-    },
-    "mineru_guide_body": {
-        "en": "    1. Official quick start: https://opendatalab.github.io/MinerU/quick_start/\n"
-        "    2. Official Docker deployment: https://opendatalab.github.io/MinerU/quick_start/docker_deployment/\n"
-        "    3. Official usage docs: https://opendatalab.github.io/MinerU/usage/quick_usage/\n"
-        "    4. GitHub: https://github.com/opendatalab/MinerU\n"
-        "    5. For local models, MinerU docs describe `mineru-models-download` and `mineru -p <input> -o <output> --source local`\n"
-        "    6. If Hugging Face is blocked, MinerU docs suggest switching model source to ModelScope",
-        "zh": "    1. 官方快速开始：https://opendatalab.github.io/MinerU/quick_start/\n"
-        "    2. 官方 Docker 部署：https://opendatalab.github.io/MinerU/quick_start/docker_deployment/\n"
-        "    3. 官方使用文档：https://opendatalab.github.io/MinerU/usage/quick_usage/\n"
-        "    4. GitHub：https://github.com/opendatalab/MinerU\n"
-        "    5. 本地模型可参考官方文档中的 mineru-models-download，以及 mineru -p <input> -o <output> --source local\n"
-        "    6. 如果 Hugging Face 不通，官方文档建议切换到 ModelScope 模型源",
-    },
-    "email_prompt": {
-        "en": "  Contact email (free; used for the Crossref polite pool so API responses are faster).\n  Press Enter to skip.",
-        "zh": "  联系邮箱（免费；用于 Crossref polite pool，配置后 API 更快）。\n  按 Enter 跳过。",
-    },
-    "key_saved": {"en": "  Saved to config.local.yaml.", "zh": "  已保存到 config.local.yaml。"},
-    "no_keys": {
-        "en": "  No keys configured. You can add them later in config.local.yaml.",
-        "zh": "  未配置任何密钥。你可以稍后在 config.local.yaml 中添加。",
-    },
-    "config_unchanged": {
-        "en": "  Added no new settings; keeping the existing config.local.yaml.",
-        "zh": "  未新增任何配置；保留现有 config.local.yaml。",
-    },
-    "import_hint": {
-        "en": "\nTip: To import papers from Zotero or Endnote, use:\n"
-        "  scrinium import-endnote <xml-or-ris-file>\n"
-        "  scrinium import-zotero --library-id <ID> --api-key <API_KEY> --collection <COLLECTION_KEY>\n"
-        "  scrinium import-zotero --local /path/to/zotero.sqlite\n",
-        "zh": "\n提示：导入 Zotero 或 Endnote 文献，使用：\n"
-        "  scrinium import-endnote <xml 或 ris 文件>\n"
-        "  scrinium import-zotero --library-id <ID> --api-key <API_KEY> --collection <COLLECTION_KEY>\n"
-        "  scrinium import-zotero --local /path/to/zotero.sqlite\n",
-    },
-    "done": {
-        "en": "\nSetup complete! Put papers in data/inbox/ and run:\n  scrinium pipeline ingest\n",
-        "zh": "\n配置完成！将论文放入 data/inbox/，然后运行：\n  scrinium pipeline ingest\n",
-    },
+# User-facing strings (English)
+_S: dict[str, str] = {
+    "python_ver": "Python version",
+    "core_deps": "Core deps",
+    "import_deps": "Import deps",
+    "pdf_deps": "PDF deps",
+    "office_deps": "Office deps",
+    "draw_deps": "Draw deps",
+    "config_yaml": "config.yaml",
+    "mineru": "MinerU",
+    "docling": "Docling",
+    "huggingface": "Hugging Face",
+    "parser_recommendation": "PDF parser recommendation",
+    "contact_email": "Contact email",
+    "s2_key": "Semantic Scholar API key",
+    "openalex_key": "OpenAlex API key",
+    "zotero_key": "Zotero API key",
+    "directories": "Directories",
+    "papers_count": "Papers",
+    "optional_s2_set": "configured ({masked}) | optional: authenticated Semantic Scholar access; some endpoints require a key",
+    "optional_s2_unset": "not set | optional: most endpoints still work anonymously, but some Semantic Scholar endpoints require a key",
+    "optional_openalex_set": "configured ({masked}) | optional: raises the OpenAlex daily API budget",
+    "optional_openalex_unset": "not set | optional: anonymous OpenAlex usage is metered; an API key raises the daily budget",
+    "optional_zotero_set": "configured ({masked}) | optional: used by Zotero Web API import",
+    "optional_zotero_unset": "not set | optional: our Zotero Web API path needs it; local zotero.sqlite import does not",
+    "installed": "installed",
+    "not_installed": "not installed",
+    "found": "found",
+    "not_found": "not found",
+    "configured": "configured",
+    "not_set": "not set",
+    "all_ok": "all exist",
+    "welcome": "\n=== Scrinium Setup Wizard ===\n",
+    "step_deps": "Step 1: Checking dependencies...",
+    "step_config": "Step 2: Configuration file",
+    "step_parser": "Step 3: Choose a PDF parser",
+    "step_keys_followup": "Step 4: API keys (stored in config.local.yaml, not tracked by git)",
+    "step_verify": "Step 5: Verification",
+    "install_prompt": "  {group} deps missing: {pkgs}\n  Install? ({cmd})",
+    "yn": " [Y/n] ",
+    "skip": "  Skipped.",
+    "installing": "  Installing {group}...",
+    "install_ok": "  Installed successfully.",
+    "install_fail": "  Installation failed. You can install later with: {cmd}",
+    "config_exists": "  config.yaml already exists, skipping.",
+    "config_created": "  Created config.yaml with default settings.",
+    "mineru_key_prompt": "  MinerU token for `mineru-open-api extract` (free to apply at https://mineru.net/apiManage/token).\n  Without it: Scrinium can still use local MinerU / Docling / PyMuPDF, but precise MinerU cloud parsing is unavailable.\n  Press Enter to skip.",
+    "parser_choice_prompt": "  Which PDF parser do you want to use?\n  1. MinerU\n  2. Docling\n  3. Not sure, test and recommend for me",
+    "parser_choice_mineru": "  Selected MinerU.",
+    "parser_choice_docling": "  Selected Docling.",
+    "parser_choice_auto": "  Testing MinerU availability and Hugging Face reachability...",
+    "parser_choice_auto_configured_mineru": "  Existing MinerU token detected; treat MinerU cloud path as available before network probing.",
+    "parser_choice_auto_token_without_cli": "  Existing MinerU token detected, but `mineru-open-api` is still missing; install it first (usually `pip install -e .` or `pip install mineru-open-api`), then continue with MinerU.",
+    "parser_choice_auto_cli_without_token": "  MinerU CLI is available, but no MinerU API token is configured yet; register the free token later if you want cloud mode.",
+    "reachability_yes": "reachable",
+    "reachability_no": "unreachable",
+    "availability_yes": "available",
+    "availability_no": "unavailable",
+    "parser_recommend_mineru": "  Suggestion: prefer MinerU. Reason: {reason}",
+    "parser_recommend_docling": "  Suggestion: prefer Docling. Reason: {reason}",
+    "parser_recommend_override": "  If you already know you want the other parser, keep your own choice.",
+    "reason_mineru_only": "MinerU is available while Hugging Face is not reachable.",
+    "reason_hf_only": "Hugging Face is reachable while MinerU is not available.",
+    "reason_both": "MinerU is available and Hugging Face is also reachable; prefer MinerU by default.",
+    "reason_neither": "MinerU is not available and Hugging Face is not reachable; prefer Docling local deployment because it does not depend on external MinerU service.",
+    "mineru_local_prompt": "  Do you plan to deploy MinerU locally?",
+    "mineru_cloud_note": "  If you do not plan local deployment, apply for a MinerU API key. It is free; you only need to register and apply.",
+    "docling_guide_title": "  Docling local deployment guide:",
+    "mineru_guide_title": "  MinerU local deployment guide:",
+    "docling_guide_body": "    1. Official install docs: https://docling-project.github.io/docling/getting_started/installation/\n    2. Official CLI docs: https://docling-project.github.io/docling/reference/cli/\n    3. GitHub: https://github.com/docling-project/docling\n    4. Quick start: pip install docling\n    5. CPU-only Linux example: pip install docling --extra-index-url https://download.pytorch.org/whl/cpu\n    6. After install, verify with: docling --help",
+    "mineru_guide_body": "    1. Official quick start: https://opendatalab.github.io/MinerU/quick_start/\n    2. Official Docker deployment: https://opendatalab.github.io/MinerU/quick_start/docker_deployment/\n    3. Official usage docs: https://opendatalab.github.io/MinerU/usage/quick_usage/\n    4. GitHub: https://github.com/opendatalab/MinerU\n    5. For local models, MinerU docs describe `mineru-models-download` and `mineru -p <input> -o <output> --source local`\n    6. If Hugging Face is blocked, MinerU docs suggest switching model source to ModelScope",
+    "email_prompt": "  Contact email (free; used for the Crossref polite pool so API responses are faster).\n  Press Enter to skip.",
+    "key_saved": "  Saved to config.local.yaml.",
+    "no_keys": "  No keys configured. You can add them later in config.local.yaml.",
+    "config_unchanged": "  Added no new settings; keeping the existing config.local.yaml.",
+    "import_hint": "\nTip: To import papers from Zotero or Endnote, use:\n  scrinium import-endnote <xml-or-ris-file>\n  scrinium import-zotero --library-id <ID> --api-key <API_KEY> --collection <COLLECTION_KEY>\n  scrinium import-zotero --local /path/to/zotero.sqlite\n",
+    "done": "\nSetup complete! Put papers in data/inbox/ and run:\n  scrinium pipeline ingest\n",
 }
 
 MINERU_TOKEN_URL = "https://mineru.net/apiManage/token"
@@ -254,9 +116,9 @@ HUGGINGFACE_URL = "https://huggingface.co"
 DEFAULT_PDF_PARSER = "mineru"
 
 
-def t(key: str, lang: Lang) -> str:
-    """Translate a string key to the specified language."""
-    return _S.get(key, {}).get(lang, key)
+def t(key: str) -> str:
+    """Return the UI string for *key*."""
+    return _S.get(key, key)
 
 
 @dataclass
@@ -393,12 +255,11 @@ class ParserChoice:
     needs_mineru_key: bool = False
 
 
-def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]:
+def run_check(cfg: Config | None = None) -> list[CheckResult]:
     """Run all environment checks.
 
     Args:
         cfg: Config instance. If None, loads default config.
-        lang: Display language.
 
     Returns:
         List of CheckResult items.
@@ -413,7 +274,7 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
     ver_str = f"{vi.major}.{vi.minor}.{vi.micro}"
     results.append(
         CheckResult(
-            label=t("python_ver", lang),
+            label=t("python_ver"),
             ok=vi >= (3, 10),
             detail=ver_str + (" ✓" if vi >= (3, 10) else " (need ≥3.10)"),
         )
@@ -430,14 +291,14 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
         status = check_dep_group(group)
         if status.installed:
             pkgs = ", ".join(p for _, p in _DEP_GROUPS[group])
-            results.append(CheckResult(t(label_key, lang), True, pkgs))
+            results.append(CheckResult(t(label_key), True, pkgs))
         else:
             hint = f"pip install scrinium[{group}]"
             results.append(
                 CheckResult(
-                    t(label_key, lang),
+                    t(label_key),
                     False,
-                    f"{t('not_installed', lang)}: {', '.join(status.missing)}  → {hint}",
+                    f"{t('not_installed')}: {', '.join(status.missing)}  → {hint}",
                 )
             )
 
@@ -446,45 +307,45 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
     config_path = root / "config.yaml"
     results.append(
         CheckResult(
-            t("config_yaml", lang),
+            t("config_yaml"),
             config_path.exists(),
-            t("found", lang) if config_path.exists() else t("not_found", lang),
+            t("found") if config_path.exists() else t("not_found"),
         )
     )
 
     # MinerU
-    mineru_status = _detect_mineru(cfg, lang)
-    results.append(CheckResult(t("mineru", lang), mineru_status.ok, mineru_status.detail))
-    docling_ok, docling_detail = _check_docling(lang)
-    results.append(CheckResult(t("docling", lang), docling_ok, docling_detail))
-    hf_ok, hf_detail = _check_huggingface(lang)
-    results.append(CheckResult(t("huggingface", lang), hf_ok, hf_detail))
-    parser_name, reason = recommend_pdf_parser(mineru_status.recommendable, hf_ok, lang)
-    results.append(CheckResult(t("parser_recommendation", lang), True, f"{parser_name}: {reason}"))
+    mineru_status = _detect_mineru(cfg)
+    results.append(CheckResult(t("mineru"), mineru_status.ok, mineru_status.detail))
+    docling_ok, docling_detail = _check_docling()
+    results.append(CheckResult(t("docling"), docling_ok, docling_detail))
+    hf_ok, hf_detail = _check_huggingface()
+    results.append(CheckResult(t("huggingface"), hf_ok, hf_detail))
+    parser_name, reason = recommend_pdf_parser(mineru_status.recommendable, hf_ok)
+    results.append(CheckResult(t("parser_recommendation"), True, f"{parser_name}: {reason}"))
 
     # Contact email
     email = cfg.ingest.contact_email
     if email:
-        results.append(CheckResult(t("contact_email", lang), True, email))
+        results.append(CheckResult(t("contact_email"), True, email))
     else:
-        results.append(CheckResult(t("contact_email", lang), False, t("not_set", lang)))
+        results.append(CheckResult(t("contact_email"), False, t("not_set")))
 
     s2_key = cfg.resolved_s2_api_key()
     if s2_key:
         masked = s2_key[:3] + "***" + s2_key[-3:] if len(s2_key) > 8 else "***"
         results.append(
             CheckResult(
-                t("s2_key", lang),
+                t("s2_key"),
                 True,
-                t("optional_s2_set", lang).format(masked=masked),
+                t("optional_s2_set").format(masked=masked),
             )
         )
     else:
         results.append(
             CheckResult(
-                t("s2_key", lang),
+                t("s2_key"),
                 True,
-                t("optional_s2_unset", lang),
+                t("optional_s2_unset"),
             )
         )
 
@@ -493,17 +354,17 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
         masked = openalex_key[:3] + "***" + openalex_key[-3:] if len(openalex_key) > 8 else "***"
         results.append(
             CheckResult(
-                t("openalex_key", lang),
+                t("openalex_key"),
                 True,
-                t("optional_openalex_set", lang).format(masked=masked),
+                t("optional_openalex_set").format(masked=masked),
             )
         )
     else:
         results.append(
             CheckResult(
-                t("openalex_key", lang),
+                t("openalex_key"),
                 True,
-                t("optional_openalex_unset", lang),
+                t("optional_openalex_unset"),
             )
         )
 
@@ -512,17 +373,17 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
         masked = zotero_key[:3] + "***" + zotero_key[-3:] if len(zotero_key) > 8 else "***"
         results.append(
             CheckResult(
-                t("zotero_key", lang),
+                t("zotero_key"),
                 True,
-                t("optional_zotero_set", lang).format(masked=masked),
+                t("optional_zotero_set").format(masked=masked),
             )
         )
     else:
         results.append(
             CheckResult(
-                t("zotero_key", lang),
+                t("zotero_key"),
                 True,
-                t("optional_zotero_unset", lang),
+                t("optional_zotero_unset"),
             )
         )
 
@@ -537,25 +398,25 @@ def run_check(cfg: Config | None = None, lang: Lang = "zh") -> list[CheckResult]
     if missing_dirs:
         results.append(
             CheckResult(
-                t("directories", lang),
+                t("directories"),
                 False,
-                f"{t('not_found', lang)}: {', '.join(missing_dirs)}",
+                f"{t('not_found')}: {', '.join(missing_dirs)}",
             )
         )
     else:
-        results.append(CheckResult(t("directories", lang), True, t("all_ok", lang)))
+        results.append(CheckResult(t("directories"), True, t("all_ok")))
 
     # Papers count
     papers_dir = cfg.papers_dir
     count = 0
     if papers_dir.exists():
         count = sum(1 for d in papers_dir.iterdir() if d.is_dir() and (d / "meta.json").exists())
-    results.append(CheckResult(t("papers_count", lang), True, str(count)))
+    results.append(CheckResult(t("papers_count"), True, str(count)))
 
     return results
 
 
-def _detect_mineru(cfg: Config, lang: Lang) -> MinerUStatus:
+def _detect_mineru(cfg: Config) -> MinerUStatus:
     """Collect MinerU status for both diagnostics and recommendation logic."""
     cli_path = shutil.which("mineru-open-api")
     token_configured = bool(cfg.resolved_mineru_api_key())
@@ -579,7 +440,7 @@ def _detect_mineru(cfg: Config, lang: Lang) -> MinerUStatus:
     if token_configured and cli_path:
         return MinerUStatus(
             ok=True,
-            detail=f"mineru-open-api @ {cli_path} + token " + t("configured", lang),
+            detail=f"mineru-open-api @ {cli_path} + token " + t("configured"),
             recommendable=True,
             cloud_only=True,
             cli_available=True,
@@ -587,16 +448,10 @@ def _detect_mineru(cfg: Config, lang: Lang) -> MinerUStatus:
         )
 
     if cli_path and not token_configured:
-        if lang == "zh":
-            detail = (
-                f"检测到 mineru-open-api @ {cli_path}，建议优先使用 MinerU；"
-                f"如需云端精准解析，请注册免费 token：{MINERU_TOKEN_URL}"
-            )
-        else:
-            detail = (
-                f"detected mineru-open-api @ {cli_path}; prefer MinerU. "
-                f"Register the free token for cloud mode: {MINERU_TOKEN_URL}"
-            )
+        detail = (
+            f"detected mineru-open-api @ {cli_path}; prefer MinerU. "
+            f"Register the free token for cloud mode: {MINERU_TOKEN_URL}"
+        )
         return MinerUStatus(
             ok=False,
             detail=detail,
@@ -607,16 +462,10 @@ def _detect_mineru(cfg: Config, lang: Lang) -> MinerUStatus:
         )
 
     if token_configured and not cli_path:
-        if lang == "zh":
-            detail = (
-                "已配置 MinerU token，但未安装 mineru-open-api"
-                f" → pip install mineru-open-api | 本地部署: {MINERU_DOCS_URL} | Docker: {MINERU_DOCKER_URL}"
-            )
-        else:
-            detail = (
-                "MinerU token configured, but mineru-open-api is not installed"
-                f" → pip install mineru-open-api | local docs: {MINERU_DOCS_URL} | Docker: {MINERU_DOCKER_URL}"
-            )
+        detail = (
+            "MinerU token configured, but mineru-open-api is not installed"
+            f" → pip install mineru-open-api | local docs: {MINERU_DOCS_URL} | Docker: {MINERU_DOCKER_URL}"
+        )
         return MinerUStatus(
             ok=False,
             detail=detail,
@@ -626,16 +475,10 @@ def _detect_mineru(cfg: Config, lang: Lang) -> MinerUStatus:
             token_configured=True,
         )
 
-    if lang == "zh":
-        detail = (
-            "未配置 MinerU token / CLI，且本地 MinerU 服务不可达"
-            f" → 安装 CLI: pip install mineru-open-api | token: {MINERU_TOKEN_URL} | 本地部署: {MINERU_DOCS_URL} | Docker: {MINERU_DOCKER_URL}"
-        )
-    else:
-        detail = (
-            "MinerU token / CLI not configured and local MinerU service is unreachable"
-            f" → install CLI: pip install mineru-open-api | token: {MINERU_TOKEN_URL} | local docs: {MINERU_DOCS_URL} | Docker: {MINERU_DOCKER_URL}"
-        )
+    detail = (
+        "MinerU token / CLI not configured and local MinerU service is unreachable"
+        f" → install CLI: pip install mineru-open-api | token: {MINERU_TOKEN_URL} | local docs: {MINERU_DOCS_URL} | Docker: {MINERU_DOCKER_URL}"
+    )
     return MinerUStatus(
         ok=False,
         detail=detail,
@@ -646,13 +489,11 @@ def _detect_mineru(cfg: Config, lang: Lang) -> MinerUStatus:
     )
 
 
-def _check_docling(lang: Lang) -> tuple[bool, str]:
+def _check_docling() -> tuple[bool, str]:
     """Check whether Docling CLI is installed locally."""
     cmd = shutil.which("docling")
     if cmd:
         return True, cmd
-    if lang == "zh":
-        return False, f"未安装 → pip install docling | 安装文档: {DOCLING_INSTALL_URL} | CLI: {DOCLING_CLI_URL}"
     return False, f"not installed → pip install docling | install docs: {DOCLING_INSTALL_URL} | CLI: {DOCLING_CLI_URL}"
 
 
@@ -667,13 +508,11 @@ def _probe_url(url: str, timeout: int = 2) -> bool:
         return False
 
 
-def _check_huggingface(lang: Lang) -> tuple[bool, str]:
+def _check_huggingface() -> tuple[bool, str]:
     """Check whether Hugging Face is reachable from current network."""
     ok = _probe_url(HUGGINGFACE_URL)
     if ok:
-        return True, t("reachability_yes", lang)
-    if lang == "zh":
-        return False, "不可达 → Docling 或 Hugging Face 模型下载可能失败；可优先考虑 MinerU / ModelScope"
+        return True, t("reachability_yes")
     return False, "unreachable → Docling or Hugging Face model downloads may fail; prefer MinerU / ModelScope"
 
 
@@ -684,11 +523,11 @@ def _wizard_mineru_available(cfg: Config) -> tuple[bool, bool]:
         A tuple of ``(available, cloud_only)`` where ``cloud_only`` means the
         detected path requires a MinerU token instead of local deployment.
     """
-    status = _detect_mineru(cfg, "zh")
+    status = _detect_mineru(cfg)
     return status.recommendable, status.cloud_only
 
 
-def recommend_pdf_parser(mineru_available: bool, huggingface_reachable: bool, lang: Lang) -> tuple[str, str]:
+def recommend_pdf_parser(mineru_available: bool, huggingface_reachable: bool) -> tuple[str, str]:
     """Recommend MinerU or Docling from availability signals.
 
     Args:
@@ -697,18 +536,17 @@ def recommend_pdf_parser(mineru_available: bool, huggingface_reachable: bool, la
             or a lightweight heuristic used by the setup wizard.
         huggingface_reachable: Whether Hugging Face is reachable from the
             current network.
-        lang: Output language.
 
     Returns:
         A tuple of ``(recommended_parser, reason)``.
     """
     if mineru_available and not huggingface_reachable:
-        return "MinerU", t("reason_mineru_only", lang)
+        return "MinerU", t("reason_mineru_only")
     if huggingface_reachable and not mineru_available:
-        return "Docling", t("reason_hf_only", lang)
+        return "Docling", t("reason_hf_only")
     if mineru_available and huggingface_reachable:
-        return "MinerU", t("reason_both", lang)
-    return "Docling", t("reason_neither", lang)
+        return "MinerU", t("reason_both")
+    return "Docling", t("reason_neither")
 
 
 def format_check_results(results: list[CheckResult]) -> str:
@@ -734,55 +572,51 @@ def format_check_results(results: list[CheckResult]) -> str:
 
 
 def run_wizard(cfg: Config | None = None) -> None:
-    """Interactive setup wizard (bilingual EN/ZH).
+    """Interactive setup wizard.
 
     Args:
         cfg: Config instance. If None, loads default config.
     """
-    # Language selection
-    print(_S["lang_prompt"]["en"])
-    choice = _prompt_text("> ")
-    lang: Lang = "en" if choice == "1" else "zh"
 
     if cfg is None:
         cfg = load_config()
     root = cfg._root
 
-    print(t("welcome", lang))
+    print(t("welcome"))
 
     # Step 1: Dependencies
-    print(t("step_deps", lang))
-    _wizard_deps(lang)
+    print(t("step_deps"))
+    _wizard_deps()
 
     # Step 2: config.yaml
-    print(f"\n{t('step_config', lang)}")
-    _wizard_config(root, lang)
+    print(f"\n{t('step_config')}")
+    _wizard_config(root)
 
     # Reload config after generating config.yaml
     cfg = load_config()
     cfg.ensure_dirs()
 
     # Step 3: PDF parser
-    print(f"\n{t('step_parser', lang)}")
-    parser_choice = _wizard_parser(cfg, lang)
+    print(f"\n{t('step_parser')}")
+    parser_choice = _wizard_parser(cfg)
 
     # Step 4: API keys
-    print(f"\n{t('step_keys_followup', lang)}")
-    _wizard_keys(root, lang, parser_choice)
+    print(f"\n{t('step_keys_followup')}")
+    _wizard_keys(root, parser_choice)
 
     # Import hint
-    print(t("import_hint", lang))
+    print(t("import_hint"))
 
     # Step 5: Verify
-    print(f"{t('step_verify', lang)}")
+    print(f"{t('step_verify')}")
     cfg = load_config()  # reload with new keys
-    results = run_check(cfg, lang)
+    results = run_check(cfg)
     print(format_check_results(results))
 
-    print(t("done", lang))
+    print(t("done"))
 
 
-def _wizard_deps(lang: Lang) -> None:
+def _wizard_deps() -> None:
     """Check and optionally install missing dependency groups."""
     editable_root = _editable_project_root()
     for group in ("core", "import", "pdf", "office", "draw"):
@@ -790,7 +624,7 @@ def _wizard_deps(lang: Lang) -> None:
         label_key = f"{group}_deps"
         if status.installed:
             pkgs = ", ".join(p for _, p in _DEP_GROUPS[group])
-            print(f"  [OK] {t(label_key, lang)}: {pkgs}")
+            print(f"  [OK] {t(label_key)}: {pkgs}")
         else:
             if editable_root is not None:
                 # Editable checkout: install extras from the local tree so pip
@@ -800,15 +634,15 @@ def _wizard_deps(lang: Lang) -> None:
             else:
                 cmd_hint = f"pip install scrinium[{group}]"
                 run_args = [sys.executable, "-m", "pip", "install", f"scrinium[{group}]"]
-            msg = t("install_prompt", lang).format(group=group, pkgs=", ".join(status.missing), cmd=cmd_hint)
+            msg = t("install_prompt").format(group=group, pkgs=", ".join(status.missing), cmd=cmd_hint)
             print(msg)
-            answer = _prompt_result(t("yn", lang))
+            answer = _prompt_result(t("yn"))
             ans = answer.text.lower()
             if answer.from_eof:
-                print(t("skip", lang))
+                print(t("skip"))
                 continue
             if ans in ("", "y", "yes"):
-                print(t("installing", lang).format(group=group))
+                print(t("installing").format(group=group))
                 ret = subprocess.run(
                     run_args,
                     capture_output=True,
@@ -816,81 +650,81 @@ def _wizard_deps(lang: Lang) -> None:
                     cwd=editable_root,
                 )
                 if ret.returncode == 0:
-                    print(t("install_ok", lang))
+                    print(t("install_ok"))
                 else:
-                    print(t("install_fail", lang).format(group=group, cmd=cmd_hint))
+                    print(t("install_fail").format(group=group, cmd=cmd_hint))
                     if ret.stderr:
                         # show last 3 lines of error
                         err_lines = ret.stderr.strip().splitlines()[-3:]
                         for line in err_lines:
                             print(f"    {line}")
             else:
-                print(t("skip", lang))
+                print(t("skip"))
 
 
-def _wizard_config(root: Path, lang: Lang) -> None:
+def _wizard_config(root: Path) -> None:
     """Generate config.yaml if it doesn't exist."""
     config_path = root / "config.yaml"
     if config_path.exists():
-        print(t("config_exists", lang))
+        print(t("config_exists"))
         return
 
     config_path.write_text(_CONFIG_TEMPLATE, encoding="utf-8")
-    print(t("config_created", lang))
+    print(t("config_created"))
 
 
-def _wizard_parser(cfg: Config, lang: Lang) -> ParserChoice:
+def _wizard_parser(cfg: Config) -> ParserChoice:
     """Interactively help the user choose between MinerU and Docling."""
-    print(t("parser_choice_prompt", lang))
+    print(t("parser_choice_prompt"))
     choice = _prompt_text("  > ")
     if choice == "1":
-        print(t("parser_choice_mineru", lang))
-        print(t("mineru_cloud_note", lang))
-        use_local = _prompt_yes_no(t("mineru_local_prompt", lang), lang, default=False)
-        print(t("mineru_guide_title", lang))
-        print(t("mineru_guide_body", lang))
+        print(t("parser_choice_mineru"))
+        print(t("mineru_cloud_note"))
+        use_local = _prompt_yes_no(t("mineru_local_prompt"), default=False)
+        print(t("mineru_guide_title"))
+        print(t("mineru_guide_body"))
         if use_local:
             return ParserChoice(parser="mineru", needs_mineru_key=False)
         return ParserChoice(parser="mineru", needs_mineru_key=True)
     if choice == "2":
-        print(t("parser_choice_docling", lang))
-        print(t("docling_guide_title", lang))
-        print(t("docling_guide_body", lang))
+        print(t("parser_choice_docling"))
+        print(t("docling_guide_title"))
+        print(t("docling_guide_body"))
         return ParserChoice(parser="docling", needs_mineru_key=False)
 
-    print(t("parser_choice_auto", lang))
-    mineru_status = _detect_mineru(cfg, lang)
+    print(t("parser_choice_auto"))
+    mineru_status = _detect_mineru(cfg)
     mineru_available = mineru_status.recommendable
     if mineru_status.token_configured and not mineru_status.cli_available:
-        print(t("parser_choice_auto_token_without_cli", lang))
+        print(t("parser_choice_auto_token_without_cli"))
     elif mineru_status.cloud_only and mineru_status.token_configured:
-        print(t("parser_choice_auto_configured_mineru", lang))
+        print(t("parser_choice_auto_configured_mineru"))
     elif mineru_status.cloud_only:
-        print(t("parser_choice_auto_cli_without_token", lang))
+        print(t("parser_choice_auto_cli_without_token"))
     hf_ok = _probe_url(HUGGINGFACE_URL)
-    print(f"    MinerU: {t('availability_yes', lang) if mineru_available else t('availability_no', lang)}")
-    print(f"    Hugging Face: {t('reachability_yes', lang) if hf_ok else t('reachability_no', lang)}")
+    print(f"    MinerU: {t('availability_yes') if mineru_available else t('availability_no')}")
+    print(f"    Hugging Face: {t('reachability_yes') if hf_ok else t('reachability_no')}")
 
-    parser_name, reason = recommend_pdf_parser(mineru_available, hf_ok, lang)
+    parser_name, reason = recommend_pdf_parser(mineru_available, hf_ok)
     if parser_name == "MinerU":
-        print(t("parser_recommend_mineru", lang).format(reason=reason))
-        print(t("parser_recommend_override", lang))
-        print(t("mineru_cloud_note", lang))
-        use_local = _prompt_yes_no(t("mineru_local_prompt", lang), lang, default=False)
-        print(t("mineru_guide_title", lang))
-        print(t("mineru_guide_body", lang))
+        print(t("parser_recommend_mineru").format(reason=reason))
+        print(t("parser_recommend_override"))
+        print(t("mineru_cloud_note"))
+        use_local = _prompt_yes_no(t("mineru_local_prompt"), default=False)
+        print(t("mineru_guide_title"))
+        print(t("mineru_guide_body"))
         if use_local:
             return ParserChoice(parser="mineru", needs_mineru_key=False)
         return ParserChoice(parser="mineru", needs_mineru_key=True)
 
-    print(t("parser_recommend_docling", lang).format(reason=reason))
-    print(t("parser_recommend_override", lang))
-    print(t("docling_guide_title", lang))
-    print(t("docling_guide_body", lang))
+    print(t("parser_recommend_docling").format(reason=reason))
+    print(t("parser_recommend_override"))
+    print(t("docling_guide_title"))
+    print(t("docling_guide_body"))
     return ParserChoice(parser="docling", needs_mineru_key=False)
 
 
-def _prompt_yes_no(prompt: str, lang: Lang, *, default: bool = True) -> bool:
+def _prompt_yes_no(prompt: str, *, default: bool = True) -> bool:
     """Simple bilingual yes/no prompt."""
     suffix = " [Y/n] " if default else " [y/N] "
     answer = _prompt_result(prompt + suffix)
@@ -900,7 +734,7 @@ def _prompt_yes_no(prompt: str, lang: Lang, *, default: bool = True) -> bool:
     return ans in ("y", "yes")
 
 
-def _wizard_keys(root: Path, lang: Lang, parser_choice: ParserChoice | None = None) -> None:
+def _wizard_keys(root: Path, parser_choice: ParserChoice | None = None) -> None:
     """Interactively configure API keys, write to config.local.yaml."""
     local_path = root / "config.local.yaml"
     local_data: dict = {}
@@ -930,14 +764,14 @@ def _wizard_keys(root: Path, lang: Lang, parser_choice: ParserChoice | None = No
 
     # MinerU token
     if parser_choice is None or parser_choice.needs_mineru_key:
-        print(t("mineru_key_prompt", lang))
+        print(t("mineru_key_prompt"))
         key = _prompt_text("  > ")
         if key:
             ingest_local["mineru_api_key"] = key
             changed = True
 
     # Contact email
-    print(t("email_prompt", lang))
+    print(t("email_prompt"))
     email = _prompt_text("  > ")
     if email:
         ingest_local["contact_email"] = email
@@ -954,16 +788,16 @@ def _wizard_keys(root: Path, lang: Lang, parser_choice: ParserChoice | None = No
                 yaml.dump(local_data, allow_unicode=True, default_flow_style=False),
                 encoding="utf-8",
             )
-            print(t("key_saved", lang))
+            print(t("key_saved"))
         else:
             if local_path.exists():
                 local_path.unlink()
-            print(t("no_keys", lang))
+            print(t("no_keys"))
     else:
         if local_path.exists():
-            print(t("config_unchanged", lang))
+            print(t("config_unchanged"))
         else:
-            print(t("no_keys", lang))
+            print(t("no_keys"))
 
 
 # ============================================================================

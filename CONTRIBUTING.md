@@ -66,10 +66,11 @@ Short English imperative subject lines (e.g. `Add snowball command for citation-
 
 - **Linter/formatter**: ruff (configured in `pyproject.toml`)
 - **Type hints**: encouraged, checked by mypy with `ignore_missing_imports`
-- **Docstrings**: Google-style for public API functions in library modules
+- **Docstrings**: Google-style English for public API functions in library modules
 - **CLI handlers** (`cmd_*` in `scrinium/cli/`): no docstrings needed
-- **UI text** (CLI output, help, errors): Chinese
+- **UI text** (CLI output, help, errors, logs, inspection reports): English
 - **Code comments**: English, only when logic isn't self-evident
+- **Functional multilingual data**: keep non-English tag aliases, metadata parsing regexes, and FTS5 CJK tokenization intact
 
 ## Project Structure
 

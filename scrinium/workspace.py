@@ -1,9 +1,10 @@
 """
-workspace.py — 工作区论文子集管理
-===================================
+workspace.py — Workspace paper subset management
+================================================
 
-每个工作区是 ``workspace/<name>/`` 目录，内含 ``papers.json`` 索引文件
-指向 ``data/papers/`` 中的论文。工作区内可自由存放笔记、代码、草稿等。
+Each workspace is a ``workspace/<name>/`` directory containing a ``papers.json``
+index pointing to papers in ``data/papers/``. Notes, code, drafts, and other
+files can be stored freely inside a workspace.
 """
 
 from __future__ import annotations
@@ -33,13 +34,13 @@ def _read(ws_dir: Path) -> list[dict]:
     try:
         raw = json.loads(pj.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"papers.json 格式损坏，操作中止: {pj}") from e
+        raise RuntimeError(f"Corrupted papers.json, aborting operation: {pj}") from e
     if not isinstance(raw, list):
-        raise RuntimeError(f"papers.json 格式异常（期望 list，实际 {type(raw).__name__}）: {pj}")
+        raise RuntimeError(f"Invalid papers.json format (expected list, got {type(raw).__name__}): {pj}")
     # Filter out malformed entries missing required "id" field
     valid = [e for e in raw if isinstance(e, dict) and "id" in e]
     if len(valid) < len(raw):
-        _log.warning("papers.json 中有 %d 条缺少 id 的记录已跳过 (%s)", len(raw) - len(valid), pj)
+        _log.warning("Skipped %d entries missing 'id' in papers.json (%s)", len(raw) - len(valid), pj)
     return valid
 
 
@@ -59,13 +60,13 @@ def _write(ws_dir: Path, entries: list[dict]) -> None:
 
 
 def create(ws_dir: Path) -> Path:
-    """创建工作区目录并初始化空 papers.json。
+    """Create the workspace directory and initialize an empty papers.json.
 
     Args:
-        ws_dir: 工作区目录路径。
+        ws_dir: Workspace directory path.
 
     Returns:
-        papers.json 文件路径。
+        Path to papers.json.
     """
     ws_dir.mkdir(parents=True, exist_ok=True)
     pj = _papers_json(ws_dir)
@@ -82,25 +83,27 @@ def add(
     resolved: list[dict] | None = None,
     unresolved: list[str] | None = None,
 ) -> list[dict]:
-    """添加论文到工作区。
+    """Add papers to a workspace.
 
-    通过 UUID、目录名或 DOI 解析论文，去重后追加到 papers.json。
+    Resolves papers by UUID, directory name, or DOI, deduplicates them, and
+    appends them to papers.json.
 
-    当调用方已持有解析好的论文信息时，可通过 *resolved* 参数直接传入，
-    跳过逐个 ``lookup_paper()`` 查询（避免 O(N) 次 DB 连接开销）。
+    Callers that already hold resolved paper records can pass them via
+    *resolved* to skip per-paper ``lookup_paper()`` queries (avoiding O(N)
+    database connection overhead).
 
     Args:
-        ws_dir: 工作区目录路径。
-        paper_refs: 论文引用列表（UUID / 目录名 / DOI）。
-            当 *resolved* 不为 ``None`` 时本参数被忽略。
-        db_path: index.db 路径，用于 lookup_paper。
-        resolved: 预解析的论文列表，每个元素须含 ``"id"`` 和
-            ``"dir_name"`` 键。提供时跳过 lookup_paper 查询。
-        unresolved: 可选的输出列表；无法解析的引用会被追加进去，
-            供调用方向用户逐条报告。
+        ws_dir: Workspace directory path.
+        paper_refs: Paper references (UUID / directory name / DOI).
+            Ignored when *resolved* is not ``None``.
+        db_path: Path to index.db, used by lookup_paper.
+        resolved: Pre-resolved paper records, each containing ``"id"`` and
+            ``"dir_name"``. When provided, lookup_paper queries are skipped.
+        unresolved: Optional output list; unresolvable references are appended
+            here so the caller can report them individually.
 
     Returns:
-        新增条目列表。
+        List of newly added entries.
     """
     entries = _read(ws_dir)
     existing_ids = {e["id"] for e in entries}
@@ -130,13 +133,13 @@ def add(
         for ref in paper_refs:
             record = lookup_paper(db_path, ref)
             if record is None:
-                _log.warning("无法解析论文引用: %s", ref)
+                _log.warning("Unable to resolve paper reference: %s", ref)
                 if unresolved is not None:
                     unresolved.append(ref)
                 continue
             uid = record["id"]
             if uid in existing_ids:
-                _log.debug("已存在，跳过: %s", ref)
+                _log.debug("Already in workspace, skipping: %s", ref)
                 continue
             entry = {"id": uid, "dir_name": record["dir_name"], "added_at": now}
             entries.append(entry)
@@ -149,15 +152,15 @@ def add(
 
 
 def remove(ws_dir: Path, paper_refs: list[str], db_path: Path) -> list[dict]:
-    """从工作区移除论文。
+    """Remove papers from a workspace.
 
     Args:
-        ws_dir: 工作区目录路径。
-        paper_refs: 论文引用列表（UUID / 目录名 / DOI）。
-        db_path: index.db 路径。
+        ws_dir: Workspace directory path.
+        paper_refs: Paper references (UUID / directory name / DOI).
+        db_path: Path to index.db.
 
     Returns:
-        被移除的条目列表。
+        List of removed entries.
     """
     from scrinium.index import lookup_paper
 
@@ -170,7 +173,7 @@ def remove(ws_dir: Path, paper_refs: list[str], db_path: Path) -> list[dict]:
         try:
             record = lookup_paper(db_path, ref)
         except sqlite3.Error as exc:
-            _log.warning("lookup_paper 失败，回退到工作区可见标识: %s", exc)
+            _log.warning("lookup_paper failed, falling back to workspace-visible identifiers: %s", exc)
             record = None
         if record:
             remove_ids.add(record["id"])
@@ -190,13 +193,13 @@ def remove(ws_dir: Path, paper_refs: list[str], db_path: Path) -> list[dict]:
 
 
 def list_workspaces(ws_root: Path) -> list[str]:
-    """列出所有含 papers.json 的工作区。
+    """List all workspaces containing a papers.json file.
 
     Args:
-        ws_root: workspace/ 根目录。
+        ws_root: Root workspace/ directory.
 
     Returns:
-        工作区名称列表（排序）。
+        Sorted list of workspace names.
     """
     if not ws_root.is_dir():
         return []
@@ -240,14 +243,14 @@ def validate_workspace_name(name: str) -> bool:
 
 
 def show(ws_dir: Path, db_path: Path) -> list[dict]:
-    """查看工作区论文列表，刷新过期的 dir_name。
+    """Return the workspace paper list, refreshing stale dir_name values.
 
     Args:
-        ws_dir: 工作区目录路径。
-        db_path: index.db 路径。
+        ws_dir: Workspace directory path.
+        db_path: Path to index.db.
 
     Returns:
-        论文条目列表（含最新 dir_name）。
+        Paper entries with up-to-date dir_name values.
     """
     from scrinium.index import lookup_paper
 
@@ -264,62 +267,62 @@ def show(ws_dir: Path, db_path: Path) -> list[dict]:
 
 
 def read_paper_ids(ws_dir: Path) -> set[str]:
-    """返回工作区中所有论文的 UUID 集合。
+    """Return the set of UUIDs for all papers in a workspace.
 
     Args:
-        ws_dir: 工作区目录路径。
+        ws_dir: Workspace directory path.
 
     Returns:
-        UUID 字符串集合，用于搜索过滤。
+        Set of UUID strings, used for search filtering.
     """
     return {e["id"] for e in _read(ws_dir)}
 
 
 def rename(ws_root: Path, old_name: str, new_name: str) -> Path:
-    """重命名工作区。
+    """Rename a workspace.
 
     Args:
-        ws_root: workspace/ 根目录。
-        old_name: 当前工作区名称。
-        new_name: 新工作区名称。
+        ws_root: Root workspace/ directory.
+        old_name: Current workspace name.
+        new_name: New workspace name.
 
     Returns:
-        重命名后的工作区目录路径。
+        Path to the renamed workspace directory.
 
     Raises:
-        ValueError: 工作区名称非法（路径穿越/绝对路径等）。
-        FileNotFoundError: 源工作区不存在。
-        FileExistsError: 目标工作区已存在。
+        ValueError: Workspace name is invalid (path traversal, absolute path, etc.).
+        FileNotFoundError: Source workspace does not exist.
+        FileExistsError: Target workspace already exists.
     """
     if not validate_workspace_name(old_name):
-        raise ValueError(f"非法工作区名称: {old_name}")
+        raise ValueError(f"Invalid workspace name: {old_name}")
     if not validate_workspace_name(new_name):
-        raise ValueError(f"非法工作区名称: {new_name}")
+        raise ValueError(f"Invalid workspace name: {new_name}")
     old_dir = ws_root / old_name
     new_dir = ws_root / new_name
     if not old_dir.exists():
-        raise FileNotFoundError(f"工作区不存在: {old_name}")
+        raise FileNotFoundError(f"Workspace not found: {old_name}")
     if not old_dir.is_dir():
-        raise ValueError(f"不是有效工作区目录: {old_name}")
+        raise ValueError(f"Not a valid workspace directory: {old_name}")
     if not _papers_json(old_dir).exists():
-        raise ValueError(f"缺少 papers.json，无法重命名工作区: {old_name}")
+        raise ValueError(f"Missing papers.json; cannot rename workspace: {old_name}")
     if new_dir.exists():
-        raise FileExistsError(f"目标工作区已存在: {new_name}")
+        raise FileExistsError(f"Target workspace already exists: {new_name}")
     old_dir.rename(new_dir)
     return new_dir
 
 
 def read_dir_names(ws_dir: Path, db_path: Path) -> set[str]:
-    """返回工作区中所有论文的当前目录名集合。
+    """Return the current directory names of all papers in a workspace.
 
-    从 papers_registry 查找最新 dir_name（处理 rename 后的情况）。
+    Looks up the latest dir_name in papers_registry (handles renamed papers).
 
     Args:
-        ws_dir: 工作区目录路径。
-        db_path: index.db 路径。
+        ws_dir: Workspace directory path.
+        db_path: Path to index.db.
 
     Returns:
-        目录名字符串集合，用于导出过滤。
+        Set of directory name strings, used for export filtering.
     """
     from scrinium.index import lookup_paper
 

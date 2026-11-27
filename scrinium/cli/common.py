@@ -49,14 +49,14 @@ def _record_search_metrics(
 
 
 def _add_filter_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--year", type=str, default=None, help="年份过滤：2023 / 2020-2024 / 2020-")
-    parser.add_argument("--journal", type=str, default=None, help="期刊名过滤（模糊匹配）")
+    parser.add_argument("--year", type=str, default=None, help="Year filter: 2023 / 2020-2024 / 2020-")
+    parser.add_argument("--journal", type=str, default=None, help="Journal name filter (fuzzy match)")
     parser.add_argument(
         "--type",
         type=str,
         default=None,
         dest="paper_type",
-        help="论文类型过滤：review / journal-article 等（模糊匹配）",
+        help="Paper type filter: review / journal-article etc. (fuzzy match)",
     )
 
 
@@ -68,7 +68,7 @@ def _add_tag_arg(parser: argparse.ArgumentParser) -> None:
         action="append",
         default=None,
         metavar="TAG",
-        help="按策展标签精确过滤（可重复，AND 语义，支持别名）",
+        help="Filter by curated tag (exact match; repeatable, AND semantics; supports aliases)",
     )
 
 
@@ -94,8 +94,12 @@ def _resolve_tag_filters(args: argparse.Namespace, cfg) -> list[str] | None:
             resolved.append(canonical)
     if unknown:
         known = sorted((load_taxonomy(cfg).get("tags") or {}).keys())
-        hint = f"；当前词表: {', '.join(known)}" if known else "（词表为空，可先用 scrinium tag 打标）"
-        raise ValueError(f"未知标签: {', '.join(unknown)}{hint}")
+        hint = (
+            f"; current vocabulary: {', '.join(known)}"
+            if known
+            else " (vocabulary is empty; tag a paper with scrinium tag first)"
+        )
+        raise ValueError(f"Unknown tag: {', '.join(unknown)}{hint}")
     return resolved or None
 
 
@@ -106,12 +110,12 @@ def _resolve_ws_paper_ids(args: argparse.Namespace, cfg) -> set[str] | None:
     from scrinium import workspace
 
     if not workspace.validate_workspace_name(ws_name):
-        raise ValueError(f"非法工作区名称: {ws_name}")
+        raise ValueError(f"Invalid workspace name: {ws_name}")
 
     ws_dir = cfg._root / "workspace" / ws_name
     pids = workspace.read_paper_ids(ws_dir)
     if not pids:
-        ui(f"工作区 {ws_name} 为空或不存在")
+        ui(f"Workspace {ws_name} is empty or does not exist")
     return pids
 
 
@@ -136,9 +140,9 @@ def _check_import_error(e: ImportError) -> None:
     top = mod.split(".")[0] if mod else ""
     hint = _INSTALL_HINTS.get(top, "")
     if hint:
-        _log.error("缺少依赖: %s\n  安装: %s", mod, hint)
+        _log.error("Missing dependency: %s\n  Install: %s", mod, hint)
     else:
-        _log.error("缺少依赖: %s\n  请安装所需的 Python 包", e)
+        _log.error("Missing dependency: %s\n  Install the required Python package", e)
     sys.exit(1)
 
 
@@ -180,9 +184,9 @@ def _resolve_export_paper_ids(paper_ids: list[str] | None, cfg) -> list[str] | N
         else:
             resolved.append(paper_d.name)
     for ref in unresolved:
-        ui(f"无法解析: {ref}")
+        ui(f"Could not resolve: {ref}")
     if unresolved and not resolved:
-        raise ValueError(f"所有论文 ID 均无法解析: {', '.join(unresolved)}")
+        raise ValueError(f"Could not resolve any paper IDs: {', '.join(unresolved)}")
     return list(dict.fromkeys(resolved))
 
 
@@ -194,7 +198,7 @@ def _resolve_paper(paper_id: str, cfg) -> Path:
     """
     paper_d = _try_resolve_paper(paper_id, cfg)
     if paper_d is None:
-        _log.error("未找到论文: %s", paper_id)
+        _log.error("Paper not found: %s", paper_id)
         sys.exit(1)
     return paper_d
 

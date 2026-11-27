@@ -19,17 +19,17 @@ from ._models import (
 
 
 def extract_metadata_from_markdown(filepath: Path, *, text: str | None = None) -> PaperMetadata:
-    """从 MinerU Markdown 文件头部提取论文元数据（纯正则，不调 API）。
+    """Extract paper metadata from the head of a MinerU Markdown file (regex only, no API calls).
 
-    提取字段: title, authors, year, doi, journal。
-    无法从正文提取时回退到文件名解析。
+    Extracted fields: title, authors, year, doi, journal.
+    Falls back to filename parsing when a field cannot be extracted from the body.
 
     Args:
-        filepath: MinerU 输出的 ``.md`` 文件路径。
-        text: 预读的文件内容。若为 ``None`` 则从 ``filepath`` 读取。
+        filepath: Path to the ``.md`` file produced by MinerU.
+        text: Pre-read file contents; read from ``filepath`` when ``None``.
 
     Returns:
-        填充后的 :class:`PaperMetadata` 实例（部分字段可能为空）。
+        Populated :class:`PaperMetadata` instance (some fields may be empty).
     """
     if text is None:
         text = filepath.read_text(encoding="utf-8", errors="replace")

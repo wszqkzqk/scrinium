@@ -1,18 +1,19 @@
 """
-metadata — 论文元数据提取、API 查询、JSON 输出与文件重命名
-==========================================================
+metadata — Paper metadata extraction, API lookup, JSON output, and file renaming
+================================================================================
 
-从 MinerU 转换的学术论文 markdown 文件中提取元数据（标题、作者、年份、DOI、期刊），
-通过 Crossref / Semantic Scholar / OpenAlex 三个 API 查询引用量、摘要、论文类型，
-输出同名 JSON 元数据文件，并将 md + json 重命名为 {一作}-{年份}-{完整标题} 格式。
+Extracts metadata (title, authors, year, DOI, journal) from academic paper
+markdown converted by MinerU; queries citation counts, abstracts, and paper types
+via the Crossref, Semantic Scholar, and OpenAlex APIs; writes a sibling JSON
+metadata file; and renames the md + json files to {first-author}-{year}-{full-title}.
 
-子模块:
-    _models   — PaperMetadata dataclass + 常量 + HTTP session
-    _extract  — markdown 正则解析（title/authors/doi/year/journal）
-    _api      — API 查询（Crossref/S2/OA）+ enrich_metadata
-    _abstract — abstract 提取（regex/DOI fetch/backfill）
-    _writer   — JSON 序列化 + 文件重命名
-    _cli      — 独立 CLI 命令
+Submodules:
+    _models   — PaperMetadata dataclass + constants + HTTP session
+    _extract  — Markdown regex parsing (title/authors/doi/year/journal)
+    _api      — API queries (Crossref/S2/OA) + enrich_metadata
+    _abstract — Abstract extraction (regex/DOI fetch/backfill)
+    _writer   — JSON serialization + file renaming
+    _cli      — Standalone CLI commands
 """
 
 # Re-export all public names so existing imports remain unchanged:

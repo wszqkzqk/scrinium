@@ -32,7 +32,7 @@ class TestSearchJson:
         assert result["id"] == "aaaa-1111"
         assert result["dir_name"] == "Smith-2023-Turbulence"
         assert result["doi"] == "10.1234/jfm.2023.001"
-        assert "下一步" not in out
+        assert "Next step" not in out
 
 
 class TestShowJson:
@@ -83,7 +83,7 @@ class TestTopCitedJson:
         assert result["id"] == "aaaa-1111"
         assert result["dir_name"] == "Smith-2023-Turbulence"
         assert result["citation_count"] == "12"
-        assert "下一步" not in out
+        assert "Next step" not in out
 
 
 class TestWsShowJson:

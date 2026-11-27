@@ -122,7 +122,7 @@ class TestLegacyAliasSmoke:
 
         args.func(args, cfg)
 
-        assert any("主库" in m for m in messages)
+        assert any("Main Library" in m for m in messages)
         assert any("Smith-2023-Turbulence" in m for m in messages)
 
     def test_enrich_toc_alias_runs(self, tmp_papers, monkeypatch):
@@ -165,7 +165,7 @@ class TestLegacyAliasSmoke:
 
         args.func(args, cfg)
 
-        assert any("没有参考文献数据" in m for m in messages)
+        assert any("no reference data" in m for m in messages)
 
     def test_citing_alias_runs(self, tmp_papers, tmp_db, monkeypatch):
         build_index(tmp_papers, tmp_db)
@@ -177,7 +177,7 @@ class TestLegacyAliasSmoke:
 
         args.func(args, cfg)
 
-        assert any("没有找到引用该论文" in m for m in messages)
+        assert any("citing this paper" in m for m in messages)
 
     def test_shared_refs_alias_runs(self, tmp_papers, tmp_db, monkeypatch):
         build_index(tmp_papers, tmp_db)
@@ -189,7 +189,7 @@ class TestLegacyAliasSmoke:
 
         args.func(args, cfg)
 
-        assert any("共同引用" in m for m in messages)
+        assert any("No references shared by" in m for m in messages)
 
 
 class TestEnrichGroup:

@@ -1,21 +1,22 @@
 """
-si.py — Supporting Information (SI) 检测、获取与挂接
-=====================================================
+si.py — Supporting Information (SI) detection, fetching, and attachment
+========================================================================
 
-SI 不是独立的库条目，而是主论文的附件，存放在主论文目录的 ``si/`` 子目录中：
+SI is not a standalone library entry; it is an attachment of a parent paper,
+stored in the parent paper's ``si/`` subdirectory:
 
     data/papers/<Author-Year-Title>/
-    ├── meta.json        # "si" 字段记录 mentioned / files / fetch_status
+    ├── meta.json        # "si" field records mentioned / files / fetch_status
     ├── paper.md
     └── si/
-        ├── <name>.pdf     # 原始文件（PDF/Office/数据文件等，原样保留）
-        ├── <name>.md      # MinerU/fallback 转换结果（进 FTS 索引）
-        └── images/        # SI 图表资产（多文件合并，MinerU 图片名为哈希不冲突）
+        ├── <name>.pdf     # Original file (PDF/Office/data files kept as-is)
+        ├── <name>.md      # MinerU/fallback conversion result (indexed in FTS)
+        └── images/        # SI figure assets (merged; MinerU hash names never collide)
 
-meta.json 的 ``si`` 字段::
+The ``si`` field in meta.json::
 
     {
-      "mentioned": true,               # 正文引用了 SI（scan 写入）
+      "mentioned": true,               # Main text references SI (written by scan)
       "files": [{"name": ..., "md": "si/<name>.md", "source_url": ...,
                   "attached_by": "pipeline|agent", "attached_at": ...}],
       "fetch_status": "ok|not_found|blocked|mismatch|paywalled|error|exhausted",
@@ -23,10 +24,11 @@ meta.json 的 ``si`` 字段::
       "last_attempt": "..."
     }
 
-自动获取的信任模型：**自动优先，失败抛给模型**。规则链只产出候选 URL，
-每个下载件必须通过验证（PDF magic + SI 关键词 + 主文标题/作者命中）
-才允许挂接；任何失败都写入 ``fetch_status`` 并输出 handoff hint，
-由 agent 通过 ``scrinium attach-si`` 接管（与自动链共用同一入库漏斗）。
+Trust model for auto-fetching: **automatic first, hand failures to the model**.
+The rule chain only produces candidate URLs; every download must pass verification
+(PDF magic + SI keywords + parent title/author match) before it can be attached.
+Any failure is recorded in ``fetch_status`` with a handoff hint so an agent can
+take over via ``scrinium attach-si`` (sharing the same ingest funnel).
 """
 
 from __future__ import annotations
@@ -52,7 +54,7 @@ _log = logging.getLogger(__name__)
 #  Detection
 # ============================================================================
 
-#: 文件名疑似 SI 的模式（大小写不敏感，匹配 stem）。
+#: Filename patterns that look like SI (case-insensitive, matched against stem).
 _SI_FILENAME_RE = re.compile(
     r"(?:^|[-_])(si|supp|suppl|supporting|supplementary|supplemental|esi|sm)(?:[-_.\d]|$)"
     r"|^mmc\d+$"
@@ -61,21 +63,21 @@ _SI_FILENAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-#: 首屏文本中的 SI 标志。
+#: SI markers in first-page text.
 _SI_TEXT_RE = re.compile(
     r"supporting\s+information|supplementary\s+(?:material|information|data|methods)"
     r"|electronic\s+supplementary\s+(?:information|material)|supplemental\s+material",
     re.IGNORECASE,
 )
 
-#: 正文中"引用了 SI"的信号（用于 scan / audit 的 mentioned 判定）。
+#: Signals that the main text references SI (used for scan / audit "mentioned" checks).
 _SI_MENTION_RE = re.compile(
     r"supporting\s+information|supplementary\s+(?:materials?|information|data|methods|notes?)"
     r"|electronic\s+supplementary|\bESI\b|see\s+the\s+SI\b|(?:figure|fig\.?|table|scheme)\s+S\d+",
     re.IGNORECASE,
 )
 
-#: 疑似 SI 被当作独立论文入库的标题模式（audit 用）。
+#: Title pattern for suspected SI ingested as a standalone paper (used by audit).
 SUSPECTED_SI_TITLE_RE = re.compile(
     r"^(supporting|supplemental|supplementary|electronic\s+supplementary)\b", re.IGNORECASE
 )
@@ -84,23 +86,23 @@ _DOI_RE = re.compile(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.IGNORECASE)
 
 
 def looks_like_si_filename(name: str) -> bool:
-    """按文件名判断是否疑似 SI（``ja9b12345_si_001.pdf``、``mmc1.pdf`` 等）。"""
+    """Check by filename whether a file looks like SI (``ja9b12345_si_001.pdf``, ``mmc1.pdf``, etc.)."""
     stem = Path(name).stem
     return bool(_SI_FILENAME_RE.search(stem))
 
 
 def looks_like_si_text(text: str) -> bool:
-    """按首屏文本判断是否疑似 SI（首页印有 Supporting Information 等字样）。"""
+    """Check by first-page text whether a file looks like SI (prints "Supporting Information", etc.)."""
     return bool(_SI_TEXT_RE.search(text[:3000]))
 
 
 def si_mentioned_in_text(text: str) -> bool:
-    """判断正文是否引用了 SI（Figure S1 / see the SI / ESI 等）。"""
+    """Check whether the main text references SI (Figure S1 / see the SI / ESI, etc.)."""
     return bool(_SI_MENTION_RE.search(text))
 
 
 def extract_dois_from_text(text: str) -> list[str]:
-    """从文本中提取 DOI 列表（小写、去尾标点，保持出现顺序去重）。"""
+    """Extract DOIs from text (lowercased, trailing punctuation stripped, deduplicated in order)."""
     out: list[str] = []
     for m in _DOI_RE.finditer(text):
         doi = m.group(0).rstrip(".,;)]}").lower()
@@ -116,14 +118,14 @@ def extract_dois_from_text(text: str) -> list[str]:
 
 @dataclass
 class SiCandidate:
-    """一个候选 SI 下载地址。
+    """A candidate SI download URL.
 
     Attributes:
-        url: 下载 URL。
-        source: 来源标识（``rsc`` / ``science`` / ``plos`` / ``elsevier``
-            / ``nature`` / ``acs-figshare`` / ``europepmc``）。
-        filename: 建议保存文件名。
-        is_zip: 是否为打包文件（Europe PMC supplementaryFiles）。
+        url: Download URL.
+        source: Source identifier (``rsc`` / ``science`` / ``plos`` / ``elsevier``
+            / ``nature`` / ``acs-figshare`` / ``europepmc``).
+        filename: Suggested filename to save as.
+        is_zip: Whether the download is a zip archive (Europe PMC supplementaryFiles).
     """
 
     url: str
@@ -133,7 +135,7 @@ class SiCandidate:
 
 
 def _resolve_rsc(doi: str, session=None) -> list[SiCandidate]:
-    """RSC (10.1039): suppdata URL 可从 DOI 后缀直接推导。"""
+    """RSC (10.1039): the suppdata URL can be derived directly from the DOI suffix."""
     pii = doi.split("/", 1)[1].lower()
     return [
         SiCandidate(
@@ -147,7 +149,7 @@ def _resolve_rsc(doi: str, session=None) -> list[SiCandidate]:
 
 
 def _resolve_science(doi: str, session=None) -> list[SiCandidate]:
-    """Science/AAAS (10.1126): suppl_file 命名为 ``<suffix>_sm.pdf``。"""
+    """Science/AAAS (10.1126): suppl_file is named ``<suffix>_sm.pdf``."""
     suffix = doi.split("/", 1)[1]
     return [
         SiCandidate(
@@ -158,7 +160,7 @@ def _resolve_science(doi: str, session=None) -> list[SiCandidate]:
     ]
 
 
-#: PLOS 期刊代码 → 子域名
+#: PLOS journal code -> subdomain
 _PLOS_SUBDOMAINS = {
     "pone": "plosone",
     "pbio": "plosbiology",
@@ -171,7 +173,7 @@ _PLOS_SUBDOMAINS = {
 
 
 def _resolve_plos(doi: str, session=None) -> list[SiCandidate]:
-    """PLOS (10.1371): SI 注册为 ``<doi>.sNNN`` 组件，按编号探测前 3 个。"""
+    """PLOS (10.1371): SI is registered as ``<doi>.sNNN`` components; probes the first 3."""
     parts = doi.split("/", 1)[1].split(".")
     sub = _PLOS_SUBDOMAINS.get(parts[1]) if len(parts) >= 2 and parts[0] == "journal" else None
     if not sub:
@@ -187,7 +189,7 @@ def _resolve_plos(doi: str, session=None) -> list[SiCandidate]:
 
 
 def _resolve_elsevier(doi: str, session=None) -> list[SiCandidate]:
-    """Elsevier (10.1016): 经 Crossref link 拿 PII，再推导 ars.els-cdn mmc 地址。"""
+    """Elsevier (10.1016): resolves the PII via Crossref links, then builds ars.els-cdn mmc URLs."""
     try:
         resp = session.get(f"https://api.crossref.org/works/{doi}", timeout=20)
         if resp.status_code != 200:
@@ -216,7 +218,7 @@ def _resolve_elsevier(doi: str, session=None) -> list[SiCandidate]:
 
 
 def _resolve_nature(doi: str, session=None) -> list[SiCandidate]:
-    """Nature/Springer (10.1038): 抓文章页提取 ESM 链接（含 zip 包）。"""
+    """Nature/Springer (10.1038): scrapes the article page for ESM links (including zip archives)."""
     aid = doi.split("/", 1)[1]
     try:
         resp = session.get(f"https://www.nature.com/articles/{aid}", timeout=25, headers={"Accept": "text/html"})
@@ -242,7 +244,7 @@ def _resolve_nature(doi: str, session=None) -> list[SiCandidate]:
 
 
 def _resolve_acs_figshare(doi: str, session=None) -> list[SiCandidate]:
-    """ACS (10.1021): SI 托管在 Figshare，按 resource_doi 检索条目文件。"""
+    """ACS (10.1021): SI is hosted on Figshare; searches article files by resource_doi."""
     try:
         resp = session.post("https://api.figshare.com/v2/articles/search", json={"resource_doi": doi}, timeout=20)
         if resp.status_code != 200:
@@ -267,7 +269,7 @@ def _resolve_acs_figshare(doi: str, session=None) -> list[SiCandidate]:
 
 
 def _resolve_europepmc(doi: str, session=None) -> list[SiCandidate]:
-    """Europe PMC: 按 DOI 查到记录后取 supplementaryFiles 打包地址。"""
+    """Europe PMC: looks up the record by DOI and returns the supplementaryFiles zip URL."""
     try:
         resp = session.get(
             "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
@@ -297,7 +299,7 @@ def _resolve_europepmc(doi: str, session=None) -> list[SiCandidate]:
     ]
 
 
-#: DOI 前缀 → 出版社规则解析器
+#: DOI prefix -> publisher rule resolver
 _PUBLISHER_RESOLVERS = {
     "10.1021": _resolve_acs_figshare,
     "10.1039": _resolve_rsc,
@@ -309,9 +311,10 @@ _PUBLISHER_RESOLVERS = {
 
 
 def resolve_si_candidates(doi: str, *, session=None) -> list[SiCandidate]:
-    """解析链：出版社规则 + Europe PMC（通用结构化渠道），产出候选 SI 地址。
+    """Resolution chain: publisher rules + Europe PMC (generic structured source).
 
-    每个解析器独立容错，任何失败只减少候选数量，不抛出异常。
+    Each resolver is fault-isolated; any failure only reduces the candidate count
+    without raising an exception.
     """
     if session is None:
         from scrinium.ingest.metadata._models import SESSION
@@ -340,10 +343,11 @@ def resolve_si_candidates(doi: str, *, session=None) -> list[SiCandidate]:
 
 
 def verify_si_text(md_text: str, meta: dict) -> tuple[bool, str]:
-    """校验转换后的 SI 文本是否确实属于主论文。
+    """Verify that converted SI text actually belongs to the parent paper.
 
-    三关：含 SI 关键词；主文标题词重合 ≥ 0.3 或第一作者姓命中。
-    宁可误判为 mismatch（转交 agent），不可错挂。
+    Three checks: contains an SI keyword; parent title word overlap >= 0.3 or
+    first-author surname hit. Prefer a false mismatch (handed to the agent)
+    over a wrong attachment.
     """
     head = md_text[:4000].lower()
     kw = _SI_TEXT_RE.search(head)
@@ -364,10 +368,10 @@ def verify_si_text(md_text: str, meta: dict) -> tuple[bool, str]:
 
 
 def _preflight_verify_pdf(pdf_path: Path, meta: dict) -> tuple[bool, str]:
-    """转换前的廉价校验：用 PyMuPDF 抽首页文本跑 verify_si_text。
+    """Cheap pre-conversion check: extract first-page text with PyMuPDF and run verify_si_text.
 
-    PyMuPDF 不可用或抽取失败时放行（``(True, "skipped")``），
-    最终把关由转换后的 verify_si_text 完成。
+    Allows the file through (``(True, "skipped")``) when PyMuPDF is unavailable
+    or extraction fails; verify_si_text after conversion remains the final gate.
     """
     try:
         import fitz  # PyMuPDF
@@ -385,16 +389,16 @@ def _preflight_verify_pdf(pdf_path: Path, meta: dict) -> tuple[bool, str]:
 
 
 # ============================================================================
-#  Conversion (PDF → Markdown)，复用 ingest 的 MinerU/fallback 链
+#  Conversion (PDF -> Markdown), reusing ingest's MinerU/fallback chain
 # ============================================================================
 
 
 def _convert_si_pdf(pdf_path: Path, si_dir: Path, cfg) -> Path | None:
-    """把 SI PDF 转成 ``si/<stem>.md``，图片资产合并进 ``si/images/``。
+    """Convert an SI PDF to ``si/<stem>.md`` and merge image assets into ``si/images/``.
 
-    依次尝试：本地 MinerU → 云端 MinerU → fallback 解析器链。
-    全部失败返回 ``None``（原始 PDF 仍保留）。不做长文分片，
-    分片场景由 fallback 解析器（本地、不限页数）兜底。
+    Tries in order: local MinerU -> cloud MinerU -> fallback parser chain.
+    Returns ``None`` if all fail (the original PDF is still kept). Does not chunk
+    long PDFs; fallback parsers (local, no page limit) handle large files.
     """
     from scrinium.ingest.mineru import ConvertOptions, check_server, convert_pdf, convert_pdf_cloud
     from scrinium.ingest.pdf_fallback import convert_pdf_with_fallback, preferred_parser_order
@@ -461,15 +465,15 @@ def _convert_si_pdf(pdf_path: Path, si_dir: Path, cfg) -> Path | None:
 
 
 # ============================================================================
-#  Attach — 统一入库漏斗（自动链与 agent 接管共用）
+#  Attach — shared ingest funnel (used by both the auto chain and agent takeover)
 # ============================================================================
 
-#: fetch_status 终态；处于这些状态的论文不再自动重试
+#: Terminal fetch_status values; papers in these states are not retried automatically
 TERMINAL_STATUSES = frozenset({"ok", "exhausted", "paywalled"})
 
 
 def _unique_dest(si_dir: Path, name: str) -> Path:
-    """避免同名覆盖：``a.pdf`` 已存在时给 ``a-2.pdf``。"""
+    """Avoid overwriting an existing name: returns ``a-2.pdf`` when ``a.pdf`` exists."""
     dest = si_dir / name
     if not dest.exists():
         return dest
@@ -492,46 +496,50 @@ def attach_si(
     verify: bool = True,
     dry_run: bool = False,
 ) -> dict:
-    """把一个文件作为 SI 挂接到论文目录（统一入库漏斗）。
+    """Attach a file as SI to a paper directory (shared ingest funnel).
 
-    流程：验证（可选）→ 复制原件到 ``si/`` → PDF 转 Markdown（可选）→
-    更新 meta.json 的 ``si`` 字段。索引由调用方批量重建。
+    Flow: verify (optional) -> copy original into ``si/`` -> convert PDF to
+    Markdown (optional) -> update the ``si`` field in meta.json. The caller
+    rebuilds the index in batch.
 
-    验证策略按来源信任度区分：
+    Verification strategy depends on source trust:
 
-    - ``verify=True``（严格，agent 手动挂接的默认）：来源不明，要求 SI
-      关键词 + 主文标题/作者命中，失败即 mismatch 不留痕迹。
-    - ``verify=False``（DOI 来源绑定的自动链）：URL 由 DOI 推导或文件
-      经 DOI 匹配，归属已由来源保证，跳过内容验证（图版 SI 没有可验证
-      文本，硬验证只会误杀）；仍记录 ``verify_note`` 供事后抽查。
+    - ``verify=True`` (strict; default for manual agent attachment): unknown
+      source, so require SI keyword + parent title/author match; any failure is
+      a mismatch and leaves no files behind.
+    - ``verify=False`` (DOI-bound auto chain): the URL is derived from the DOI
+      or the file matched by DOI, so provenance already guarantees ownership;
+      skips content verification (figure-only SI has no text to verify, so hard
+      verification would only cause false rejections). Still records
+      ``verify_note`` for spot checks.
 
     Args:
-        paper_d: 论文目录。
-        src_path: SI 原始文件（PDF/Office/数据文件均可）。
-        cfg: 全局配置（convert 需要；纯复制可为 ``None``）。
-        md_path: 已转换好的 Markdown（inbox 路由复用，跳过再转换）。
-        source_url: 来源 URL（审计追溯）。
-        attached_by: ``"pipeline"`` | ``"agent"``。
-        convert: 是否转换 PDF 为 Markdown（``--no-convert`` 时只存原件）。
-        verify: 是否做严格内容验证。
-        dry_run: 预览模式，不写任何文件。
+        paper_d: Paper directory.
+        src_path: Original SI file (PDF, Office, or data file).
+        cfg: Global configuration (required for conversion; may be ``None`` for copy-only).
+        md_path: Already-converted Markdown (reused by inbox routing to skip reconversion).
+        source_url: Source URL (for audit traceability).
+        attached_by: ``"pipeline"`` | ``"agent"``.
+        convert: Convert PDF to Markdown (``--no-convert`` stores only the original).
+        verify: Perform strict content verification.
+        dry_run: Preview mode without writing any files.
 
     Returns:
-        结果字典 ``{"ok": bool, "status": str, "message": str, "record": dict|None}``。
+        Result dict ``{"ok": bool, "status": str, "message": str, "record": dict|None}``.
     """
     src_path = Path(src_path)
     result: dict = {"ok": False, "status": "", "message": "", "record": None}
     try:
         meta = read_meta(paper_d)
     except (ValueError, FileNotFoundError) as exc:
-        result.update(status="error", message=f"无法读取 meta.json: {exc}")
+        result.update(status="error", message=f"Cannot read meta.json: {exc}")
         return result
 
     if dry_run:
         result.update(
             ok=True,
             status="dry_run",
-            message=f"[dry-run] 将挂接 {src_path.name} -> {paper_d.name}/si/（attached_by={attached_by}）",
+            message=f"[dry-run] Would attach {src_path.name} -> {paper_d.name}/si/ (attached_by={attached_by})",
         )
         return result
 
@@ -539,12 +547,12 @@ def attach_si(
     if verify and md_path is not None and md_path.exists():
         ok, reason = verify_si_text(md_path.read_text(encoding="utf-8", errors="replace"), meta)
         if not ok:
-            result.update(status="mismatch", message=f"SI 验证失败: {reason}")
+            result.update(status="mismatch", message=f"SI verification failed: {reason}")
             return result
     if verify and md_path is None and src_path.suffix.lower() == ".pdf":
         ok, reason = _preflight_verify_pdf(src_path, meta)
         if not ok:
-            result.update(status="mismatch", message=f"SI 预检失败: {reason}")
+            result.update(status="mismatch", message=f"SI preflight check failed: {reason}")
             return result
 
     si_dir = paper_d / "si"
@@ -563,7 +571,7 @@ def attach_si(
             if not ok:
                 dest_src.unlink(missing_ok=True)
                 md_dest.unlink(missing_ok=True)
-                result.update(status="mismatch", message=f"SI 验证失败: {reason}")
+                result.update(status="mismatch", message=f"SI verification failed: {reason}")
                 return result
 
     record = {
@@ -587,23 +595,23 @@ def attach_si(
     meta["si"] = si
     write_meta(paper_d, meta)
 
-    result.update(ok=True, status="ok", message=f"已挂接 {dest_src.name} -> {paper_d.name}/si/", record=record)
+    result.update(ok=True, status="ok", message=f"Attached {dest_src.name} -> {paper_d.name}/si/", record=record)
     return result
 
 
 # ============================================================================
-#  Fetch — 自动获取（候选解析 → 下载 → 验证 → 挂接）
+#  Fetch — automatic retrieval (resolve candidates -> download -> verify -> attach)
 # ============================================================================
 
 _DOWNLOAD_TIMEOUT = 30
 _MAX_BYTES = 200 * 1024 * 1024  # 200 MB
 
-#: 多个候选都失败时，优先记录最有行动价值的状态
+#: When multiple candidates fail, record the most actionable status first
 _STATUS_PRIORITY = ("mismatch", "blocked", "paywalled", "error", "not_found")
 
 
 def _download(url: str, dest: Path, session) -> str:
-    """下载 URL 到 dest。返回 ``"ok"`` | ``"blocked"`` | ``"paywalled"`` | ``"error"``。"""
+    """Download URL to dest. Returns ``"ok"`` | ``"blocked"`` | ``"paywalled"`` | ``"error"``."""
     try:
         with session.get(url, stream=True, timeout=_DOWNLOAD_TIMEOUT) as resp:
             if resp.status_code in (401, 403, 429):
@@ -636,7 +644,7 @@ def _looks_like_pdf(path: Path) -> bool:
 
 
 def _set_fetch_status(paper_d: Path, status: str, note: str = "") -> None:
-    """更新 meta.json 的 si.fetch_status / fetch_note / last_attempt。"""
+    """Update si.fetch_status / fetch_note / last_attempt in meta.json."""
     try:
         meta = read_meta(paper_d)
     except (ValueError, FileNotFoundError):
@@ -649,7 +657,7 @@ def _set_fetch_status(paper_d: Path, status: str, note: str = "") -> None:
     write_meta(paper_d, meta)
 
 
-#: zip 内文件名疑似 SI 的模式（Europe PMC 包混有正文图片/主文 PDF，需过滤）
+#: Filename patterns for suspected SI members inside a zip (Europe PMC zips mix in main figures/PDFs)
 _ZIP_SI_NAME_RE = re.compile(
     r"(?:^|[-_.])(s\d{3}|si|supp|sapp|suppl|supporting|supplementary|supplemental|esi|sm|mmc\d*|esm|additional|appendix|sd)(?:[-_.\d]|$)",
     re.IGNORECASE,
@@ -658,11 +666,12 @@ _ZIP_SKIP_EXT = frozenset({".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff", ".s
 
 
 def _attach_zip(zip_path: Path, pdir: Path, cfg, cand: SiCandidate, *, convert: bool) -> int:
-    """解开打包文件并逐个挂接，返回成功挂接的文件数。
+    """Extract a zip archive and attach its members one by one; returns the number attached.
 
-    只挂接疑似 SI 的成员：PDF 要求文件名命中 SI 模式（``s001.pdf`` 等，
-    避免误挂主文 PDF），数据类文件（xlsx/csv/xyz 等）直接收，图片跳过。
-    PDF 走转换；其余原样保留。
+    Attaches only suspected SI members: PDFs must match the SI filename pattern
+    (``s001.pdf``, etc., to avoid attaching the main PDF); data files (xlsx/csv/xyz,
+    etc.) are accepted directly; images are skipped. PDFs are converted; other
+    files are kept as-is.
     """
     try:
         with zipfile.ZipFile(zip_path) as zf:
@@ -700,10 +709,11 @@ def _attach_zip(zip_path: Path, pdir: Path, cfg, cand: SiCandidate, *, convert: 
 def fetch_si_for_paper(
     pdir: Path, cfg: Config, *, convert: bool = True, dry_run: bool = False, force: bool = False
 ) -> str:
-    """对单篇论文跑自动 SI 获取链，返回 fetch_status。
+    """Run the automatic SI fetch chain for a single paper and return fetch_status.
 
-    候选依次尝试：下载 → magic 检查 → 验证 → 挂接；任一候选成功即 ``ok``。
-    全部失败时按 _STATUS_PRIORITY 记录最有行动价值的状态并写 meta.json。
+    Tries each candidate in turn: download -> magic check -> verify -> attach;
+    returns ``ok`` as soon as one succeeds. When all fail, records the most
+    actionable status per _STATUS_PRIORITY in meta.json.
     """
     try:
         meta = read_meta(pdir)
@@ -776,9 +786,10 @@ def fetch_si_for_paper(
 
 
 def paper_si_state(pdir: Path) -> dict:
-    """汇总一篇论文的 SI 状态（scan/status 共用）。
+    """Summarize a paper's SI state (shared by scan/status).
 
-    ``mentioned`` 优先读 meta.json 的缓存值，缺失时现场扫描 paper.md。
+    ``mentioned`` prefers the cached value in meta.json, falling back to a live
+    scan of paper.md when absent.
     """
     try:
         meta = read_meta(pdir)

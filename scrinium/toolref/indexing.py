@@ -32,9 +32,9 @@ def _index_tool(tool: str, version: str, cfg: Config | None = None) -> int:
                 try:
                     parsed = _parse_qe_def(file_path)
                     records.extend(parsed)
-                    _log.debug("解析 %s: %d 条记录", file_path.name, len(parsed))
+                    _log.debug("Parsed %s: %d records", file_path.name, len(parsed))
                 except Exception as e:
-                    _log.warning("解析 %s 失败: %s", file_path.name, e)
+                    _log.warning("Failed to parse %s: %s", file_path.name, e)
 
     elif info["format"] == "rst" and tool == "lammps":
         src_dir = vdir / "src"
@@ -44,7 +44,7 @@ def _index_tool(tool: str, version: str, cfg: Config | None = None) -> int:
                     parsed = _parse_lammps_rst(file_path)
                     records.extend(parsed)
                 except Exception as e:
-                    _log.debug("跳过 %s: %s", file_path.name, e)
+                    _log.debug("Skipping %s: %s", file_path.name, e)
 
     elif info["format"] == "rst" and tool == "gromacs":
         src_dir = vdir / "src"
@@ -54,7 +54,7 @@ def _index_tool(tool: str, version: str, cfg: Config | None = None) -> int:
                     parsed = _parse_gromacs_rst(file_path)
                     records.extend(parsed)
                 except Exception as e:
-                    _log.debug("跳过 %s: %s", file_path.name, e)
+                    _log.debug("Skipping %s: %s", file_path.name, e)
 
     elif info["format"] == "html":
         pages_dir = vdir / "pages"
@@ -64,7 +64,7 @@ def _index_tool(tool: str, version: str, cfg: Config | None = None) -> int:
                     parsed = _parse_manifest_html(file_path)
                     records.extend(parsed)
                 except Exception as e:
-                    _log.warning("解析 %s 失败: %s", file_path.name, e)
+                    _log.warning("Failed to parse %s: %s", file_path.name, e)
 
     for record in records:
         conn.execute(

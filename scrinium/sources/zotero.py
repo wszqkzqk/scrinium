@@ -1,4 +1,4 @@
-"""sources/zotero.py — Zotero Web API / 本地 SQLite 导入，转换为 PaperMetadata"""
+"""sources/zotero.py — Import from Zotero Web API / local SQLite into PaperMetadata"""
 
 from __future__ import annotations
 
@@ -123,19 +123,19 @@ def fetch_zotero_api(
     download_pdfs: bool = True,
     pdf_dir: Path | None = None,
 ) -> tuple[list[PaperMetadata], list[Path | None]]:
-    """从 Zotero Web API 获取文献元数据和 PDF。
+    """Fetch paper metadata and PDFs from the Zotero Web API.
 
     Args:
-        library_id: Zotero library ID。
-        api_key: Zotero API key。
-        library_type: ``"user"`` 或 ``"group"``。
-        collection_key: 仅导入指定 collection（为 ``None`` 时导入全部）。
-        item_types: 限定 item 类型列表（如 ``["journalArticle"]``）。
-        download_pdfs: 是否下载 PDF 附件。
-        pdf_dir: PDF 下载目录（为 ``None`` 时使用临时目录）。
+        library_id: Zotero library ID.
+        api_key: Zotero API key.
+        library_type: ``"user"`` or ``"group"``.
+        collection_key: Import only this collection (imports everything when ``None``).
+        item_types: Restrict to these item types (e.g. ``["journalArticle"]``).
+        download_pdfs: Whether to download PDF attachments.
+        pdf_dir: PDF download directory (uses a temporary directory when ``None``).
 
     Returns:
-        ``(records, pdf_paths)``，两个列表长度相同、索引对齐。
+        ``(records, pdf_paths)`` — two lists of equal length, aligned by index.
     """
     from pyzotero import zotero as pyzotero
 
@@ -172,7 +172,7 @@ def fetch_zotero_api(
                     cd = child.get("data", {})
                     if cd.get("contentType") == "application/pdf":
                         title_short = meta.title[:50] if meta.title else f"item-{idx}"
-                        ui(f"[{idx + 1}/{len(items)}] 下载 PDF: {title_short}...")
+                        ui(f"[{idx + 1}/{len(items)}] Downloading PDF: {title_short}...")
                         target = pdf_dir or Path(".")
                         target.mkdir(parents=True, exist_ok=True)
                         # Use dump() to download the file
@@ -183,12 +183,12 @@ def fetch_zotero_api(
                             pdf_path = out_path
                         break
             except Exception as exc:
-                _log.warning("下载 PDF 失败 (%s): %s", meta.title[:40], exc)
+                _log.warning("Failed to download PDF (%s): %s", meta.title[:40], exc)
 
         pdf_paths.append(pdf_path)
 
     n_pdfs = sum(1 for p in pdf_paths if p is not None)
-    _log.info("Zotero API: 获取 %d 条记录，%d 个 PDF", len(records), n_pdfs)
+    _log.info("Zotero API: fetched %d records, %d PDFs", len(records), n_pdfs)
     return records, pdf_paths
 
 
@@ -198,15 +198,15 @@ def list_collections_api(
     *,
     library_type: str = "user",
 ) -> list[dict]:
-    """列出 Zotero library 中的所有 collections。
+    """List all collections in a Zotero library.
 
     Args:
-        library_id: Zotero library ID。
-        api_key: Zotero API key。
-        library_type: ``"user"`` 或 ``"group"``。
+        library_id: Zotero library ID.
+        api_key: Zotero API key.
+        library_type: ``"user"`` or ``"group"``.
 
     Returns:
-        Collection 列表，每项包含 ``key``、``name``、``numItems``。
+        List of collections, each with ``key``, ``name``, and ``numItems``.
     """
     from pyzotero import zotero as pyzotero
 
@@ -234,19 +234,19 @@ def parse_zotero_local(
     collection_key: str | None = None,
     item_types: list[str] | None = None,
 ) -> tuple[list[PaperMetadata], list[Path | None]]:
-    """从本地 Zotero SQLite 数据库解析文献元数据和 PDF 路径。
+    """Parse paper metadata and PDF paths from a local Zotero SQLite database.
 
     Args:
-        db_path: ``zotero.sqlite`` 文件路径。
-        storage_dir: Zotero storage 目录（默认 ``db_path.parent / "storage"``）。
-        collection_key: 仅导入指定 collection。
-        item_types: 限定 item 类型列表。
+        db_path: Path to ``zotero.sqlite``.
+        storage_dir: Zotero storage directory (default: ``db_path.parent / "storage"``).
+        collection_key: Import only this collection.
+        item_types: Restrict to these item types.
 
     Returns:
-        ``(records, pdf_paths)``，两个列表长度相同、索引对齐。
+        ``(records, pdf_paths)`` — two lists of equal length, aligned by index.
     """
     if not db_path.exists():
-        raise FileNotFoundError(f"Zotero 数据库不存在: {db_path}")
+        raise FileNotFoundError(f"Zotero database does not exist: {db_path}")
 
     if storage_dir is None:
         storage_dir = db_path.parent / "storage"
@@ -333,7 +333,7 @@ def parse_zotero_local(
             pdf_paths.append(pdf_path)
 
         n_pdfs = sum(1 for p in pdf_paths if p is not None)
-        _log.info("Zotero local: 解析 %d 条记录，%d 个 PDF", len(records), n_pdfs)
+        _log.info("Zotero local: parsed %d records, %d PDFs", len(records), n_pdfs)
         return records, pdf_paths
 
     finally:
@@ -369,13 +369,13 @@ def _find_local_pdf(conn: sqlite3.Connection, parent_id: int, storage_dir: Path)
 
 
 def list_collections_local(db_path: Path) -> list[dict]:
-    """列出本地 Zotero 数据库中的所有 collections。
+    """List all collections in a local Zotero database.
 
     Args:
-        db_path: ``zotero.sqlite`` 文件路径。
+        db_path: Path to ``zotero.sqlite``.
 
     Returns:
-        Collection 列表，每项包含 ``key``、``name``、``numItems``。
+        List of collections, each with ``key``, ``name``, and ``numItems``.
     """
     conn = sqlite3.connect(f"file:{db_path}?immutable=1", uri=True)
     conn.row_factory = sqlite3.Row

@@ -131,9 +131,9 @@ def test_cmd_insights_smoke_with_metrics_store(tmp_path: Path, monkeypatch):
         metrics.reset()
 
     joined = "\n".join(messages)
-    assert "科研行为分析（过去 30 天）" in joined
-    assert "【搜索热词前 10】" in joined
-    assert "【最常阅读论文前 10】" in joined
+    assert "Research Activity Insights (past 30 days)" in joined
+    assert "[Top 10 Hot Search Keywords]" in joined
+    assert "[Top 10 Most-Read Papers]" in joined
     assert "Heat Transfer in Turbulent Flow" in joined
-    assert "【活跃工作区】" in joined
+    assert "[Active Workspaces]" in joined
     assert "cooling-study" in joined

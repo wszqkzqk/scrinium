@@ -1,13 +1,14 @@
 """
-explore.py — 学术探索
-======================
+explore.py — Literature exploration
+===================================
 
-从 OpenAlex 批量拉取论文（支持 ISSN / concept / author / institution /
-keyword 等多维度 filter），本地 FTS5 关键词检索。拉取结果的主题分组由
-agent（subagent）在 harness 侧完成，框架不做嵌入与聚类。数据存储在
-``data/explore/<name>/``，与主库完全隔离。
+Batch-fetch papers from OpenAlex (with multi-dimensional filters such as ISSN,
+concept, author, institution, and keyword) and search them locally via FTS5.
+Topic grouping of fetched results is done by an agent (subagent) on the harness
+side; the framework does not compute embeddings or clusters. Data is stored in
+``data/explore/<name>/``, fully isolated from the main library.
 
-用法::
+Usage::
 
     from scrinium.explore import explore_search, fetch_explore
     fetch_explore("jfm", issn="0022-1120")
@@ -235,7 +236,7 @@ def _fetch_page(
             )
             if resp.status_code == 401:
                 raise ValueError(
-                    "OpenAlex API key 无效（401），请检查 ingest.openalex_api_key 或环境变量 OPENALEX_API_KEY"
+                    "Invalid OpenAlex API key (401); check ingest.openalex_api_key or the OPENALEX_API_KEY environment variable"
                 )
             if resp.status_code == 429:
                 remaining = resp.headers.get("X-RateLimit-Remaining-USD", "?")
@@ -306,35 +307,36 @@ def fetch_explore(
     limit: int | None = None,
     cfg: Config | None = None,
 ) -> int:
-    """从 OpenAlex 批量拉取论文（支持多维度 filter）。
+    """Batch-fetch papers from OpenAlex with multi-dimensional filters.
 
-    使用 cursor-based 分页遍历符合条件的所有论文，
-    提取 title、abstract、authors 等字段，写入 JSONL 文件。
+    Iterates over all matching works using cursor-based pagination, extracts
+    fields such as title, abstract, and authors, and writes them to JSONL.
 
     Args:
-        name: 探索库名称（如 ``"jfm"``），用作目录名。
-        issn: 期刊 ISSN 过滤（如 ``"0022-1120"``）。
-        concept: OpenAlex concept ID（如 ``"C62520636"`` = Turbulence）。
-        topic: OpenAlex topic ID。
-        author: OpenAlex author ID。
-        institution: OpenAlex institution ID。
-        keyword: 标题/摘要关键词搜索。
-        source_type: 来源类型过滤（journal / conference / repository）。
-        year_range: 年份过滤（如 ``"2020-2025"``）。
-        min_citations: 最小引用量过滤。
-        oa_type: OpenAlex work type 过滤（article / review 等）。
-        sort: 排序方式（``year_asc`` / ``year_desc`` / ``relevance`` /
-            ``citations`` 或原始 OpenAlex 表达式）。``None`` 时自动选择：
-            关键词检索按相关度，纯 filter 拉取按年份升序。
-        incremental: 为 ``True`` 时追加到现有 JSONL，基于 DOI 去重。
-        limit: 最多拉取的论文数量上限（``None`` 表示无限制）。
-        cfg: 可选的全局配置。
+        name: Explore library name (e.g. ``"jfm"``), used as the directory name.
+        issn: Journal ISSN filter (e.g. ``"0022-1120"``).
+        concept: OpenAlex concept ID (e.g. ``"C62520636"`` = Turbulence).
+        topic: OpenAlex topic ID.
+        author: OpenAlex author ID.
+        institution: OpenAlex institution ID.
+        keyword: Title/abstract keyword search.
+        source_type: Source type filter (journal / conference / repository).
+        year_range: Year filter (e.g. ``"2020-2025"``).
+        min_citations: Minimum citation count filter.
+        oa_type: OpenAlex work type filter (article / review, etc.).
+        sort: Sort order (``year_asc`` / ``year_desc`` / ``relevance`` /
+            ``citations`` or a raw OpenAlex expression). ``None`` picks
+            automatically: relevance for keyword searches, year ascending for
+            filter-only fetches.
+        incremental: When ``True``, append to existing JSONL and deduplicate by DOI.
+        limit: Maximum number of papers to fetch (``None`` for unlimited).
+        cfg: Optional global configuration.
 
     Returns:
-        本次新拉取的论文数量。
+        Number of newly fetched papers.
     """
     if limit is not None and limit <= 0:
-        raise ValueError(f"limit 必须为正整数，当前为: {limit}")
+        raise ValueError(f"limit must be a positive integer, got: {limit}")
 
     resolved_sort = _resolve_sort(sort, keyword)
     api_key = cfg.resolved_openalex_api_key() if cfg else os.environ.get("OPENALEX_API_KEY", "")
@@ -356,7 +358,7 @@ def fetch_explore(
         oa_type=oa_type,
     )
     if not filt and not keyword:
-        raise ValueError("至少需要一个过滤条件（issn / concept / author / keyword 等）")
+        raise ValueError("At least one filter is required (issn / concept / author / keyword, etc.)")
 
     # Incremental mode: load existing IDs (DOI or openalex_id) to skip duplicates
     existing_pids: set[str] = set()
@@ -472,9 +474,9 @@ def fetch_journal(
     year_range: str | None = None,
     cfg: Config | None = None,
 ) -> int:
-    """从 OpenAlex 拉取期刊全量论文（向后兼容别名）。
+    """Fetch all papers of a journal from OpenAlex (backward-compatible alias).
 
-    等价于 ``fetch_explore(name, issn=issn, year_range=year_range, cfg=cfg)``。
+    Equivalent to ``fetch_explore(name, issn=issn, year_range=year_range, cfg=cfg)``.
     """
     return fetch_explore(name, issn=issn, year_range=year_range, cfg=cfg)
 
@@ -485,7 +487,7 @@ def fetch_journal(
 
 
 def iter_papers(name: str, cfg: Config | None = None) -> Iterator[dict]:
-    """逐行读取 JSONL，yield 论文字典。"""
+    """Read JSONL line by line and yield paper dicts."""
     path = _papers_path(name, cfg)
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -495,7 +497,7 @@ def iter_papers(name: str, cfg: Config | None = None) -> Iterator[dict]:
 
 
 def count_papers(name: str, cfg: Config | None = None) -> int:
-    """返回探索库中的论文数量。"""
+    """Return the number of papers in an explore library."""
     meta_file = _meta_path(name, cfg)
     if meta_file.exists():
         return json.loads(meta_file.read_text("utf-8")).get("count", 0)
@@ -503,14 +505,14 @@ def count_papers(name: str, cfg: Config | None = None) -> int:
 
 
 def build_papers_map(name: str, cfg: Config | None = None) -> dict[str, dict]:
-    """从 JSONL 构建 paper_id → metadata 映射。
+    """Build a paper_id → metadata mapping from JSONL.
 
     Args:
-        name: 探索库名称。
-        cfg: 可选的全局配置。
+        name: Explore library name.
+        cfg: Optional global configuration.
 
     Returns:
-        ``{paper_id: paper_dict}`` 映射，paper_id 为 DOI 或 openalex_id。
+        ``{paper_id: paper_dict}`` mapping, where paper_id is DOI or openalex_id.
     """
     pm: dict[str, dict] = {}
     for p in iter_papers(name, cfg):
@@ -560,15 +562,15 @@ def _ensure_fts(db_path: Path) -> None:
 
 
 def build_explore_fts(name: str, *, rebuild: bool = False, cfg: Config | None = None) -> int:
-    """为探索库构建 FTS5 全文索引。
+    """Build the FTS5 full-text index for an explore library.
 
     Args:
-        name: 探索库名称。
-        rebuild: 为 ``True`` 时清空重建。
-        cfg: 可选的全局配置。
+        name: Explore library name.
+        rebuild: When ``True``, clear and rebuild the index from scratch.
+        cfg: Optional global configuration.
 
     Returns:
-        索引的论文数量。
+        Number of papers indexed.
     """
     db = _db_path(name, cfg)
     _ensure_fts(db)
@@ -606,16 +608,16 @@ def build_explore_fts(name: str, *, rebuild: bool = False, cfg: Config | None = 
 
 
 def explore_search(name: str, query: str, *, top_k: int = 20, cfg: Config | None = None) -> list[dict]:
-    """在探索库中进行 FTS5 关键词搜索。
+    """Run an FTS5 keyword search in an explore library.
 
     Args:
-        name: 探索库名称。
-        query: 查询文本（先经 ``sanitize_fts_query`` 净化，与主库策略一致）。
-        top_k: 返回条数。
-        cfg: 可选的全局配置。
+        name: Explore library name.
+        query: Query text (sanitized via ``sanitize_fts_query``, matching the main library).
+        top_k: Maximum number of results to return.
+        cfg: Optional global configuration.
 
     Returns:
-        论文列表，按 BM25 排名（标题列权重最高，见 ``_FTS_BM25_WEIGHTS``）。
+        Papers ranked by BM25 (title column weighted highest; see ``_FTS_BM25_WEIGHTS``).
     """
     db = _db_path(name, cfg)
     if not db.exists():
@@ -672,7 +674,7 @@ def explore_search(name: str, query: str, *, top_k: int = 20, cfg: Config | None
 
 
 def list_explore_libs(cfg: Config | None = None) -> list[str]:
-    """列出所有探索库名称。"""
+    """List all explore library names."""
     if cfg is not None:
         root = cfg._root / "data" / "explore"
     else:

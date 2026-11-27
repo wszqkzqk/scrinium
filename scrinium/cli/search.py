@@ -30,14 +30,14 @@ def cmd_index(args: argparse.Namespace, cfg) -> None:
     db_path = cfg.index_db
 
     if not papers_dir.exists():
-        _log.error("论文目录不存在: %s", papers_dir)
+        _log.error("Papers directory does not exist: %s", papers_dir)
         sys.exit(1)
 
-    action = "重建索引" if args.rebuild else "构建索引"
+    action = "Rebuilding index" if args.rebuild else "Building index"
     ui(f"{action}: {papers_dir} -> {db_path}")
     count = build_index(papers_dir, db_path, rebuild=args.rebuild)
-    ui(f"完成：已索引 {count} 篇论文。")
-    ui("下一步：运行 `scrinium search <关键词>` 开始检索。")
+    ui(f"Done: indexed {count} papers.")
+    ui("Next step: run `scrinium search <keywords>` to start searching.")
 
 
 def cmd_search_author(args: argparse.Namespace, cfg) -> None:
@@ -58,10 +58,10 @@ def cmd_search_author(args: argparse.Namespace, cfg) -> None:
         sys.exit(1)
 
     if not results:
-        ui(f'未找到作者 "{query}" 的相关论文。')
+        ui(f'No papers found for author "{query}".')
         return
 
-    ui(f'按作者检索到 {len(results)} 篇论文（"{query}"）:\n')
+    ui(f'Found {len(results)} papers by author ("{query}"):\n')
     for i, r in enumerate(results, start=1):
         _print_search_result(i, r)
     _print_search_next_steps()
@@ -104,10 +104,10 @@ def cmd_search(args: argparse.Namespace, cfg) -> None:
         return
 
     if not results:
-        ui(f'未找到与 "{query}" 相关的结果。')
+        ui(f'No results found for "{query}".')
         return
 
-    ui(f'关键词检索到 {len(results)} 篇论文（"{query}"）:\n')
+    ui(f'Keyword search found {len(results)} papers ("{query}"):\n')
     for i, r in enumerate(results, start=1):
         _print_search_result(i, r)
     _print_search_next_steps()
@@ -139,13 +139,13 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
         if conclusion is None:
             from scrinium.ingest.pipeline import HINT_L3_MISSING
 
-            _log.error("该论文尚无结论")
+            _log.error("This paper has no conclusion yet")
             ui(f"hint: {HINT_L3_MISSING}")
             sys.exit(1)
         payload["conclusion"] = conclusion
     elif args.layer == 4:
         if not md_path.exists():
-            _log.error("未找到 paper.md：%s", md_path)
+            _log.error("paper.md not found: %s", md_path)
             sys.exit(1)
         lang = getattr(args, "lang", None)
         if lang:
@@ -154,7 +154,7 @@ def _show_json(args: argparse.Namespace, l1: dict, notes: str | None, json_path:
             try:
                 lang = validate_lang(lang)
             except ValueError:
-                _log.error("无效的语言代码 '%s'", lang)
+                _log.error("Invalid language code '%s'", lang)
                 sys.exit(1)
             payload["lang"] = lang
         payload["content"] = load_l4(md_path, lang=lang)
@@ -175,15 +175,15 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
     if getattr(args, "append_notes", None):
         notes_text = str(args.append_notes).strip()
         if not notes_text:
-            ui("警告：--append-notes 内容为空，已忽略。")
+            ui("Warning: --append-notes is empty; ignored.")
         else:
             try:
                 append_notes(paper_d, notes_text)
             except (UnicodeDecodeError, OSError) as e:
-                _log.error("追加笔记失败：%s", e)
-                ui(f"追加笔记到 {paper_d.name}/notes.md 失败：{e}")
+                _log.error("Failed to append notes: %s", e)
+                ui(f"Failed to append notes to {paper_d.name}/notes.md: {e}")
             else:
-                ui(f"已追加笔记到 {paper_d.name}/notes.md")
+                ui(f"Appended notes to {paper_d.name}/notes.md")
 
     l1 = load_l1(json_path)
     l1["dir_name"] = paper_d.name
@@ -197,7 +197,7 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
     try:
         notes = load_notes(paper_d)
     except (UnicodeDecodeError, OSError) as e:
-        _log.warning("读取 notes.md 失败：%s", e)
+        _log.warning("Failed to read notes.md: %s", e)
         notes = None
 
     store = get_store()
@@ -225,16 +225,17 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
     _print_header(l1)
 
     if notes:
-        ui("\n--- Agent 笔记 (notes.md) ---\n")
+        ui("\n--- Agent Notes (notes.md) ---\n")
         ui(notes)
-        ui("\n--- 笔记结束 ---\n")
+        ui("\n--- End of Notes ---\n")
 
     if getattr(args, "si", False):
         si_docs = load_si(paper_d)
         if not si_docs:
-            ui("\n该论文暂无 SI（si/ 为空）。")
+            ui("\nThis paper has no SI yet (si/ is empty).")
             ui(
-                "hint: 运行 `scrinium si fetch <paper-id>` 自动获取；或人工下载后用 `scrinium attach-si <paper-id> <file>` 挂接"
+                "hint: run `scrinium si fetch <paper-id>` to fetch automatically, "
+                "or download manually and attach with `scrinium attach-si <paper-id> <file>`"
             )
         else:
             for name, text in si_docs:
@@ -249,7 +250,7 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
 
     if args.layer == 2:
         abstract = load_l2(json_path)
-        ui("\n--- 摘要 ---\n")
+        ui("\n--- Abstract ---\n")
         ui(abstract)
         _record_read()
         return
@@ -257,17 +258,17 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
     if args.layer == 3:
         conclusion = load_l3(json_path)
         if conclusion is None:
-            _log.error("该论文尚无结论")
+            _log.error("This paper has no conclusion yet")
             ui(f"hint: {HINT_L3_MISSING}")
             sys.exit(1)
-        ui("\n--- 结论 ---\n")
+        ui("\n--- Conclusion ---\n")
         ui(conclusion)
         _record_read()
         return
 
     if args.layer == 4:
         if not md_path.exists():
-            _log.error("未找到 paper.md：%s", md_path)
+            _log.error("paper.md not found: %s", md_path)
             sys.exit(1)
         lang = getattr(args, "lang", None)
         if lang:
@@ -276,15 +277,15 @@ def cmd_show(args: argparse.Namespace, cfg) -> None:
             try:
                 lang = validate_lang(lang)
             except ValueError:
-                ui(f"错误: 无效的语言代码 '{lang}'")
+                ui(f"Error: invalid language code '{lang}'")
                 sys.exit(1)
             translated_path = md_path.parent / f"paper_{lang}.md"
             if translated_path.exists():
-                ui(f"\n--- 全文（{lang}） ---\n")
+                ui(f"\n--- Full Text ({lang}) ---\n")
             else:
-                ui(f"\n--- 全文（原文，paper_{lang}.md 不存在） ---\n")
+                ui(f"\n--- Full Text (original; paper_{lang}.md not found) ---\n")
         else:
-            ui("\n--- 全文 ---\n")
+            ui("\n--- Full Text ---\n")
         ui(load_l4(md_path, lang=lang))
         _record_read()
         return
@@ -310,10 +311,10 @@ def cmd_top_cited(args: argparse.Namespace, cfg) -> None:
         return
 
     if not results:
-        ui("索引中没有引用数据。请先运行 scrinium refetch --all。")
+        ui("No citation data in the index. Run scrinium refetch --all first.")
         return
 
-    ui(f"按引用量排序的前 {len(results)} 篇论文：\n")
+    ui(f"Top {len(results)} papers by citation count:\n")
     for i, r in enumerate(results, start=1):
         _print_search_result(i, r)
     _print_search_next_steps()
@@ -387,13 +388,13 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
     scope_str = args.scope or "main"
     scopes = [s.strip() for s in scope_str.split(",") if s.strip()] or ["main"]
 
-    ui(f'联邦搜索: "{query}"  scope={scope_str}\n')
+    ui(f'Federated search: "{query}"  scope={scope_str}\n')
 
     for scope in scopes:
         if scope == "main":
-            ui("── [主库] ──")
+            ui("── [Main Library] ──")
             if not cfg.index_db.exists():
-                ui("  主库索引不存在，请先运行 scrinium index")
+                ui("  Main library index does not exist; run scrinium index first")
                 results = []
             else:
                 from scrinium.index import search
@@ -401,10 +402,10 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
                 try:
                     results = search(query, cfg.index_db, top_k=top_k, cfg=cfg)
                 except Exception as e:
-                    ui(f"  主库搜索失败：{e}")
+                    ui(f"  Main library search failed: {e}")
                     results = []
             if not results:
-                ui("  无结果")
+                ui("  No results")
             else:
                 for i, r in enumerate(results, 1):
                     _print_search_result(i, r)
@@ -415,7 +416,10 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
             from scrinium.explore import validate_explore_name
 
             if explore_name != "*" and not validate_explore_name(explore_name):
-                ui(f"  无效的 explore 库名 '{explore_name}'：不能为空，且不能包含路径分隔符或 '..'")
+                ui(
+                    f"  Invalid explore library name '{explore_name}': "
+                    "must be non-empty and contain no path separators or '..'"
+                )
                 ui()
                 continue
             if explore_name == "*":
@@ -424,7 +428,7 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
                 names = list_explore_libs(cfg)
                 if not names:
                     ui("── [explore: *] ──")
-                    ui("  暂无 explore 库，请先运行 scrinium explore fetch --name <名称>")
+                    ui("  No explore libraries yet; run scrinium explore fetch --name <NAME> first")
                     ui()
             else:
                 names = [explore_name]
@@ -435,31 +439,31 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
 
                 db = explore_db_path(name, cfg)
                 if not db.exists():
-                    ui(f"  explore 库 {name} 不存在或未建索引（explore.db 缺失）")
+                    ui(f"  Explore library {name} does not exist or is not indexed (explore.db missing)")
                     ui()
                     continue
                 try:
                     results = explore_search(name, query, top_k=top_k, cfg=cfg)
                 except Exception as e:
-                    ui(f"  搜索失败: {e}")
+                    ui(f"  Search failed: {e}")
                     ui()
                     continue
                 if not results:
-                    ui("  无结果")
+                    ui("  No results")
                 else:
                     for i, r in enumerate(results, 1):
                         authors = r.get("authors", [])
                         first = authors[0] if authors else "?"
                         score = r.get("score", 0.0)
                         ui(f"  [{i}] [{r.get('year', '?')}] {r.get('title', '')}")
-                        ui(f"       {first} | 分数: {score:.3f}")
+                        ui(f"       {first} | Score: {score:.3f}")
                         ui()
 
         elif scope == "arxiv":
             ui("── [arXiv] ──")
             arxiv_results = _search_arxiv(query, top_k)
             if not arxiv_results:
-                ui("  arXiv 不可用或无结果")
+                ui("  arXiv unavailable or no results")
             else:
                 # Only query the library for DOIs that actually appear in results
                 arxiv_dois = [r["doi"].lower() for r in arxiv_results if r.get("doi")]
@@ -478,28 +482,28 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
                         (doi and doi.lower() in in_lib_dois)
                         or (normalized_arxiv_id and normalized_arxiv_id in in_lib_arxiv_ids)
                     )
-                    status = "  [已入库]" if in_lib else ""
+                    status = "  [In Library]" if in_lib else ""
                     ui(f"  [{i}] [{r.get('year', '?')}] {r.get('title', '')}{status}")
                     ui(f"       {first} | arxiv:{arxiv_id}" + (f" | doi:{doi}" if doi else ""))
                     ui()
 
         elif scope == "proceedings":
-            ui("── [论文集] ──")
+            ui("── [Proceedings] ──")
             from scrinium.index import search_proceedings
             from scrinium.proceedings import proceedings_db_path
 
             db = proceedings_db_path(cfg._root)
             if not db.exists():
-                ui("  proceedings 索引不存在，请先导入论文集")
+                ui("  Proceedings index does not exist; import proceedings first")
                 results = []
             else:
                 try:
                     results = search_proceedings(query, db, top_k=top_k)
                 except Exception as e:
-                    ui(f"  proceedings 搜索失败：{e}")
+                    ui(f"  Proceedings search failed: {e}")
                     results = []
             if not results:
-                ui("  无结果")
+                ui("  No results")
             else:
                 for i, r in enumerate(results, 1):
                     extra = f"proceedings:{r.get('proceeding_title', r.get('proceeding_dir', '?'))}"
@@ -507,14 +511,14 @@ def cmd_fsearch(args: argparse.Namespace, cfg) -> None:
             ui()
 
         else:
-            ui(f"  未知 scope: {scope}，支持: main / proceedings / explore:NAME / explore:* / arxiv")
+            ui(f"  Unknown scope: {scope}; supported: main / proceedings / explore:NAME / explore:* / arxiv")
 
 
 def _print_search_result(idx: int, r: dict, extra: str = "") -> None:
     authors = r.get("authors") or ""
     author_display = authors.split(",")[0].strip() + (" et al." if "," in authors else "")
     cite = r.get("citation_count") or ""
-    cite_suffix = f"  [被引: {cite}]" if cite else ""
+    cite_suffix = f"  [Citations: {cite}]" if cite else ""
     extra_suffix = f"  ({extra})" if extra else ""
     # Prefer dir_name for display, fall back to paper_id (UUID)
     display_id = r.get("dir_name") or r["paper_id"]
@@ -525,9 +529,9 @@ def _print_search_result(idx: int, r: dict, extra: str = "") -> None:
 
 
 def _print_search_next_steps(include_ws_add: bool = True) -> None:
-    ui("下一步：可以运行 `scrinium show <paper-id> --layer 2/3/4` 查看摘要、结论或全文。")
+    ui("Next steps: run `scrinium show <paper-id> --layer 2/3/4` to view the abstract, conclusion, or full text.")
     if include_ws_add:
-        ui("也可以运行 `scrinium workspace add <工作区名> <paper-id>` 把感兴趣的论文加入工作区。")
+        ui("Or run `scrinium workspace add <workspace-name> <paper-id>` to add papers of interest to a workspace.")
 
 
 def _format_citations(cc: dict) -> str:
@@ -546,104 +550,110 @@ def _print_header(l1: dict) -> None:
     author_str = ", ".join(authors[:3])
     if len(authors) > 3:
         author_str += f" et al. ({len(authors)} total)"
-    ui(f"论文ID   : {l1['paper_id']}")
+    ui(f"Paper ID  : {l1['paper_id']}")
     if l1.get("dir_name"):
-        ui(f"目录名   : {l1['dir_name']}")
-    ui(f"标题     : {l1['title']}")
-    ui(f"作者     : {author_str}")
-    ui(f"年份     : {l1.get('year') or '?'}  |  期刊: {l1.get('journal') or '?'}")
+        ui(f"Dir Name  : {l1['dir_name']}")
+    ui(f"Title     : {l1['title']}")
+    ui(f"Authors   : {author_str}")
+    ui(f"Year      : {l1.get('year') or '?'}  |  Journal: {l1.get('journal') or '?'}")
     if l1.get("doi"):
-        ui(f"DOI      : {l1['doi']}")
+        ui(f"DOI       : {l1['doi']}")
     ids = l1.get("ids") or {}
     if ids.get("patent_publication_number"):
-        ui(f"公开号   : {ids['patent_publication_number']}")
+        ui(f"Pub No.   : {ids['patent_publication_number']}")
     if l1.get("paper_type"):
-        ui(f"类型     : {l1['paper_type']}")
+        ui(f"Type      : {l1['paper_type']}")
     tags = l1.get("tags") or []
     if tags:
-        ui(f"标签     : {', '.join(tags)}")
+        ui(f"Tags      : {', '.join(tags)}")
     si_files = [f for f in ((l1.get("si") or {}).get("files") or []) if isinstance(f, dict)]
     if si_files:
         names = ", ".join(f.get("name", "?") for f in si_files[:3])
-        ui(f"SI       : {len(si_files)} 个文件（{names}{'...' if len(si_files) > 3 else ''}）")
+        ui(f"SI        : {len(si_files)} files ({names}{'...' if len(si_files) > 3 else ''})")
     cite_str = _format_citations(l1.get("citation_count") or {})
     if cite_str:
-        ui(f"引用     : {cite_str}")
+        ui(f"Citations : {cite_str}")
     if ids.get("semantic_scholar_url"):
-        ui(f"S2       : {ids['semantic_scholar_url']}")
+        ui(f"S2        : {ids['semantic_scholar_url']}")
     if ids.get("openalex_url"):
-        ui(f"OpenAlex : {ids['openalex_url']}")
+        ui(f"OpenAlex  : {ids['openalex_url']}")
 
 
 def register(sub) -> None:
     """Register search-domain subcommands."""
     # --- index ---
-    p_index = sub.add_parser("index", help="构建 FTS5 检索索引")
+    p_index = sub.add_parser("index", help="Build the FTS5 search index")
     p_index.set_defaults(func=cmd_index)
-    p_index.add_argument("--rebuild", action="store_true", help="清空后重建")
+    p_index.add_argument("--rebuild", action="store_true", help="Clear and rebuild from scratch")
 
     # --- search ---
     p_search = sub.add_parser(
         "search",
-        help="关键词检索论文（--scope 跨库联邦搜索）",
+        help="Keyword search papers (--scope for cross-library federated search)",
     )
     p_search.set_defaults(func=cmd_search)
-    p_search.add_argument("query", nargs="+", help="检索词")
+    p_search.add_argument("query", nargs="+", help="Search keywords")
     p_search.add_argument(
         "--scope",
         type=str,
         default=None,
-        help="提供时执行联邦搜索（逗号分隔）：main / proceedings / explore:NAME / explore:* / arxiv",
+        help="Run federated search (comma-separated): main / proceedings / explore:NAME / explore:* / arxiv",
     )
-    p_search.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
-    p_search.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
+    p_search.add_argument(
+        "--top", type=int, default=None, help="Return at most N results (defaults to config search.top_k)"
+    )
+    p_search.add_argument("--json", action="store_true", help="Output results in JSON format (pipe-friendly)")
     _add_filter_args(p_search)
     _add_tag_arg(p_search)
 
     # --- search-author ---
-    p_sa = sub.add_parser("search-author", help="按作者名搜索")
+    p_sa = sub.add_parser("search-author", help="Search by author name")
     p_sa.set_defaults(func=cmd_search_author)
-    p_sa.add_argument("query", nargs="+", help="作者名（模糊匹配）")
-    p_sa.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
+    p_sa.add_argument("query", nargs="+", help="Author name (fuzzy match)")
+    p_sa.add_argument(
+        "--top", type=int, default=None, help="Return at most N results (defaults to config search.top_k)"
+    )
     _add_filter_args(p_sa)
 
     # --- show ---
-    p_show = sub.add_parser("show", help="查看论文内容")
+    p_show = sub.add_parser("show", help="View paper content")
     p_show.set_defaults(func=cmd_show)
-    p_show.add_argument("paper_id", help="论文 ID（目录名 / UUID / DOI）")
+    p_show.add_argument("paper_id", help="Paper ID (dir_name / UUID / DOI)")
     p_show.add_argument(
         "--layer",
         type=int,
         default=2,
         choices=[1, 2, 3, 4],
-        help="加载层级：1=元数据, 2=摘要, 3=结论, 4=全文（默认 2）",
+        help="Detail layer: 1=metadata, 2=abstract, 3=conclusion, 4=full text (default: 2)",
     )
-    p_show.add_argument("--lang", type=str, default=None, help="加载翻译版本（如 zh），仅 L4 生效")
-    p_show.add_argument("--si", action="store_true", help="查看 SI（Supporting Information）转换文本")
-    p_show.add_argument("--json", action="store_true", help="以 JSON 格式输出（便于管道解析）")
+    p_show.add_argument("--lang", type=str, default=None, help="Load a translated version (e.g. zh); L4 only")
+    p_show.add_argument("--si", action="store_true", help="View converted SI (Supporting Information) text")
+    p_show.add_argument("--json", action="store_true", help="Output in JSON format (pipe-friendly)")
     p_show.add_argument(
         "--append-notes",
         type=str,
         default=None,
         metavar="TEXT",
-        help="向论文笔记 notes.md 追加内容（T2 层，跨会话复用）",
+        help="Append text to the paper's notes.md (T2 layer, reused across sessions)",
     )
 
     # --- top-cited ---
-    p_tc = sub.add_parser("top-cited", help="按引用量排序查看论文")
+    p_tc = sub.add_parser("top-cited", help="List papers sorted by citation count")
     p_tc.set_defaults(func=cmd_top_cited)
-    p_tc.add_argument("--top", type=int, default=None, help="最多返回 N 条（默认读 config search.top_k）")
-    p_tc.add_argument("--json", action="store_true", help="以 JSON 格式输出结果（便于管道解析）")
+    p_tc.add_argument(
+        "--top", type=int, default=None, help="Return at most N results (defaults to config search.top_k)"
+    )
+    p_tc.add_argument("--json", action="store_true", help="Output results in JSON format (pipe-friendly)")
     _add_filter_args(p_tc)
 
     # --- fsearch (legacy alias of `search --scope`; no help => hidden) ---
     p_fsearch = sub.add_parser("fsearch")
     p_fsearch.set_defaults(func=cmd_fsearch)
-    p_fsearch.add_argument("query", nargs="+", help="检索词")
+    p_fsearch.add_argument("query", nargs="+", help="Search keywords")
     p_fsearch.add_argument(
         "--scope",
         type=str,
         default="main",
-        help="搜索范围（逗号分隔）：main / proceedings / explore:NAME / explore:* / arxiv（默认 main）",
+        help="Search scope (comma-separated): main / proceedings / explore:NAME / explore:* / arxiv (default: main)",
     )
-    p_fsearch.add_argument("--top", type=int, default=None, help="每个来源最多返回 N 条（默认 10）")
+    p_fsearch.add_argument("--top", type=int, default=None, help="Max results per source (default: 10)")

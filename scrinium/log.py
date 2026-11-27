@@ -1,11 +1,10 @@
 """
-log.py -- Scrinium 日志初始化
-=================================
+log.py -- Scrinium logging initialization.
 
-提供三层输出：
-  1. 文件日志（RotatingFileHandler）— DEBUG 级别，完整记录
-  2. 控制台输出（StreamHandler）— INFO 级别，格式等同 print
-  3. ``ui()`` 函数 — print() 的 drop-in 替代，同时写文件和控制台
+Three output layers:
+  1. Rotating file handler (DEBUG, full record)
+  2. Console stream handler (INFO, bare print-style message)
+  3. ``ui()`` -- drop-in replacement for ``print()`` writing to both console and file
 """
 
 from __future__ import annotations
@@ -49,13 +48,13 @@ def _reconfigure_stdio() -> None:
 
 
 def setup(cfg: Config) -> str:
-    """初始化 root logger，返回本次会话的 session_id。
+    """Initialize the root logger and return the session ID for this run.
 
     Args:
-        cfg: Scrinium 全局配置。
+        cfg: Scrinium global configuration.
 
     Returns:
-        UUID4 格式的 session_id，用于关联本次所有 metrics 事件。
+        Short UUID4 session ID correlating all metrics events in this run.
     """
     global _session_id, _initialized
     _reconfigure_stdio()
@@ -96,9 +95,9 @@ def setup(cfg: Config) -> str:
 
 
 def set_console_stream(stream) -> None:
-    """把控制台 StreamHandler 重定向到 *stream*。
+    """Redirect the console StreamHandler to *stream*.
 
-    ``--json`` 模式下把控制台日志改道 stderr，保持 stdout 只输出 JSON。
+    In ``--json`` mode, console logs are routed to stderr so stdout stays pure JSON.
     """
     for h in logging.getLogger().handlers:
         if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler):
@@ -106,39 +105,39 @@ def set_console_stream(stream) -> None:
 
 
 def get_session_id() -> str:
-    """返回当前会话 ID（setup 之前为空字符串）。"""
+    """Return the current session ID (empty string before ``setup()``)."""
     return _session_id
 
 
 def get_logger(name: str) -> logging.Logger:
-    """``logging.getLogger(name)`` 的快捷方式。
+    """Shorthand for ``logging.getLogger(name)``.
 
     Args:
-        name: logger 名称，通常传 ``__name__``。
+        name: Logger name, usually ``__name__``.
 
     Returns:
-        对应的 Logger 实例。
+        The corresponding Logger instance.
     """
     return logging.getLogger(name)
 
 
 def ui(msg: str = "", *args, logger: logging.Logger | None = None) -> None:
-    """用户界面输出 — ``print()`` 的 drop-in 替代。
+    """User-facing UI output -- drop-in replacement for ``print()``.
 
-    同时写入控制台和日志文件。迁移时将 ``print(x)`` 改为
-    ``ui(x)`` 即可，行为不变。支持无参调用 ``ui()`` 输出空行。
+    Writes to both the console and the log file. Calling ``ui()`` with no
+    arguments prints a blank line.
 
     Args:
-        msg: 消息字符串，支持 ``%`` 格式化占位符。默认空字符串。
-        *args: 格式化参数。
-        logger: 指定 logger，默认使用 ``scrinium.ui``。
+        msg: Message string supporting ``%``-style placeholders (default empty).
+        *args: Formatting arguments.
+        logger: Optional logger (defaults to ``scrinium.ui``).
     """
     _logger = logger or logging.getLogger("scrinium.ui")
     _logger.info(msg, *args)
 
 
 def reset() -> None:
-    """重置日志状态（仅供测试使用）。"""
+    """Reset logging state (test helper only)."""
     global _session_id, _initialized
     root = logging.getLogger()
     for h in root.handlers[:]:
