@@ -10,8 +10,8 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/wszqkzqk/scrinium?style=social)](https://github.com/wszqkzqk/scrinium/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-["![Python 3.10+"](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Agent Skills](https://img.shields.io/badge/Agent_Skills-35-purple.svg)](.agents/skills/)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Agent Skills](https://img.shields.io/badge/Agent_Skills-37-purple.svg)](.agents/skills/)
 
 </div>
 
