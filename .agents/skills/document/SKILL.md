@@ -73,7 +73,7 @@ tags: ["document", "docx", "pptx", "xlsx", "office", "report"]
        └── paper_stats.xlsx
    ```
 6. **检查文档**：运行 `scrinium document inspect <file>` 检查生成结果
-   - PPTX：确认图片未溢出、文字未超出容器、布局合理（末尾 `布局警告: 0` 为通过；`card()` / `label()` / `base_slide()` 已内置中英文换行高度构建期校验，自定义文本框可给 `text(..., check_fit=True)` 开启强制自检）
+   - PPTX：确认图片未溢出、文字未超出容器、布局合理
    - DOCX：确认标题层级正确、表格完整、图片已嵌入
    - XLSX：确认数据完整、图表标题正确、冻结窗格生效
    - 如发现问题 → 修改脚本 → 重新生成 → 再次 inspect
